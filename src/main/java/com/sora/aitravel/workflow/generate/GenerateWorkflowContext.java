@@ -4,11 +4,37 @@ import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import lombok.Data;
 
+/**
+ * 生成工作流上下文。
+ * <p>
+ * 贯穿整个 {@link TripGenerateWorkflow} 的数据容器，保存行程生成流程中
+ * 各节点所需的输入数据以及产生的中间/最终结果。
+ * <p>
+ * 在整个工作流中的位置：{@link TripGenerateWorkflow} 的输入和输出载体。
+ * 工作流入口接收此上下文，依次传递给各 WorkflowNode，每个节点从中读取输入并写入产出。
+ * <p>
+ * 注意：Generate 工作流不负责自动保存行程，持久化必须由用户随后调用 Trip 接口触发。
+ * <p>
+ * 输入：{@link #userId}（用户ID）、{@link #request}（生成请求 DTO）。
+ * 中间产物：{@link #rawModelResponse}（模型原始响应）。
+ * 输出：{@link #result}（生成结果 DTO）。
+ * 标记：{@link #repairAttempted}（是否已执行过一次 JSON 修复）。
+ */
 @Data
 public class GenerateWorkflowContext {
+
+    /** 当前操作用户的 ID，用于权限校验和后续行程归属。 */
     private Long userId;
+
+    /** 用户提交的行程生成请求，包含出发地、目的地、天数等必填参数。 */
     private TripGenerateRequest request;
+
+    /** AI 模型返回的原始行程计划 JSON 字符串，由 TripPlanGenerateNode 调用模型后填充。 */
     private String rawModelResponse;
+
+    /** 最终的结构化行程生成结果（包含每日计划等），供 Controller 返回给前端。 */
     private TripGenerateResponse result;
+
+    /** 标记是否已经执行过一次 JSON 修复。若为 true 则不再重复修复，避免死循环。 */
     private boolean repairAttempted;
 }

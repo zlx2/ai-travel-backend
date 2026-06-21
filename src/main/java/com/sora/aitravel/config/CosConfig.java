@@ -8,14 +8,22 @@ import com.qcloud.cos.region.Region;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** 创建腾讯云 COS 客户端，应用关闭时由 Spring 负责释放连接资源。 */
+/**
+ * 腾讯云对象存储（COS）客户端配置。
+ * <p>
+ * 根据注入的 {@link CosProperties} 创建 COSClient 实例，
+ * Spring 容器关闭时自动调用 shutdown() 释放连接资源。
+ * </p>
+ */
 @Configuration
 public class CosConfig {
 
     @Bean(destroyMethod = "shutdown")
     public COSClient cosClient(CosProperties properties) {
+        // 使用 SecretId 和 SecretKey 构建凭证
         COSCredentials credentials =
                 new BasicCOSCredentials(properties.getSecretId(), properties.getSecretKey());
+        // 配置地域信息
         ClientConfig clientConfig = new ClientConfig(new Region(properties.getRegion()));
         return new COSClient(credentials, clientConfig);
     }

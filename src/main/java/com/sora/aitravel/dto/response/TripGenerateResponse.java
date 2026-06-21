@@ -3,5 +3,12 @@ package com.sora.aitravel.dto.response;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 
+/**
+ * AI 旅行计划生成响应 DTO。
+ *
+ * @param conversationId AI 对话 ID
+ * @param requirement    最终确认的结构化旅行需求
+ * @param tripPlan       AI 生成的完整旅行计划
+ */
 public record TripGenerateResponse(
         String conversationId, TravelRequirementDTO requirement, TripPlanDTO tripPlan) {}
