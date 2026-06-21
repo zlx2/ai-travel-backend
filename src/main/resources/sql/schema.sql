@@ -1,0 +1,92 @@
+CREATE DATABASE IF NOT EXISTS ai_travel DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE ai_travel;
+
+CREATE TABLE IF NOT EXISTS sys_user (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(64) NOT NULL, password_hash VARCHAR(100) NOT NULL,
+  email VARCHAR(128) NOT NULL, nickname VARCHAR(64), avatar_url VARCHAR(512), role TINYINT NOT NULL DEFAULT 1,
+  status TINYINT NOT NULL DEFAULT 1, last_login_time DATETIME, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_user_username (username), UNIQUE KEY uk_user_email (email)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ai_conversation (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, conversation_id VARCHAR(64) NOT NULL, user_id BIGINT NOT NULL,
+  scene VARCHAR(32) NOT NULL, status TINYINT NOT NULL DEFAULT 1, context_json JSON,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ai_conversation_id (conversation_id), KEY idx_ai_conversation_user (user_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ai_call_log (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT, conversation_id VARCHAR(64), scene VARCHAR(32) NOT NULL,
+  model_name VARCHAR(64), request_json JSON, response_json JSON, success TINYINT NOT NULL DEFAULT 0,
+  error_message VARCHAR(1000), duration_ms BIGINT, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ai_call_user_time (user_id, create_time), KEY idx_ai_call_conversation (conversation_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS trip (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT NOT NULL, conversation_id VARCHAR(64), title VARCHAR(128),
+  departure VARCHAR(128) NOT NULL, destination VARCHAR(128) NOT NULL, days TINYINT NOT NULL, budget INT,
+  preferences_json JSON, requirement_json JSON NOT NULL, trip_plan_json JSON NOT NULL, summary VARCHAR(1000), cover_url VARCHAR(512),
+  source TINYINT NOT NULL DEFAULT 1, status TINYINT NOT NULL DEFAULT 1,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted TINYINT NOT NULL DEFAULT 0, KEY idx_trip_user_time (user_id, create_time), KEY idx_trip_destination (destination)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS note (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT NOT NULL, title VARCHAR(128) NOT NULL, cover_url VARCHAR(512),
+  destination VARCHAR(128), summary VARCHAR(1000), content LONGTEXT NOT NULL, status TINYINT NOT NULL DEFAULT 0,
+  view_count INT NOT NULL DEFAULT 0, like_count INT NOT NULL DEFAULT 0, favorite_count INT NOT NULL DEFAULT 0,
+  comment_count INT NOT NULL DEFAULT 0, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_note_status_time (status, deleted, create_time), KEY idx_note_user (user_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS note_tag (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, note_id BIGINT NOT NULL, tag_id BIGINT NOT NULL,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_note_tag (note_id, tag_id), KEY idx_note_tag_tag (tag_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS note_like (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, note_id BIGINT NOT NULL, user_id BIGINT NOT NULL,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_note_like (note_id, user_id), KEY idx_note_like_user (user_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS note_favorite (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, note_id BIGINT NOT NULL, user_id BIGINT NOT NULL,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_note_favorite (note_id, user_id), KEY idx_note_favorite_user (user_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS note_comment (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, note_id BIGINT NOT NULL, user_id BIGINT NOT NULL, content VARCHAR(500) NOT NULL,
+  status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_comment_note_time (note_id, status, deleted, create_time), KEY idx_comment_user (user_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS destination (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(128) NOT NULL, province VARCHAR(64), city VARCHAR(64),
+  longitude DECIMAL(10,7), latitude DECIMAL(10,7), cover_url VARCHAR(512), description TEXT, tags_json JSON,
+  heat INT NOT NULL DEFAULT 0, status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_destination_name (name), KEY idx_destination_hot (status, deleted, heat)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS tag (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(64) NOT NULL, type TINYINT NOT NULL, status TINYINT NOT NULL DEFAULT 1,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted TINYINT NOT NULL DEFAULT 0, UNIQUE KEY uk_tag_name_type (name, type)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS file_resource (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT NOT NULL, biz_type VARCHAR(32) NOT NULL, file_name VARCHAR(255) NOT NULL,
+  object_key VARCHAR(512) NOT NULL, url VARCHAR(1000) NOT NULL, content_type VARCHAR(128), size BIGINT NOT NULL,
+  status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_file_user (user_id), UNIQUE KEY uk_file_object_key (object_key)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS admin_operation_log (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, admin_id BIGINT NOT NULL, operation VARCHAR(128) NOT NULL,
+  target_type VARCHAR(64), target_id BIGINT, content VARCHAR(1000), ip VARCHAR(64),
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_admin_log_time (admin_id, create_time)
+) ENGINE=InnoDB;

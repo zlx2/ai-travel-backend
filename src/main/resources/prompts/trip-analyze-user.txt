@@ -1,0 +1,5 @@
+已有上下文：{{context}}
+本轮输入：{{userInput}}
+补充回答：{{extraAnswers}}
+已选目的地：{{selectedDestination}}
+请按照系统约束返回需求分析 JSON。

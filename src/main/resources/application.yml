@@ -1,0 +1,95 @@
+server:
+  # 本地端口被占用时可通过 SERVER_PORT 覆盖，默认仍使用 8080。
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: ai-travel-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      username: ${REDIS_USERNAME}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE:0}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.ssl.enable: true
+  ai:
+    model:
+      chat: deepseek
+      embedding: dashscope
+      # 一期只启用文本对话和文本向量模型。
+      image: none
+      audio:
+        transcription: none
+        speech: none
+      moderation: none
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY}
+      base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com}
+      chat:
+        enabled: false
+      embedding:
+        options:
+          model: text-embedding-v4
+          dimensions: 1024
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+
+app:
+  redis-stack:
+    host: ${REDIS_STACK_HOST}
+    port: ${REDIS_STACK_PORT}
+    username: ${REDIS_STACK_USERNAME}
+    password: ${REDIS_STACK_PASSWORD}
+    timeout: 3000ms
+  cos:
+    secret-id: ${COS_SECRET_ID}
+    secret-key: ${COS_SECRET_KEY}
+    bucket: ${COS_BUCKET}
+    region: ${COS_REGION}
+    domain: ${COS_DOMAIN}
+  ai:
+    mock-enabled: ${AI_MOCK_ENABLED:false}
+  email:
+    # 仅本地调试时显式设置，生产环境不得配置固定验证码。
+    mock-code: ${EMAIL_MOCK_CODE:}
