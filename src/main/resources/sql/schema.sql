@@ -1,12 +1,12 @@
-CREATE DATABASE IF NOT EXISTS ai_travel DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS ai_travel DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 USE ai_travel;
 
 CREATE TABLE IF NOT EXISTS sys_user (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(64) NOT NULL, password_hash VARCHAR(100) NOT NULL,
-  email VARCHAR(128) NOT NULL, nickname VARCHAR(64), avatar_url VARCHAR(512), role TINYINT NOT NULL DEFAULT 1,
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(50) NOT NULL, password_hash VARCHAR(255) NOT NULL,
+  email VARCHAR(100) NOT NULL, nickname VARCHAR(50) NOT NULL, avatar_url VARCHAR(500), role TINYINT NOT NULL DEFAULT 1,
   status TINYINT NOT NULL DEFAULT 1, last_login_time DATETIME, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
-  UNIQUE KEY uk_user_username (username), UNIQUE KEY uk_user_email (email)
+  UNIQUE KEY uk_username (username), UNIQUE KEY uk_email (email), KEY idx_status (status), KEY idx_create_time (create_time)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS ai_conversation (

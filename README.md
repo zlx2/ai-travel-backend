@@ -8,9 +8,10 @@
 - 已生成 13 张表的 Entity、Mapper、SQL。
 - 已生成一期 DTO、Controller 路由和 Service 契约。
 - 已生成 Analyze、Generate、TRIP Chat 顺序 Workflow 及 Prompt。
+- 已按最终版需求实现邮箱验证码、注册、登录、退出、当前用户及资料修改。
 - 已接入 Spring AI 1.1.8、Spring AI Alibaba 1.1.2.3 Agent Framework、DeepSeek 与 DashScope Embedding。
 - 已生成 Dockerfile 与 Docker Compose。
-- 业务实现仍以 TODO/501 响应保留，不返回伪造成功数据。
+- 除认证与用户资料外，其余业务实现仍以 TODO/501 响应保留，不返回伪造成功数据。
 
 ## 代码分层
 
@@ -38,6 +39,8 @@ com.sora.aitravel
 复制 `.env.example` 为 `.env`，自行填写 MySQL、Redis、RabbitMQ、SMTP、COS、DeepSeek 配置。不要提交 `.env`。
 
 初始化 SQL 不创建固定密码管理员。首次部署后应通过单独的安全初始化流程创建管理员账号，不得在公开仓库保存默认密码。
+
+开发环境可通过 `EMAIL_MOCK_CODE` 显式设置固定的 6 位验证码；未设置时验证码通过 SMTP 发送。生产和演示环境不要配置固定验证码。
 
 本地编译：
 
