@@ -4,7 +4,6 @@ import com.sora.aitravel.common.result.R;
 import com.sora.aitravel.tools.HotelTool;
 import com.sora.aitravel.tools.WeatherTool;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -32,32 +31,29 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/ai/demo")
 public class AiToolDemoController {
 
-    private ChatModel chatModel;
-    private WeatherTool weatherTool;
-    private HotelTool hotelTool;
+    private final ChatModel chatModel;
+    private final WeatherTool weatherTool;
+    private final HotelTool hotelTool;
     private ChatClient chatClient;
     private ToolCallback[] toolCallbacks;
 
-    // 构造函数，注入AI聊天模型和工具依赖
     public AiToolDemoController(ChatModel chatModel, WeatherTool weatherTool, HotelTool hotelTool) {
         this.chatModel = chatModel;
         this.weatherTool = weatherTool;
         this.hotelTool = hotelTool;
     }
 
-
-    @PostConstruct  // 在依赖注入后初始化缓存
+    @PostConstruct
     public void init() {
         // 构建 ChatClient，绑定系统提示词
         this.chatClient = ChatClient.builder(chatModel)
                 .defaultSystem("""
                         你是一个专业的旅行助手，可以帮助用户查询天气和推荐酒店。
                         当用户询问天气时，请使用天气查询工具获取实时天气数据。
-                        当用户询问酒店时，请使用酒店搜索工具获取酒店信息。
+                        当用户询问酒店时，请使用酒店搜索工具获取酒店信息（包含品牌识别价格估算）。
                         请用友好的语气回复用户，并对工具返回的数据进行合理的总结和推荐。
                         如果用户同时问了天气和酒店，请分别调用对应的工具。
                         """)
