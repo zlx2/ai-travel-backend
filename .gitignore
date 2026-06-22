@@ -3,10 +3,22 @@ target/
 .vscode/
 *.iml
 *.log
+
+# 本地环境与配置文件
 .env
 .env.*
 !.env.example
-application-local.yml
+*.yml
+*.yaml
+*.properties
+*.local
+
+# 密钥与证书文件
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
 
 # AI coding tools
 .claude/
