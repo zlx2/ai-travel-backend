@@ -1,4 +1,11 @@
-package com.sora.aitravel.service.impl;
+package com.sora.aitravel.test;
+
+/**
+ * @author: ljw
+ * @date: 2026/6/22 10:00
+ * @version: v1.0.0
+ * @description:
+ **/
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,11 +18,13 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.service.MailSendService;
 import java.time.Duration;
-import org.mockito.ArgumentCaptor;
+
+import com.sora.aitravel.service.impl.EmailCodeServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;

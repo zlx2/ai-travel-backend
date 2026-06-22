@@ -4,7 +4,6 @@ import static com.sora.aitravel.common.constants.RedisKeyConstants.*;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
-import com.sora.aitravel.config.MailProperties;
 import com.sora.aitravel.service.EmailCodeService;
 import com.sora.aitravel.service.MailSendService;
 import java.security.SecureRandom;
@@ -13,7 +12,6 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -24,13 +22,13 @@ public class EmailCodeServiceImpl implements EmailCodeService {
 
     private final StringRedisTemplate redisTemplate;
     private final MailSendService mailSendService;
-    private final MailProperties mailProperties;
 
     @Override
     public void send(String email, String scene) {
         String normalizedEmail = normalizeEmail(email);
         validateScene(scene);
         String limitKey = limitKey(scene, normalizedEmail);
+        // Redis SET NX 形成发送冷却窗口，拦截重复点击和批量滥发。
         Boolean allowed =
                 redisTemplate
                         .opsForValue()
@@ -42,16 +40,13 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         String code = createCode();
         String codeKey = codeKey(scene, normalizedEmail);
         try {
-            if (!StringUtils.hasText(mailProperties.getMockCode())) {
-                mailSendService.sendVerificationCode(normalizedEmail, code);
-            } else {
-                // 最终版需求允许开发环境显式配置固定验证码；未配置时始终走真实 SMTP。
-                code = mailProperties.getMockCode().trim();
-            }
+            // 验证码必须通过真实 SMTP 投递，不提供固定验证码或绕过发送的模拟分支。
+            mailSendService.sendVerificationCode(normalizedEmail, code);
             redisTemplate
                     .opsForValue()
                     .set(codeKey, code, Duration.ofMinutes(EMAIL_CODE_TTL_MINUTES));
         } catch (RuntimeException exception) {
+            // 投递或缓存失败时撤销限流，修复配置后可以立即重试。
             redisTemplate.delete(limitKey);
             throw exception;
         }
@@ -59,6 +54,7 @@ public class EmailCodeServiceImpl implements EmailCodeService {
 
     @Override
     public void verify(String email, String scene, String code) {
+        // 此处只校验、不删除；注册事务成功后才核销，失败时用户仍可重试。
         String key = codeKey(scene, normalizeEmail(email));
         String savedCode = redisTemplate.opsForValue().get(key);
         if (savedCode == null) {

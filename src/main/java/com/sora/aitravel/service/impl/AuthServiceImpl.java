@@ -34,15 +34,18 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public Long register(RegisterRequest request) {
+        // 先标准化唯一键，避免大小写或无意义空格绕过重复检查。
         String username = request.username().trim();
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         ensureUsernameAvailable(username);
         ensureEmailAvailable(email);
+        // 唯一性确认后再校验邮箱所有权，错误类型对调用方更明确。
         emailCodeService.verify(email, REGISTER_SCENE, request.emailCode());
 
         LocalDateTime now = LocalDateTime.now();
         SysUser user = new SysUser();
         user.setUsername(username);
+        // 数据库只保存带盐的单向哈希，永不持久化明文密码。
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEmail(email);
         user.setNickname(username);
@@ -52,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
         user.setUpdateTime(now);
         user.setDeleted(0);
         userMapper.insert(user);
+        // 注册成功后立即核销验证码，使其成为一次性凭证。
         emailCodeService.remove(email, REGISTER_SCENE);
         return user.getId();
     }
@@ -69,6 +73,7 @@ public class AuthServiceImpl implements AuthService {
                                                         .or()
                                                         .eq(SysUser::getEmail, account))
                                 .last("LIMIT 1"));
+        // 两种失败使用同一提示，避免接口泄露某个账号是否已经注册。
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.USERNAME_OR_PASSWORD_ERROR);
         }
@@ -80,6 +85,7 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(now);
         user.setUpdateTime(now);
         userMapper.updateById(user);
+        // 令牌有效期和并发登录策略统一由 Sa-Token 配置管理。
         StpUtil.login(user.getId());
         return new LoginResponse(StpUtil.getTokenValue(), toResponse(user));
     }

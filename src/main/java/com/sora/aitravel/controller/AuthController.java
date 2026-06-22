@@ -31,6 +31,7 @@ public class AuthController {
      */
     @PostMapping("/email-code")
     public R<Void> sendCode(@Valid @RequestBody EmailCodeRequest request) {
+        // Controller 只负责协议和参数边界；限流、发送模式及缓存均由验证码服务封装。
         emailCodeService.send(request.email(), request.scene());
         return R.ok();
     }
@@ -43,6 +44,7 @@ public class AuthController {
      */
     @PostMapping("/register")
     public R<IdResponse> register(@Valid @RequestBody RegisterRequest request) {
+        // 注册成功仅返回资源 ID，不隐式创建登录态，客户端仍需显式登录。
         return R.ok(new IdResponse(authService.register(request)));
     }
 
@@ -54,6 +56,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public R<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        // 业务层统一完成账号识别、密码校验、状态检查和会话签发。
         return R.ok(authService.login(request));
     }
 
