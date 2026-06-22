@@ -90,8 +90,6 @@ app:
     domain: ${COS_DOMAIN}
   ai:
     mock-enabled: ${AI_MOCK_ENABLED:false}
-  amap:
-    api-key: ${AMAP_API_KEY:}
   email:
     # 仅本地调试时显式设置，生产环境不得配置固定验证码。
     mock-code: ${EMAIL_MOCK_CODE:}
