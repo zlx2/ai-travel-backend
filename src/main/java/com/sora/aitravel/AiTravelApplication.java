@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * AI 智行伴旅 (TripForge) 后端启动入口。
+ * PlanGo 后端启动入口。
  *
  * <p>Spring Boot 3.5.15 主启动类，负责：
  * <ul>

@@ -23,8 +23,8 @@ class RabbitMqIntegrationTest extends ExternalIntegrationTestSupport {
         factory.setConnectionTimeout(10_000);
         factory.setHandshakeTimeout(10_000);
 
-        byte[] payload = "ai-travel-config-ok".getBytes(StandardCharsets.UTF_8);
-        try (Connection connection = factory.newConnection("ai-travel-config-test");
+        byte[] payload = "plango-config-ok".getBytes(StandardCharsets.UTF_8);
+        try (Connection connection = factory.newConnection("plango-config-test");
                 Channel channel = connection.createChannel()) {
             String queue = channel.queueDeclare("", false, true, true, null).getQueue();
             channel.basicPublish("", queue, null, payload);

@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>com.sora</groupId>
-    <artifactId>ai-travel-backend</artifactId>
+    <artifactId>plango-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>ai-travel-backend</name>
-    <description>AI 智行伴旅一期后端</description>
+    <name>plango-backend</name>
+    <description>PlanGo 智能旅行规划平台后端</description>
 
     <properties>
         <!-- 项目基础版本 -->

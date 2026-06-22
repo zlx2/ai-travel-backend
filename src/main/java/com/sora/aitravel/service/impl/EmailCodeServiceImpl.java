@@ -4,7 +4,6 @@ import static com.sora.aitravel.common.constants.RedisKeyConstants.*;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
-import com.sora.aitravel.config.MailProperties;
 import com.sora.aitravel.service.EmailCodeService;
 import com.sora.aitravel.service.MailSendService;
 import java.security.SecureRandom;
@@ -13,7 +12,6 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +22,6 @@ public class EmailCodeServiceImpl implements EmailCodeService {
 
     private final StringRedisTemplate redisTemplate;
     private final MailSendService mailSendService;
-    private final MailProperties mailProperties;
 
     @Override
     public void send(String email, String scene) {
@@ -43,13 +40,8 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         String code = createCode();
         String codeKey = codeKey(scene, normalizedEmail);
         try {
-            // 只有显式配置固定码时才跳过 SMTP；默认始终投递真实邮件。
-            if (!StringUtils.hasText(mailProperties.getMockCode())) {
-                mailSendService.sendVerificationCode(normalizedEmail, code);
-            } else {
-                // 最终版需求允许开发环境显式配置固定验证码；未配置时始终走真实 SMTP。
-                code = mailProperties.getMockCode().trim();
-            }
+            // 验证码必须通过真实 SMTP 投递，不提供固定验证码或绕过发送的模拟分支。
+            mailSendService.sendVerificationCode(normalizedEmail, code);
             redisTemplate
                     .opsForValue()
                     .set(codeKey, code, Duration.ofMinutes(EMAIL_CODE_TTL_MINUTES));

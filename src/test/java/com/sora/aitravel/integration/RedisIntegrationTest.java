@@ -23,7 +23,7 @@ class RedisIntegrationTest extends ExternalIntegrationTestSupport {
                         "REDIS_USERNAME",
                         "REDIS_PASSWORD",
                         Integer.parseInt(optionalEnv("REDIS_DATABASE", "0")));
-        byte[] key = ("ai-travel:test:" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8);
+        byte[] key = ("plango:test:" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8);
         byte[] value = "ok".getBytes(StandardCharsets.UTF_8);
 
         try (RedisConnection connection = factory.getConnection()) {

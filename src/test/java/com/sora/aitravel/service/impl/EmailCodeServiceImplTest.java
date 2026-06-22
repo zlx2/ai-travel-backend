@@ -1,17 +1,17 @@
 package com.sora.aitravel.service.impl;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
-import com.sora.aitravel.config.MailProperties;
 import com.sora.aitravel.service.MailSendService;
 import java.time.Duration;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,26 +27,29 @@ class EmailCodeServiceImplTest {
     @Mock private ValueOperations<String, String> valueOperations;
     @Mock private MailSendService mailSendService;
 
-    private MailProperties properties;
     private EmailCodeServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        properties = new MailProperties();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        service = new EmailCodeServiceImpl(redisTemplate, mailSendService, properties);
+        service = new EmailCodeServiceImpl(redisTemplate, mailSendService);
     }
 
     @Test
-    void mockCodeShouldUseDocumentedTtlWithoutSendingMail() {
-        properties.setMockCode("123456");
+    void sendShouldDeliverRealCodeAndCacheItWithDocumentedTtl() {
         when(valueOperations.setIfAbsent(any(), eq("1"), any(Duration.class))).thenReturn(true);
 
         service.send("TEST@example.com", "register");
 
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mailSendService)
+                .sendVerificationCode(eq("test@example.com"), codeCaptor.capture());
+        assertThat(codeCaptor.getValue()).matches("\\d{6}");
         verify(valueOperations)
-                .set("email:code:register:test@example.com", "123456", Duration.ofMinutes(5));
-        verify(mailSendService, never()).sendVerificationCode(any(), any());
+                .set(
+                        "email:code:register:test@example.com",
+                        codeCaptor.getValue(),
+                        Duration.ofMinutes(5));
     }
 
     @Test

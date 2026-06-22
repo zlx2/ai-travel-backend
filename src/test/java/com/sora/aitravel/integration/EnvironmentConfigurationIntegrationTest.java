@@ -29,7 +29,6 @@ class EnvironmentConfigurationIntegrationTest extends ExternalIntegrationTestSup
                     "MAIL_PORT",
                     "MAIL_USERNAME",
                     "MAIL_PASSWORD",
-                    "EMAIL_MOCK_CODE",
                     "COS_SECRET_ID",
                     "COS_SECRET_KEY",
                     "COS_BUCKET",

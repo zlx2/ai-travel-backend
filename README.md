@@ -1,4 +1,4 @@
-# AI 智行伴旅后端
+# PlanGo 后端
 
 一期 Spring Boot 后端骨架，基础包名为 `com.sora.aitravel`，接口前缀为 `/api`。
 

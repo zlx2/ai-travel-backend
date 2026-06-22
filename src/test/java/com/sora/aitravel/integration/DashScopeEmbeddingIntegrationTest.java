@@ -29,7 +29,7 @@ class DashScopeEmbeddingIntegrationTest extends ExternalIntegrationTestSupport {
                                 "model",
                                 "text-embedding-v4",
                                 "input",
-                                List.of("AI 智行伴旅配置测试"),
+                                List.of("PlanGo 配置测试"),
                                 "dimensions",
                                 1024,
                                 "encoding_format",
