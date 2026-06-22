@@ -9,6 +9,8 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 /**
@@ -82,9 +84,9 @@ public class HotelTool {
 
         try {
             // 计算入住天数
-            java.time.LocalDate in = java.time.LocalDate.parse(checkInDate);
-            java.time.LocalDate out = java.time.LocalDate.parse(checkOutDate);
-            long nights = java.time.temporal.ChronoUnit.DAYS.between(in, out);
+            LocalDate in = LocalDate.parse(checkInDate);
+            LocalDate out = LocalDate.parse(checkOutDate);
+            long nights = ChronoUnit.DAYS.between(in, out);
             if (nights <= 0) nights = 1;
 
             // 第一步：调用高德 POI 搜索 API 获取酒店列表

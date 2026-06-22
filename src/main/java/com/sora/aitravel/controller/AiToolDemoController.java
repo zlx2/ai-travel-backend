@@ -4,6 +4,7 @@ import com.sora.aitravel.common.result.R;
 import com.sora.aitravel.tools.HotelTool;
 import com.sora.aitravel.tools.WeatherTool;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -31,22 +32,25 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/ai/demo")
 public class AiToolDemoController {
 
-    private final ChatModel chatModel;
-    private final WeatherTool weatherTool;
-    private final HotelTool hotelTool;
+    private ChatModel chatModel;
+    private WeatherTool weatherTool;
+    private HotelTool hotelTool;
     private ChatClient chatClient;
     private ToolCallback[] toolCallbacks;
 
+    // 构造函数，注入AI聊天模型和工具依赖
     public AiToolDemoController(ChatModel chatModel, WeatherTool weatherTool, HotelTool hotelTool) {
         this.chatModel = chatModel;
         this.weatherTool = weatherTool;
         this.hotelTool = hotelTool;
     }
 
-    @PostConstruct
+
+    @PostConstruct  // 在依赖注入后初始化缓存
     public void init() {
         // 构建 ChatClient，绑定系统提示词
         this.chatClient = ChatClient.builder(chatModel)
