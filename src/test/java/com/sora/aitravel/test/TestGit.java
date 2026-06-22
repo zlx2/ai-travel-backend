@@ -4,7 +4,7 @@ package com.sora.aitravel.test;
  * @author: ljw
  * @date: 2026/6/22 10:00
  * @version: v1.0.0
- * @description: TODO
+ * @description:
  **/
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
