@@ -92,17 +92,17 @@ public class HotelTool {
             // 第一步：调用高德 POI 搜索 API 获取酒店列表
             String searchUrl = "https://restapi.amap.com/v3/place/text";
             String searchResponse = HttpRequest.get(searchUrl)
-                    .form("key", amapApiKey)           // API密钥，用于身份验证
-                    .form("keywords", "酒店")           // 搜索关键词：酒店
-                    .form("city", city)                 // 动态搜索城市，如"北京"、"上海"
-                    .form("citylimit", "true")          // 强制城市范围限制，只返回指定城市的结果
-                    .form("types", "100100")            // POI类型编码：100100代表宾馆酒店
-                    .form("offset", "8")                // 每页返回数量：8条记录
-                    .form("page", "1")                  // 页码：第1页
-                    .form("extensions", "all")          // 扩展信息：返回完整详细信息（包括评分、电话等）
-                    .timeout(10000)                     // 请求超时时间：10秒（10000毫秒）
-                    .execute()                          // 执行HTTP GET请求
-                    .body();                            // 获取响应体内容（JSON字符串）
+                    .form("key", amapApiKey)
+                    .form("keywords", "酒店")
+                    .form("city", city)
+                    .form("citylimit", "true")
+                    .form("types", "100100")
+                    .form("offset", "8")
+                    .form("page", "1")
+                    .form("extensions", "all")
+                    .timeout(10000)
+                    .execute()
+                    .body();
 
             JSONObject searchJson = JSONUtil.parseObj(searchResponse);
             if (!"1".equals(searchJson.getStr("status"))) {
@@ -160,6 +160,7 @@ public class HotelTool {
                 }
                 sb.append("\n");
             }
+
             sb.append("数据来源：高德地图。价格为参考区间，实际价格以携程/美团等预订平台为准。");
             return sb.toString();
         } catch (Exception e) {

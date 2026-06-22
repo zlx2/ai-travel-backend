@@ -1,8 +1,6 @@
 package com.sora.aitravel.tools;
 
 import cn.hutool.http.HttpRequest;
-import cn.hutool.json.JSONArray;
-import cn.hutool.json.JSONObject;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -42,9 +40,9 @@ public class WeatherTool {
      */
     private String parseWeatherInfo(String city, String jsonResponse) {
         try {
-            JSONObject json = cn.hutool.json.JSONUtil.parseObj(jsonResponse);
-            JSONArray currentArr = json.getJSONArray("current_condition");
-            JSONObject current = currentArr.getJSONObject(0);
+            cn.hutool.json.JSONObject json = cn.hutool.json.JSONUtil.parseObj(jsonResponse);
+            cn.hutool.json.JSONArray currentArr = json.getJSONArray("current_condition");
+            cn.hutool.json.JSONObject current = currentArr.getJSONObject(0);
 
             String temp = current.getStr("temp_C");
             String feelsLike = current.getStr("FeelsLikeC");
