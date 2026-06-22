@@ -7,6 +7,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+/** SMTP 投递适配器，让认证业务无需感知具体邮件服务商。 */
 @Service
 @RequiredArgsConstructor
 public class MailSendServiceImpl implements MailSendService {
