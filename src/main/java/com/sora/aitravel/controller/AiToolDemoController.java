@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 /**
  * AI Tool Calling 演示控制器。
  * <p>
@@ -46,17 +48,19 @@ public class AiToolDemoController {
         this.hotelTool = hotelTool;
     }
 
+    // 初始化回调，生命周期管理，一次性执行，不会重复调用 ， 方法必须是void 返回类型
     @PostConstruct
     public void init() {
         // 构建 ChatClient，绑定系统提示词
         this.chatClient = ChatClient.builder(chatModel)
                 .defaultSystem("""
                         你是一个专业的旅行助手，可以帮助用户查询天气和推荐酒店。
+                        当前日期是 %s。当用户询问天气时，基于这个日期理解'今天'、'明天'等时间概念。
                         当用户询问天气时，请使用天气查询工具获取实时天气数据。
                         当用户询问酒店时，请使用酒店搜索工具获取酒店信息（包含品牌识别价格估算）。
                         请用友好的语气回复用户，并对工具返回的数据进行合理的总结和推荐。
                         如果用户同时问了天气和酒店，请分别调用对应的工具。
-                        """)
+                        """.formatted(LocalDate.now()))
                 .build();
 
         // 注册工具实例
