@@ -1,9 +1,11 @@
-package com.sora.aitravel.client;
+package com.sora.aitravel.client.amap;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.sora.aitravel.common.enums.ErrorCode;
+import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.config.AmapProperties;
 import org.springframework.stereotype.Component;
 
@@ -33,19 +35,19 @@ public class AmapPoiClient {
      */
     public JSONObject searchFirstPoi(String keywords, String cityName) {
         JSONObject result =
-                get("/v5/place/text")
-                        .form("keywords", keywords)
-                        .form("region", cityName)
-                        .form("city_limit", "true")
-                        .form("page_size", "5")
-                        .form("show_fields", "business,navi")
-                        .executeJson();
+                executeJson(
+                        request("/v5/place/text")
+                                .form("keywords", keywords)
+                                .form("region", cityName)
+                                .form("city_limit", "true")
+                                .form("page_size", "5")
+                                .form("show_fields", "business,navi"));
 
         checkAmapResult(result);
 
         JSONArray pois = result.getJSONArray("pois");
         if (pois == null || pois.isEmpty()) {
-            throw new IllegalStateException("没有找到目标地点：" + keywords);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "没有找到目标地点：" + keywords);
         }
 
         for (Object item : pois) {
@@ -71,31 +73,32 @@ public class AmapPoiClient {
     public JSONObject searchAround(
             String location, String keywords, String cityName, int radius, int pageSize) {
         JSONObject result =
-                get("/v5/place/around")
-                        .form("location", location)
-                        .form("radius", String.valueOf(radius))
-                        .form("keywords", keywords)
-                        .form("region", cityName)
-                        .form("city_limit", "true")
-                        .form("page_size", String.valueOf(pageSize))
-                        .form("show_fields", "business,navi")
-                        .executeJson();
+                executeJson(
+                        request("/v5/place/around")
+                                .form("location", location)
+                                .form("radius", String.valueOf(radius))
+                                .form("keywords", keywords)
+                                .form("region", cityName)
+                                .form("city_limit", "true")
+                                .form("page_size", String.valueOf(pageSize))
+                                .form("show_fields", "business,navi"));
 
         checkAmapResult(result);
         return result;
     }
 
-    private AmapRequest get(String path) {
+    private HttpRequest request(String path) {
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
-            throw new IllegalStateException("未配置高德地图 API Key：app.amap.api-key");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "未配置高德地图 API Key：app.amap.api-key");
         }
         if (properties.getBaseUrl() == null || properties.getBaseUrl().isBlank()) {
-            throw new IllegalStateException("未配置高德地图网关地址：app.amap.base-url");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "未配置高德地图网关地址：app.amap.base-url");
         }
         if (properties.getTimeout() == null) {
-            throw new IllegalStateException("未配置高德地图请求超时时间：app.amap.timeout");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "未配置高德地图请求超时时间：app.amap.timeout");
         }
-        return new AmapRequest(endpoint(path), properties.getTimeout().toMillis())
+        return HttpRequest.get(endpoint(path))
+                .timeout(Math.toIntExact(properties.getTimeout().toMillis()))
                 .form("key", properties.getApiKey());
     }
 
@@ -109,12 +112,13 @@ public class AmapPoiClient {
 
     private void checkAmapResult(JSONObject result) {
         if (result == null) {
-            throw new IllegalStateException("高德接口返回为空");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "高德接口返回为空");
         }
 
         String status = text(result, "status");
         if (!"1".equals(status)) {
-            throw new IllegalStateException(
+            throw new BusinessException(
+                    ErrorCode.SYSTEM_ERROR,
                     "高德接口调用失败，info=" + text(result, "info") + ", infocode=" + text(result, "infocode"));
         }
     }
@@ -124,22 +128,7 @@ public class AmapPoiClient {
         return value == null ? "" : String.valueOf(value);
     }
 
-    /** 小型请求包装，避免每个高德调用重复拼接 key、超时和 JSON 解析代码。 */
-    private static class AmapRequest {
-        private final HttpRequest request;
-
-        private AmapRequest(String url, long timeoutMillis) {
-            this.request = HttpRequest.get(url).timeout(Math.toIntExact(timeoutMillis));
-        }
-
-        private AmapRequest form(String name, String value) {
-            request.form(name, value);
-            return this;
-        }
-
-        private JSONObject executeJson() {
-            String body = request.execute().body();
-            return JSONUtil.parseObj(body);
-        }
+    private JSONObject executeJson(HttpRequest request) {
+        return JSONUtil.parseObj(request.execute().body());
     }
 }

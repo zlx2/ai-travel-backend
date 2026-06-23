@@ -1,8 +1,8 @@
 package com.sora.aitravel.service;
 
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
-import com.sora.aitravel.dto.request.RentalStoreResolveRequest;
-import com.sora.aitravel.dto.response.RentalStoreResolveResponse;
+import com.sora.aitravel.dto.model.RentalStoreDTO;
+import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 
 /**
  * 租车服务点解析服务。
@@ -18,7 +18,7 @@ public interface RentalStoreService {
      * @param request 结构化地点解析请求
      * @return 推荐服务点
      */
-    RentalStoreResolveResponse resolveRentalStore(RentalStoreResolveRequest request);
+    RentalStoreDTO resolveRentalStore(RentalStoreResolveCommand command);
 
     /**
      * 根据明确的地点、城市和用途解析推荐租车服务点。
@@ -30,6 +30,5 @@ public interface RentalStoreService {
      * @param usage 使用场景
      * @return 推荐服务点
      */
-    RentalStoreResolveResponse resolveRentalStore(
-            String targetName, String cityName, RentalStoreUsageEnum usage);
+    RentalStoreDTO resolveRentalStore(String targetName, String cityName, RentalStoreUsageEnum usage);
 }

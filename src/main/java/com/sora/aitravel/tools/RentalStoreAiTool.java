@@ -1,7 +1,9 @@
 package com.sora.aitravel.tools;
 
+import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
-import com.sora.aitravel.dto.response.RentalStoreResolveResponse;
+import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalStoreDTO;
 import com.sora.aitravel.service.RentalStoreService;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -36,16 +38,16 @@ public class RentalStoreAiTool {
                     不负责查询车辆库存、报价、锁车、下单或支付。
                     usage 只能传 PICKUP 或 RETURN。
                     """)
-    public RentalStoreResolveResponse resolveRentalStore(
+    public RentalStoreDTO resolveRentalStore(
             @ToolParam(description = "用户输入的目标地点，例如：成都东站、杭州东站、西湖、萧山机场")
                     String targetName,
             @ToolParam(description = "城市名称，例如：成都市、杭州市、上海市") String cityName,
             @ToolParam(description = "用途：PICKUP 表示取车点，RETURN 表示还车点") String usage) {
         if (targetName == null || targetName.isBlank()) {
-            throw new IllegalArgumentException("targetName 不能为空");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "targetName 不能为空");
         }
         if (cityName == null || cityName.isBlank()) {
-            throw new IllegalArgumentException("cityName 不能为空");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "cityName 不能为空");
         }
 
         return rentalStoreService.resolveRentalStore(

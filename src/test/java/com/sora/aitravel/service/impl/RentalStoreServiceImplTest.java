@@ -6,7 +6,7 @@ import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
-import com.sora.aitravel.dto.response.RentalStoreResolveResponse;
+import com.sora.aitravel.dto.model.RentalStoreDTO;
 import org.junit.jupiter.api.Test;
 
 class RentalStoreServiceImplTest {
@@ -33,10 +33,10 @@ class RentalStoreServiceImplTest {
     }
 
     @Test
-    void shouldBuildRentalStoreResolveResponse() {
+    void shouldBuildRentalStoreDto() {
         JSONObject poi = poi("一嗨租车杭州东站店", "010900", "汽车租赁", 392, 4.8);
 
-        RentalStoreResolveResponse response =
+        RentalStoreDTO response =
                 service.buildRentalStoreResponse(poi, "杭州东站", RentalStoreUsageEnum.PICKUP);
 
         assertThat(response.getStoreCode()).isEqualTo("AMAP_B0TEST");

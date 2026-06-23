@@ -1,5 +1,7 @@
 package com.sora.aitravel.common.enums;
 
+import com.sora.aitravel.common.exception.BusinessException;
+
 /**
  * 租车服务点使用场景。
  *
@@ -21,13 +23,13 @@ public enum RentalStoreUsageEnum {
      */
     public static RentalStoreUsageEnum from(String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("usage 不能为空，只能是 PICKUP 或 RETURN");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "usage 不能为空，只能是 PICKUP 或 RETURN");
         }
 
         try {
             return RentalStoreUsageEnum.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("usage 只能是 PICKUP 或 RETURN：" + value, e);
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "usage 只能是 PICKUP 或 RETURN：" + value);
         }
     }
 }

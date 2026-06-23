@@ -2,10 +2,12 @@ package com.sora.aitravel.service.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import com.sora.aitravel.client.AmapPoiClient;
+import com.sora.aitravel.client.amap.AmapPoiClient;
+import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
-import com.sora.aitravel.dto.request.RentalStoreResolveRequest;
-import com.sora.aitravel.dto.response.RentalStoreResolveResponse;
+import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalStoreDTO;
+import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 import com.sora.aitravel.service.RentalStoreService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,27 +40,27 @@ public class RentalStoreServiceImpl implements RentalStoreService {
     }
 
     @Override
-    public RentalStoreResolveResponse resolveRentalStore(RentalStoreResolveRequest request) {
+    public RentalStoreDTO resolveRentalStore(RentalStoreResolveCommand command) {
         return resolveRentalStore(
-                request.targetName(),
-                request.cityName(),
-                RentalStoreUsageEnum.from(request.usage()));
+                command.targetName(),
+                command.cityName(),
+                command.usage());
     }
 
     @Override
-    public RentalStoreResolveResponse resolveRentalStore(
+    public RentalStoreDTO resolveRentalStore(
             String targetName, String cityName, RentalStoreUsageEnum usage) {
         JSONObject targetPoi = amapPoiClient.searchFirstPoi(targetName, cityName);
         String location = text(targetPoi, "location");
         if (location.isBlank()) {
-            throw new IllegalStateException("目标地点缺少坐标：" + targetName);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "目标地点缺少坐标：" + targetName);
         }
 
         JSONObject aroundResult =
                 amapPoiClient.searchAround(location, "租车", cityName, SEARCH_RADIUS_METERS, 10);
         JSONArray pois = aroundResult.getJSONArray("pois");
         if (pois == null || pois.isEmpty()) {
-            throw new IllegalStateException("目标地点附近没有找到租车服务点：" + targetName);
+            throw new BusinessException(ErrorCode.NOT_FOUND, "目标地点附近没有找到租车服务点：" + targetName);
         }
 
         JSONObject bestStore = selectBestRentalStore(pois, usage);
@@ -80,7 +82,7 @@ public class RentalStoreServiceImpl implements RentalStoreService {
         }
 
         if (validStores.isEmpty()) {
-            throw new IllegalStateException("目标地点附近没有可用租车点");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "目标地点附近没有可用租车点");
         }
 
         return validStores.stream()
@@ -168,9 +170,9 @@ public class RentalStoreServiceImpl implements RentalStoreService {
      *
      * <p>displayName 使用“目标地点 + 推荐取/还车点”，避免把第三方地图商户名称误表达为平台自营门店。
      */
-    RentalStoreResolveResponse buildRentalStoreResponse(
+    RentalStoreDTO buildRentalStoreResponse(
             JSONObject poi, String targetName, RentalStoreUsageEnum usage) {
-        RentalStoreResolveResponse response = new RentalStoreResolveResponse();
+        RentalStoreDTO response = new RentalStoreDTO();
 
         String poiId = text(poi, "id");
         String location = text(poi, "location");
