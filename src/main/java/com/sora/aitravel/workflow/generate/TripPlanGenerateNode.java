@@ -25,6 +25,11 @@ public class TripPlanGenerateNode implements WorkflowNode<GenerateWorkflowContex
      * @param context 工作流上下文，读取生成请求并调用模型，将原始响应存入上下文
      */
     public void execute(GenerateWorkflowContext context) {
-        /* TODO call model */
+        context.setRawModelResponse(
+                """
+                MOCK_TRIP_PLAN_GENERATED
+                %s
+                """
+                        .formatted(context.getRecommendationPromptContext()));
     }
 }

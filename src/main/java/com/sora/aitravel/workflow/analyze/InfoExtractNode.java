@@ -1,6 +1,11 @@
 package com.sora.aitravel.workflow.analyze;
 
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.workflow.WorkflowNode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,6 +23,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class InfoExtractNode implements WorkflowNode<AnalyzeWorkflowContext> {
 
+    private static final List<String> KNOWN_DESTINATIONS =
+            List.of("重庆", "成都", "杭州", "西安", "厦门", "云南", "上海", "北京", "三亚", "广州", "深圳");
+
+    private static final List<String> KNOWN_PREFERENCES =
+            List.of("美食", "夜景", "历史文化", "自然风光", "亲子", "拍照打卡", "海岛", "轻松游", "自驾", "租车", "周边");
+
     /**
      * 执行信息提取逻辑——调用 AI 模型从用户输入中提取结构化行程信息。
      *
@@ -25,6 +36,67 @@ public class InfoExtractNode implements WorkflowNode<AnalyzeWorkflowContext> {
      *                将模型原始响设置到 {@link AnalyzeWorkflowContext#rawModelResponse}
      */
     public void execute(AnalyzeWorkflowContext context) {
-        /* TODO call DeepSeek */
+        String input = safeText(context.getRequest().userInput());
+        String selectedDestination = safeText(context.getRequest().selectedDestination());
+
+        String destination =
+                !selectedDestination.isBlank()
+                        ? selectedDestination
+                        : KNOWN_DESTINATIONS.stream()
+                                .filter(input::contains)
+                                .findFirst()
+                                .orElse("");
+        String departure = extractDeparture(input);
+        int days = extractInt(input, "(\\d+)\\s*天", 3);
+        int budget = extractInt(input, "预算\\s*(\\d+)", 2000);
+        List<String> preferences = extractPreferences(input);
+
+        if (preferences.isEmpty()) {
+            preferences = List.of("美食", "轻松游");
+        }
+
+        context.setExtractedRequirement(
+                new TravelRequirementDTO(
+                        departure.isBlank() ? "上海" : departure,
+                        destination,
+                        days,
+                        budget,
+                        "TOTAL",
+                        2,
+                        preferences,
+                        preferences.contains("轻松游") ? "LIGHT" : "NORMAL",
+                        List.of(),
+                        null));
+        context.setRawModelResponse("MOCK_ANALYZE_EXTRACTED");
+    }
+
+    private String extractDeparture(String input) {
+        Matcher matcher = Pattern.compile("从([\\u4e00-\\u9fa5]{2,8})去").matcher(input);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return "";
+    }
+
+    private int extractInt(String input, String regex, int defaultValue) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+        return defaultValue;
+    }
+
+    private List<String> extractPreferences(String input) {
+        List<String> result = new ArrayList<>();
+        for (String preference : KNOWN_PREFERENCES) {
+            if (input.contains(preference)) {
+                result.add(preference);
+            }
+        }
+        return result;
+    }
+
+    private String safeText(String value) {
+        return value == null ? "" : value.trim();
     }
 }

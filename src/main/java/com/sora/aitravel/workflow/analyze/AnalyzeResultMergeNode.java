@@ -1,6 +1,10 @@
 package com.sora.aitravel.workflow.analyze;
 
+import com.sora.aitravel.dto.model.DestinationSuggestionDTO;
+import com.sora.aitravel.dto.response.TripAnalyzeResponse;
 import com.sora.aitravel.workflow.WorkflowNode;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,6 +29,38 @@ public class AnalyzeResultMergeNode implements WorkflowNode<AnalyzeWorkflowConte
      * @param context 工作流上下文，读取各中间数据并合并为最终结果
      */
     public void execute(AnalyzeWorkflowContext context) {
-        /* TODO merge prior conversation */
+        String conversationId =
+                context.getRequest().conversationId() == null
+                        ? UUID.randomUUID().toString()
+                        : context.getRequest().conversationId();
+
+        if ("NEED_DESTINATION_CHOICE".equals(context.getStatus())) {
+            context.setResult(
+                    new TripAnalyzeResponse(
+                            conversationId,
+                            "NEED_DESTINATION_CHOICE",
+                            null,
+                            List.of(),
+                            List.of(
+                                    new DestinationSuggestionDTO(
+                                            "成都", "适合美食、慢节奏和周边自驾。", List.of("美食", "周边", "休闲"), 4),
+                                    new DestinationSuggestionDTO(
+                                            "杭州", "适合自然风光、城市漫步和亲子轻松游。", List.of("自然风光", "亲子"), 3),
+                                    new DestinationSuggestionDTO(
+                                            "重庆", "适合夜景、美食和山城城市体验。", List.of("美食", "夜景"), 3)),
+                            List.of(),
+                            0));
+            return;
+        }
+
+        context.setResult(
+                new TripAnalyzeResponse(
+                        conversationId,
+                        "READY",
+                        context.getExtractedRequirement(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        0));
     }
 }

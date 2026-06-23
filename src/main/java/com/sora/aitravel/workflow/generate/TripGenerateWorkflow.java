@@ -26,6 +26,24 @@ public class TripGenerateWorkflow {
     /** 需求校验节点：校验出发地、目的地、天数等必要参数是否合法。 */
     private final RequirementValidateNode requirementValidateNode;
 
+    /** 交通方式判断节点：判断行程更适合公共交通、自驾或混合出行。 */
+    private final TravelModeDecisionNode travelModeDecisionNode;
+
+    /** 景点推荐占位节点：先用假数据跑通正式推荐流程。 */
+    private final MockScenicSpotRecommendNode mockScenicSpotRecommendNode;
+
+    /** 美食推荐占位节点：先用假数据跑通正式推荐流程。 */
+    private final MockFoodRecommendNode mockFoodRecommendNode;
+
+    /** 住宿区域推荐占位节点：先用假数据跑通正式推荐流程。 */
+    private final MockHotelAreaRecommendNode mockHotelAreaRecommendNode;
+
+    /** 交通推荐节点：按交通方式补充公共交通或自驾租车点建议。 */
+    private final TransportRecommendNode transportRecommendNode;
+
+    /** 推荐上下文提示词构建节点：将结构化推荐资料转换为模型可读上下文。 */
+    private final RecommendationPromptBuildNode recommendationPromptBuildNode;
+
     /** 行程计划生成节点：调用 AI 模型生成每日行程计划。 */
     private final TripPlanGenerateNode tripPlanGenerateNode;
 
@@ -50,6 +68,12 @@ public class TripGenerateWorkflow {
     public GenerateWorkflowContext execute(GenerateWorkflowContext context) {
         // Generate 不负责自动保存行程，持久化必须由用户随后调用 Trip 接口触发。
         requirementValidateNode.execute(context);
+        travelModeDecisionNode.execute(context);
+        mockScenicSpotRecommendNode.execute(context);
+        mockFoodRecommendNode.execute(context);
+        mockHotelAreaRecommendNode.execute(context);
+        transportRecommendNode.execute(context);
+        recommendationPromptBuildNode.execute(context);
         tripPlanGenerateNode.execute(context);
         generateJsonValidateNode.execute(context);
         generateJsonRepairNode.execute(context);

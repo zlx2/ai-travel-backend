@@ -1,6 +1,7 @@
 package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.request.TripGenerateRequest;
+import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import lombok.Data;
 
@@ -31,6 +32,12 @@ public class GenerateWorkflowContext {
 
     /** AI 模型返回的原始行程计划 JSON 字符串，由 TripPlanGenerateNode 调用模型后填充。 */
     private String rawModelResponse;
+
+    /** 行程生成前准备好的景点、美食、住宿和交通推荐上下文。 */
+    private RecommendationContextDTO recommendationContext;
+
+    /** 推荐上下文格式化后的提示文本，供模型生成最终行程时参考。 */
+    private String recommendationPromptContext;
 
     /** 最终的结构化行程生成结果（包含每日计划等），供 Controller 返回给前端。 */
     private TripGenerateResponse result;

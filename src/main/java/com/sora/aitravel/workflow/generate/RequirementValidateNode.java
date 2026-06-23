@@ -1,5 +1,8 @@
 package com.sora.aitravel.workflow.generate;
 
+import com.sora.aitravel.common.enums.ErrorCode;
+import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.workflow.WorkflowNode;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +29,16 @@ public class RequirementValidateNode implements WorkflowNode<GenerateWorkflowCon
      * @param context 工作流上下文，从中读取生成请求参数并执行校验
      */
     public void execute(GenerateWorkflowContext context) {
-        /* TODO require departure/destination/days 1-7 */
+        if (context.getRequest() == null || context.getRequest().requirement() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "行程生成需求不能为空");
+        }
+
+        TravelRequirementDTO requirement = context.getRequest().requirement();
+        if (requirement.destination() == null || requirement.destination().isBlank()) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "目的地不能为空");
+        }
+        if (requirement.days() == null || requirement.days() < 1 || requirement.days() > 7) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数必须在 1 到 7 天之间");
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.sora.aitravel.workflow.analyze;
 
 import com.sora.aitravel.dto.request.TripAnalyzeRequest;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.response.TripAnalyzeResponse;
 import lombok.Data;
 
@@ -29,6 +30,12 @@ public class AnalyzeWorkflowContext {
 
     /** AI 模型的原始响应文本（JSON 字符串），由 InfoExtractNode 等调用模型后填充。 */
     private String rawModelResponse;
+
+    /** 最小可跑通版本提取出的结构化旅行需求。 */
+    private TravelRequirementDTO extractedRequirement;
+
+    /** 分析状态：READY、NEED_DESTINATION_CHOICE 等。 */
+    private String status;
 
     /** 最终的结构化分析结果，供 Controller 层返回给前端。 */
     private TripAnalyzeResponse result;

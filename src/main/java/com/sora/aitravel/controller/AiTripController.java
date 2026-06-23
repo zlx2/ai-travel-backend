@@ -2,8 +2,13 @@ package com.sora.aitravel.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.sora.aitravel.common.result.*;
+import com.sora.aitravel.common.utils.LoginUserUtils;
 import com.sora.aitravel.dto.request.*;
 import com.sora.aitravel.dto.response.*;
+import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
+import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
+import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
+import com.sora.aitravel.workflow.generate.TripGenerateWorkflow;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +22,16 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/ai/trips")
 public class AiTripController {
+
+    private final TripGenerateWorkflow tripGenerateWorkflow;
+    private final TripAnalyzeWorkflow tripAnalyzeWorkflow;
+
+    public AiTripController(
+            TripGenerateWorkflow tripGenerateWorkflow, TripAnalyzeWorkflow tripAnalyzeWorkflow) {
+        this.tripGenerateWorkflow = tripGenerateWorkflow;
+        this.tripAnalyzeWorkflow = tripAnalyzeWorkflow;
+    }
+
     /**
      * AI 分析用户旅行需求（需登录）。
      * <p>支持两种模式：用户主动输入模糊需求并提取结构化信息，或对已推荐的目的地确认后返回分析结果。</p>
@@ -26,7 +41,10 @@ public class AiTripController {
      */
     @PostMapping("/analyze")
     public R<TripAnalyzeResponse> analyze(@Valid @RequestBody TripAnalyzeRequest request) {
-        return ScaffoldResponses.notImplemented();
+        AnalyzeWorkflowContext context = new AnalyzeWorkflowContext();
+        context.setUserId(LoginUserUtils.getUserId());
+        context.setRequest(request);
+        return R.ok(tripAnalyzeWorkflow.execute(context).getResult());
     }
 
     /**
@@ -37,6 +55,9 @@ public class AiTripController {
      */
     @PostMapping("/generate")
     public R<TripGenerateResponse> generate(@Valid @RequestBody TripGenerateRequest request) {
-        return ScaffoldResponses.notImplemented();
+        GenerateWorkflowContext context = new GenerateWorkflowContext();
+        context.setUserId(LoginUserUtils.getUserId());
+        context.setRequest(request);
+        return R.ok(tripGenerateWorkflow.execute(context).getResult());
     }
 }

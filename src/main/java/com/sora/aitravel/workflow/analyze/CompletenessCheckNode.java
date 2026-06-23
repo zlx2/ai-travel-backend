@@ -25,6 +25,12 @@ public class CompletenessCheckNode implements WorkflowNode<AnalyzeWorkflowContex
      * @param context 工作流上下文，读取模型提取的信息并检查完整性
      */
     public void execute(AnalyzeWorkflowContext context) {
-        /* TODO check departure/destination/days */
+        if (context.getExtractedRequirement() == null
+                || context.getExtractedRequirement().destination() == null
+                || context.getExtractedRequirement().destination().isBlank()) {
+            context.setStatus("NEED_DESTINATION_CHOICE");
+            return;
+        }
+        context.setStatus("READY");
     }
 }
