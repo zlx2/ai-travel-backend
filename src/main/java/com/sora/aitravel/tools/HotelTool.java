@@ -27,6 +27,9 @@ public class HotelTool {
     @Value("${app.amap.api-key:}")
     private String amapApiKey;
 
+    @Value("${app.amap.base-url:https://restapi.amap.com}")
+    private String amapBaseUrl;
+
     /**
      * 常见酒店品牌 → 价格区间（元/晚）。
      * 基于国内主流预订平台（携程/美团）的常见价格。
@@ -90,7 +93,7 @@ public class HotelTool {
             if (nights <= 0) nights = 1;
 
             // 第一步：调用高德 POI 搜索 API 获取酒店列表
-            String searchUrl = "https://restapi.amap.com/v3/place/text";
+            String searchUrl = amapBaseUrl + "/v3/place/text";
             String searchResponse = HttpRequest.get(searchUrl)
                     .form("key", amapApiKey)           // API密钥，用于身份验证
                     .form("keywords", "酒店")           // 搜索关键词：酒店
@@ -174,7 +177,7 @@ public class HotelTool {
      */
     private JSONObject fetchHotelDetail(String poiId) {
         try {
-            String detailUrl = "https://restapi.amap.com/v3/place/detail";
+            String detailUrl = amapBaseUrl + "/v3/place/detail";
             String response = HttpRequest.get(detailUrl)
                     .form("key", amapApiKey)
                     .form("id", poiId)
