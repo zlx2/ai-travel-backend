@@ -18,18 +18,16 @@ import java.time.LocalDate;
 
 /**
  * AI Tool Calling 演示控制器。
- * <p>
- * 演示 AI 如何通过 Tool Calling 机制自动调用天气查询和酒店搜索工具。
- * 无需登录即可测试。
- * </p>
- * <p>
- * 测试示例：
+ *
+ * <p>演示 AI 如何通过 Tool Calling 机制自动调用天气查询和酒店搜索工具。 无需登录即可测试。
+ *
+ * <p>测试示例：
+ *
  * <ul>
- *   <li>GET /api/ai/demo/tool?message=北京今天天气怎么样</li>
- *   <li>GET /api/ai/demo/tool?message=我下周想去三亚玩，帮我推荐几家酒店，7月10日入住7月13日离店</li>
- *   <li>GET /api/ai/demo/tool?message=帮我查一下成都的天气，再推荐几家酒店，住3晚从明天开始</li>
+ *   <li>GET /api/ai/demo/tool?message=北京今天天气怎么样
+ *   <li>GET /api/ai/demo/tool?message=我下周想去三亚玩，帮我推荐几家酒店，7月10日入住7月13日离店
+ *   <li>GET /api/ai/demo/tool?message=帮我查一下成都的天气，再推荐几家酒店，住3晚从明天开始
  * </ul>
- * </p>
  */
 @Slf4j
 @RestController
@@ -52,8 +50,10 @@ public class AiToolDemoController {
     @PostConstruct
     public void init() {
         // 构建 ChatClient，绑定系统提示词
-        this.chatClient = ChatClient.builder(chatModel)
-                .defaultSystem("""
+        this.chatClient =
+                ChatClient.builder(chatModel)
+                        .defaultSystem(
+                                """
                         你是一个专业的旅行助手，可以帮助用户查询天气和推荐酒店。
                         当前日期是 %s。当用户询问天气时，基于这个日期理解'今天'、'明天'等时间概念。
                         当用户询问天气时，请使用天气查询工具获取实时天气数据。
@@ -71,10 +71,8 @@ public class AiToolDemoController {
 
     /**
      * AI Tool Calling 演示接口。
-     * <p>
-     * AI 会根据用户消息自动判断是否需要调用天气/酒店工具，
-     * 并将工具返回的数据整合成自然语言回复。
-     * </p>
+     *
+     * <p>AI 会根据用户消息自动判断是否需要调用天气/酒店工具， 并将工具返回的数据整合成自然语言回复。
      *
      * @param message 用户消息
      * @return AI 的回复内容
@@ -85,11 +83,8 @@ public class AiToolDemoController {
             log.info("收到 Tool Calling 演示请求：{}", message);
 
             // 核心调用：AI 会自动判断并调用合适的工具
-            String reply = chatClient.prompt()
-                    .user(message)
-                    .toolCallbacks(toolCallbacks)
-                    .call()
-                    .content();
+            String reply =
+                    chatClient.prompt().user(message).toolCallbacks(toolCallbacks).call().content();
 
             log.info("AI Tool Calling 回复：{}", reply);
             return R.ok(reply);

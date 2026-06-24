@@ -7,7 +7,6 @@ import com.sora.aitravel.dto.model.TransportPlanDTO;
 import com.sora.aitravel.dto.model.TravelModeDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.service.RentalStoreService;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -16,12 +15,11 @@ import org.springframework.stereotype.Component;
 /**
  * 交通推荐节点。
  *
- * <p>当前只做最小闭环：公共交通给提示，自驾则尝试解析推荐取还车点。解析失败不会阻断行程生成，
- * 后续可接入高德路线规划、距离计算和停车提示。
+ * <p>当前只做最小闭环：公共交通给提示，自驾则尝试解析推荐取还车点。解析失败不会阻断行程生成， 后续可接入高德路线规划、距离计算和停车提示。
  */
 @Slf4j
 @Component
-public class TransportRecommendNode implements WorkflowNode<GenerateWorkflowContext> {
+public class TransportRecommendNode {
 
     private final RentalStoreService rentalStoreService;
 
@@ -29,7 +27,6 @@ public class TransportRecommendNode implements WorkflowNode<GenerateWorkflowCont
         this.rentalStoreService = rentalStoreService;
     }
 
-    @Override
     public void execute(GenerateWorkflowContext context) {
         RecommendationContextDTO current = context.getRecommendationContext();
         TravelModeDTO travelMode = current.transportPlan().travelMode();
