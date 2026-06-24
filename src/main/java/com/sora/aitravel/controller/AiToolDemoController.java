@@ -1,9 +1,17 @@
 package com.sora.aitravel.controller;
 
 import com.sora.aitravel.common.result.R;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.tools.HotelTool;
 import com.sora.aitravel.tools.WeatherTool;
+import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
+import com.sora.aitravel.workflow.generate.TripGenerateWorkflow;
 import jakarta.annotation.PostConstruct;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -13,8 +21,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.LocalDate;
 
 /**
  * AI Tool Calling 演示控制器。
@@ -27,6 +33,7 @@ import java.time.LocalDate;
  *   <li>GET /api/ai/demo/tool?message=北京今天天气怎么样
  *   <li>GET /api/ai/demo/tool?message=我下周想去三亚玩，帮我推荐几家酒店，7月10日入住7月13日离店
  *   <li>GET /api/ai/demo/tool?message=帮我查一下成都的天气，再推荐几家酒店，住3晚从明天开始
+ *   <li>GET /api/ai/demo/workflow?destination=成都&days=3
  * </ul>
  */
 @Slf4j
@@ -37,13 +44,19 @@ public class AiToolDemoController {
     private final ChatModel chatModel;
     private final WeatherTool weatherTool;
     private final HotelTool hotelTool;
+    private final TripGenerateWorkflow tripGenerateWorkflow;
     private ChatClient chatClient;
     private ToolCallback[] toolCallbacks;
 
-    public AiToolDemoController(ChatModel chatModel, WeatherTool weatherTool, HotelTool hotelTool) {
+    public AiToolDemoController(
+            ChatModel chatModel,
+            WeatherTool weatherTool,
+            HotelTool hotelTool,
+            TripGenerateWorkflow tripGenerateWorkflow) {
         this.chatModel = chatModel;
         this.weatherTool = weatherTool;
         this.hotelTool = hotelTool;
+        this.tripGenerateWorkflow = tripGenerateWorkflow;
     }
 
     // 初始化回调，生命周期管理，一次性执行，不会重复调用 ， 方法必须是void 返回类型
@@ -91,6 +104,69 @@ public class AiToolDemoController {
         } catch (Exception e) {
             log.error("AI Tool Calling 演示失败", e);
             return R.fail(500, "AI 调用失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 工作流测试接口。
+     *
+     * <p>测试 TripGenerateWorkflow 是否正确集成了 WeatherTool 和 HotelTool。
+     *
+     * @param destination 目的地城市
+     * @param days        行程天数（默认 3）
+     * @param startDays   出发日期距今天数（默认 1，即明天出发）
+     * @return 工作流执行结果（包含天气和酒店数据）
+     */
+    @GetMapping("/workflow")
+    public R<Object> workflowTest(
+            @RequestParam(defaultValue = "成都") String destination,
+            @RequestParam(defaultValue = "3") Integer days,
+            @RequestParam(defaultValue = "1") Integer startDays) {
+        try {
+            log.info("收到工作流测试请求：destination={}, days={}, startDays={}", destination, days, startDays);
+
+            // 构建测试请求
+            TravelRequirementDTO requirement =
+                    new TravelRequirementDTO(
+                            "北京", // departure
+                            destination, // destination
+                            "single", // routeMode
+                            null, // routeStructure
+                            null, // routeRegion
+                            null, // routeCities
+                            "train", // transportMode
+                            null, // rentalIntent
+                            null, // rentalRequirement
+                            days, // days
+                            5000, // budget
+                            "total", // budgetType
+                            2, // peopleCount
+                            List.of("美食", "文化"), // preferences
+                            "balanced", // pace
+                            null, // avoidances
+                            LocalDate.now().plusDays(startDays).toString() // travelDate
+                            );
+
+            TripGenerateRequest request = new TripGenerateRequest("test-conv", false, requirement, null, null);
+
+            // 构建工作流上下文
+            GenerateWorkflowContext context = new GenerateWorkflowContext();
+            context.setUserId(1L);
+            context.setRequest(request);
+
+            // 执行工作流
+            GenerateWorkflowContext result = tripGenerateWorkflow.execute(context);
+
+            // 返回关键数据
+            return R.ok(Map.of(
+                    "weatherForecast", result.getWeatherForecast() != null ? result.getWeatherForecast() : "未获取到天气数据",
+                    "hotelSearchResult", result.getHotelSearchResult() != null ? result.getHotelSearchResult() : "未获取到酒店数据",
+                    "destination", destination,
+                    "days", days,
+                    "travelDate", LocalDate.now().plusDays(startDays).toString()));
+        } catch (Exception e) {
+            log.error("工作流测试失败", e);
+            return R.fail(500, "工作流测试失败：" + e.getMessage());
         }
     }
 }

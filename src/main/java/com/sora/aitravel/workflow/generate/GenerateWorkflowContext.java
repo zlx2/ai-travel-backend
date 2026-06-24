@@ -43,6 +43,12 @@ public class GenerateWorkflowContext {
     /** 城市基础数据池，后续会替换为真实工具查询结果。 */
     private CityProfile cityProfile;
 
+    /** 目的地天气预报数据（由 WeatherTool 提供）。 */
+    private String weatherForecast;
+
+    /** 酒店搜索数据（由 HotelTool 提供）。 */
+    private String hotelSearchResult;
+
     /** 每天生成时所需上下文。 */
     private List<DayContext> dayContexts;
 

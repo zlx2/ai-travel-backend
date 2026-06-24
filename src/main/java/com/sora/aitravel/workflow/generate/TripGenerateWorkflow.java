@@ -18,6 +18,8 @@ public class TripGenerateWorkflow {
             RequirementLoadNode requirementLoadNode,
             TripSkeletonNode tripSkeletonNode,
             CityDataProfileNode cityDataProfileNode,
+            WeatherFetchNode weatherFetchNode,
+            HotelFetchNode hotelFetchNode,
             DayStateInitNode dayStateInitNode,
             DayContextBuildNode dayContextBuildNode,
             DayQueryPlanNode dayQueryPlanNode,
@@ -41,6 +43,10 @@ public class TripGenerateWorkflow {
                                         "trip-skeleton", tripSkeletonNode::execute),
                                 AlibabaGraphWorkflow.step(
                                         "city-data-profile", cityDataProfileNode::execute),
+                                AlibabaGraphWorkflow.step(
+                                        "weather-fetch", weatherFetchNode::execute),
+                                AlibabaGraphWorkflow.step(
+                                        "hotel-fetch", hotelFetchNode::execute),
                                 AlibabaGraphWorkflow.step(
                                         "day-state-init", dayStateInitNode::execute),
                                 AlibabaGraphWorkflow.step(
