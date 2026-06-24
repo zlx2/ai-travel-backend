@@ -10,6 +10,8 @@ import com.sora.aitravel.service.FoodRecommendService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,7 +65,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         }
 
         FoodSearchIntent intent = resolveIntent(query);
-        if (intent == null || intent.intentType() == null) {
+        if (intent == null || intent.getIntentType() == null) {
             return FoodRecommendResponse.fail("请说明想查哪个城市、哪个地点附近，或允许获取当前位置");
         }
 
@@ -271,7 +273,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             Integer radius,
             Integer pageSize,
             Integer pageNum) {
-        if (intent.intentType() == FoodSearchIntentTypeEnum.NEAR_CURRENT) {
+        if (intent.getIntentType() == FoodSearchIntentTypeEnum.NEAR_CURRENT) {
             if (!StringUtils.hasText(currentLocation)) {
                 throw new IllegalArgumentException(
                         "请先允许获取当前位置，或输入具体地点，例如：洪崖洞附近火锅");
@@ -279,38 +281,39 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             JSONObject amapResponse =
                     amapFoodClient.searchAround(
                             currentLocation,
-                            intent.keywords(),
-                            intent.city(),
+                            intent.getKeywords(),
+                            intent.getCity(),
                             radius,
                             pageSize,
                             pageNum);
             return new SearchResult("AROUND", currentLocation, "当前位置", amapResponse);
         }
 
-        if (intent.intentType() == FoodSearchIntentTypeEnum.NEAR_ADDRESS) {
-            if (!StringUtils.hasText(intent.address())) {
+        if (intent.getIntentType() == FoodSearchIntentTypeEnum.NEAR_ADDRESS) {
+            if (!StringUtils.hasText(intent.getAddress())) {
                 throw new IllegalArgumentException("请补充具体地点，例如：洪崖洞附近火锅");
             }
             String centerLocation =
-                    amapFoodClient.geocodeToLocation(intent.address(), intent.city());
+                    amapFoodClient.geocodeToLocation(intent.getAddress(), intent.getCity());
             JSONObject amapResponse =
                     amapFoodClient.searchAround(
                             centerLocation,
-                            intent.keywords(),
-                            intent.city(),
+                            intent.getKeywords(),
+                            intent.getCity(),
                             radius,
                             pageSize,
                             pageNum);
             return new SearchResult("AROUND", centerLocation, "搜索地点", amapResponse);
         }
 
-        if (intent.intentType() == FoodSearchIntentTypeEnum.CITY_KEYWORD) {
-            if (!StringUtils.hasText(intent.city()) || !StringUtils.hasText(intent.keywords())) {
+        if (intent.getIntentType() == FoodSearchIntentTypeEnum.CITY_KEYWORD) {
+            if (!StringUtils.hasText(intent.getCity())
+                    || !StringUtils.hasText(intent.getKeywords())) {
                 throw new IllegalArgumentException("请补充城市和美食关键词，例如：重庆火锅");
             }
             JSONObject amapResponse =
                     amapFoodClient.searchText(
-                            intent.city(), intent.keywords(), pageSize, pageNum);
+                            intent.getCity(), intent.getKeywords(), pageSize, pageNum);
             return new SearchResult("TEXT", null, "搜索地点", amapResponse);
         }
 
@@ -322,7 +325,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /** 把高德查询结果转换成工具统一返回对象。 */
     private FoodRecommendResponse buildResponse(
             FoodSearchIntent intent, SearchResult searchResult) {
-        JSONObject amapResponse = searchResult.amapResponse();
+        JSONObject amapResponse = searchResult.getAmapResponse();
         if (!amapFoodClient.isAmapSuccess(amapResponse)) {
             return FoodRecommendResponse.fail("高德 API 调用失败：" + text(amapResponse, "info"));
         }
@@ -336,7 +339,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         for (int i = 0; i < pois.size(); i++) {
             JSONObject poi = pois.getJSONObject(i);
             if (isValidFoodPoi(poi)) {
-                items.add(toFoodItem(poi, searchResult.distanceTargetText()));
+                items.add(toFoodItem(poi, searchResult.getDistanceTargetText()));
             }
         }
 
@@ -355,9 +358,9 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 true,
                 message,
                 "AMAP",
-                searchResult.queryType(),
-                intent.intentType(),
-                searchResult.centerLocation(),
+                searchResult.getQueryType(),
+                intent.getIntentType(),
+                searchResult.getCenterLocation(),
                 0,
                 List.of());
     }
@@ -371,9 +374,9 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 true,
                 "success",
                 "AMAP",
-                searchResult.queryType(),
-                intent.intentType(),
-                searchResult.centerLocation(),
+                searchResult.getQueryType(),
+                intent.getIntentType(),
+                searchResult.getCenterLocation(),
                 items.size(),
                 items);
     }
@@ -421,8 +424,8 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 text(poi, "typecode"),
                 extractFoodType(keyTag, recTag, tag, text(poi, "type")),
                 location,
-                locationPair.longitude(),
-                locationPair.latitude(),
+                locationPair.getLongitude(),
+                locationPair.getLatitude(),
                 distance,
                 distanceText(distance, distanceTargetText),
                 rating,
@@ -558,19 +561,30 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     // ==================== 内部对象区 ====================
 
     /** Service 内部暂存 query 解析结果的意图对象，非对外 DTO。 */
-    private record FoodSearchIntent(
-            FoodSearchIntentTypeEnum intentType,
-            String city,
-            String address,
-            String keywords) {}
+    @Data
+    @AllArgsConstructor
+    private static class FoodSearchIntent {
+        private FoodSearchIntentTypeEnum intentType;
+        private String city;
+        private String address;
+        private String keywords;
+    }
 
     /** Service 内部暂存一次高德查询结果及其响应上下文。 */
-    private record SearchResult(
-            String queryType,
-            String centerLocation,
-            String distanceTargetText,
-            JSONObject amapResponse) {}
+    @Data
+    @AllArgsConstructor
+    private static class SearchResult {
+        private String queryType;
+        private String centerLocation;
+        private String distanceTargetText;
+        private JSONObject amapResponse;
+    }
 
     /** Service 内部暂存解析后的经纬度。 */
-    private record LocationPair(BigDecimal longitude, BigDecimal latitude) {}
+    @Data
+    @AllArgsConstructor
+    private static class LocationPair {
+        private BigDecimal longitude;
+        private BigDecimal latitude;
+    }
 }
