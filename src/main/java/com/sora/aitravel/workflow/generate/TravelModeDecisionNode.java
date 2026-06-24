@@ -22,13 +22,17 @@ public class TravelModeDecisionNode implements WorkflowNode<GenerateWorkflowCont
                 requirement.preferences() == null ? List.of() : requirement.preferences();
 
         boolean selfDrive =
-                preferences.stream()
-                        .anyMatch(
-                                item ->
-                                        item.contains("自驾")
-                                                || item.contains("租车")
-                                                || item.contains("周边")
-                                                || item.contains("亲子"));
+                "ROAD_TRIP".equals(requirement.routeMode())
+                        || "LANDING_RENTAL_TRIP".equals(requirement.routeMode())
+                        || "RENTAL_CAR".equals(requirement.transportMode())
+                        || "SELF_DRIVE".equals(requirement.transportMode())
+                        || preferences.stream()
+                                .anyMatch(
+                                        item ->
+                                                item.contains("自驾")
+                                                        || item.contains("租车")
+                                                        || item.contains("周边")
+                                                        || item.contains("亲子"));
 
         List<String> tips = new ArrayList<>();
         if (selfDrive) {
