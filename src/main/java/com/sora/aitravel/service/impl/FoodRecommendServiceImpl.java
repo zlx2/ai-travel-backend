@@ -27,9 +27,11 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class FoodRecommendServiceImpl implements FoodRecommendService {
 
-    // ==================== 常量区 ====================
-
-    /** 默认搜索半径，单位：米。 */
+    /**
+     * 美食推荐业务常量。
+     *
+     * <p>包括默认搜索半径、默认分页数量、高德分页上限、地点附近连接词和当前支持规则识别的城市。
+     */
     private static final int DEFAULT_RADIUS = 1500;
 
     /** 默认每页返回饭店数量。 */
@@ -47,18 +49,32 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                     "北京", "上海", "广州", "深圳", "重庆", "成都", "西安", "杭州", "武汉", "南京",
                     "厦门", "三亚", "长沙", "苏州", "天津", "青岛", "大理", "丽江", "昆明");
 
-    // ==================== 依赖注入区 ====================
-
-    /** 美食模块专用高德客户端。 */
+    /**
+     * 美食模块依赖。
+     *
+     * <p>通过 AmapFoodClient 调用高德周边搜索、关键词搜索和地理编码接口。当前实现类只负责编排业务，不直接构造 HTTP 请求。
+     */
     private final AmapFoodClient amapFoodClient;
 
-    // ==================== recommend 主入口 ====================
-
+    /**
+     * 美食推荐主入口。
+     *
+     * <p>主要流程：
+     *
+     * <ol>
+     *   <li>校验用户查询内容和高德 API Key；
+     *   <li>解析用户的美食查询意图；
+     *   <li>规范搜索半径和分页参数；
+     *   <li>根据意图调用对应的高德地图查询；
+     *   <li>将高德结果转换成统一的美食推荐响应；
+     *   <li>捕获业务异常和运行时异常并返回明确提示。
+     * </ol>
+     */
     @Override
     public FoodRecommendResponse recommend(
             String query, String currentLocation, Integer radius, Integer pageSize, Integer pageNum) {
         if (!StringUtils.hasText(query)) {
-            return FoodRecommendResponse.fail("请输入想查询的美食内容");
+            return FoodRecommendResponse.fail("请输入想查询的内容");
         }
         if (amapFoodClient.missingApiKey()) {
             return FoodRecommendResponse.fail("高德 API Key 未配置，请先设置 AMAP_API_KEY");
@@ -86,9 +102,11 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         }
     }
 
-    // ==================== 参数处理区 ====================
-
-    /** 半径为空或小于等于 0 时使用默认值。 */
+    /**
+     * 规范化美食搜索参数。
+     *
+     * <p>半径为空或小于等于 0 时使用默认半径。分页数量和页码由后续同组方法继续处理，避免无效参数直接传给高德接口。
+     */
     private Integer normalizeRadius(Integer radius) {
         return radius == null || radius <= 0 ? DEFAULT_RADIUS : radius;
     }
@@ -106,12 +124,20 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         return pageNum == null || pageNum <= 0 ? 1 : pageNum;
     }
 
-    // ==================== 用户意图解析区 ====================
-
     /**
-     * 解析用户查询意图。
+     * 解析用户的美食查询意图。
      *
-     * <p>第一版只使用规则解析，保证结果稳定且不依赖 LLM。
+     * <p>主要流程：
+     *
+     * <ol>
+     *   <li>删除 query 中的空白字符；
+     *   <li>优先识别当前位置附近查询；
+     *   <li>再识别具体地点附近查询；
+     *   <li>最后识别城市关键词查询；
+     *   <li>清理口语词并补充默认关键词。
+     * </ol>
+     *
+     * <p>当前使用确定性规则解析，不强依赖 LLM，保证结果稳定、响应快速且便于测试。
      */
     private FoodSearchIntent resolveIntent(String query) {
         return parseIntentByRule(query);
@@ -260,12 +286,17 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         return StringUtils.hasText(keywords) ? keywords : "美食";
     }
 
-    // ==================== 高德接口调用区 ====================
-
     /**
-     * 根据意图选择对应的高德查询方式。
+     * 根据美食意图调用对应的高德地图能力。
      *
-     * <p>NEAR_CURRENT 和 NEAR_ADDRESS 走周边搜索，CITY_KEYWORD 走关键字搜索。
+     * <p>主要流程：
+     *
+     * <ol>
+     *   <li>NEAR_CURRENT：使用用户当前位置调用周边搜索；
+     *   <li>NEAR_ADDRESS：先将文字地点地理编码，再调用周边搜索；
+     *   <li>CITY_KEYWORD：使用城市和美食关键词调用文本搜索；
+     *   <li>把查询方式、中心坐标和高德原始响应封装成 SearchResult。
+     * </ol>
      */
     private SearchResult executeSearch(
             FoodSearchIntent intent,
@@ -320,9 +351,20 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         throw new IllegalArgumentException("暂不支持该美食查询意图");
     }
 
-    // ==================== 响应构建区 ====================
-
-    /** 把高德查询结果转换成工具统一返回对象。 */
+    /**
+     * 构建美食推荐响应。
+     *
+     * <p>主要流程：
+     *
+     * <ol>
+     *   <li>检查高德接口是否调用成功；
+     *   <li>读取高德返回的 POI 列表；
+     *   <li>过滤缺少名称、坐标或不属于餐饮类型的结果；
+     *   <li>把有效 POI 转换成 FoodRestaurantItemDTO；
+     *   <li>为每家饭店填充模板推荐理由；
+     *   <li>根据查询结果构建成功响应或空结果响应。
+     * </ol>
+     */
     private FoodRecommendResponse buildResponse(
             FoodSearchIntent intent, SearchResult searchResult) {
         JSONObject amapResponse = searchResult.getAmapResponse();
@@ -381,9 +423,12 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 items);
     }
 
-    // ==================== POI 转 DTO 区 ====================
-
-    /** 判断高德 POI 是否真的是餐饮类结果。 */
+    /**
+     * 将高德 POI 转换为饭店 DTO。
+     *
+     * <p>该组方法负责校验餐饮类型、读取高德根字段和 business 扩展字段、解析经纬度、提取美食类型并生成距离文案，
+     * 不负责用户意图解析，也不调用高德接口。
+     */
     private boolean isValidFoodPoi(JSONObject poi) {
         if (!StringUtils.hasText(text(poi, "name"))
                 || !StringUtils.hasText(text(poi, "location"))) {
@@ -481,9 +526,11 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         return StringUtils.hasText(poiKey) ? text(poi, poiKey) : null;
     }
 
-    // ==================== 推荐理由生成区 ====================
-
-    /** 给每个饭店填充模板推荐理由。 */
+    /**
+     * 生成饭店推荐理由。
+     *
+     * <p>推荐理由只使用高德真实返回的距离、餐饮类型、评分和人均消费。字段不存在时不会写入理由，也不会编造口味、环境、服务或营业时间。
+     */
     private void fillTemplateReasons(List<FoodRestaurantItemDTO> items) {
         for (FoodRestaurantItemDTO item : items) {
             item.setAiRecommendReason(buildTemplateReason(item));
@@ -513,9 +560,12 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         return String.join("，", parts) + "，可作为本次美食查询的候选。";
     }
 
-    // ==================== 通用工具方法区 ====================
-
-    /** 从 Hutool JSONObject 中安全取字符串，避免 null 和空数组影响判断。 */
+    /**
+     * 通用数据安全处理。
+     *
+     * <p>该组方法负责安全读取 JSON 字段、选取第一个非空字符串，以及把字符串转换为 BigDecimal 或 Integer。
+     * 转换失败时返回空值，避免单个异常字段中断整次美食推荐。
+     */
     private String text(JSONObject object, String fieldName) {
         if (object == null) {
             return "";
@@ -558,9 +608,12 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         }
     }
 
-    // ==================== 内部对象区 ====================
-
-    /** Service 内部暂存 query 解析结果的意图对象，非对外 DTO。 */
+    /**
+     * 美食推荐实现类内部对象。
+     *
+     * <p>FoodSearchIntent 保存意图解析结果，SearchResult 保存高德查询上下文，LocationPair 保存解析后的经纬度。
+     * 这些对象只在当前实现类内部使用，不属于对外 DTO，也不会改变 FoodTool 或工作流的返回结构。
+     */
     @Data
     @AllArgsConstructor
     private static class FoodSearchIntent {
