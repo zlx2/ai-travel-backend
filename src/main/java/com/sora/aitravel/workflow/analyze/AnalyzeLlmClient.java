@@ -2,33 +2,41 @@ package com.sora.aitravel.workflow.analyze;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sora.aitravel.ai.AiGateway;
+import com.sora.aitravel.ai.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
-import com.sora.aitravel.dto.model.DestinationSuggestionDTO;
+import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 /** Analyze 工作流里的真实 LLM 调用封装。 */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AnalyzeLlmClient {
 
     private static final Set<String> PACES = Set.of("LIGHT", "NORMAL", "TIGHT");
+    private static final Set<String> ROUTE_MODES =
+            Set.of("DESTINATION_CITY_TRIP", "ROAD_TRIP", "LANDING_RENTAL_TRIP", "REGION_ROUTE");
+    private static final Set<String> ROUTE_STRUCTURES =
+            Set.of("SINGLE_CITY", "MULTI_CITY", "LOOP", "ONE_WAY");
+    private static final Set<String> TRANSPORT_MODES =
+            Set.of("PUBLIC_TRANSIT", "SELF_DRIVE", "RENTAL_CAR", "MIXED");
+    private static final Set<String> RENTAL_INTENTS =
+            Set.of("NO_RENTAL", "USER_REQUIRED", "CONSIDERING");
+    private static final Set<String> BUDGET_TYPES = Set.of("TOTAL", "DAILY", "PER_PERSON");
 
-    private final ChatModel chatModel;
+    private final AiGateway aiGateway;
     private final ObjectMapper objectMapper;
 
     public TravelRequirementDTO extractRequirement(String cleanInput, String selectedDestination) {
         String json =
-                callJsonObject(
+                aiGateway.callJsonObject(
+                        AiScene.TRIP_ANALYZE,
                         """
                         你是旅行规划系统的 Analyze 节点，只做“需求抽取”，不要生成行程。
                         请从用户输入中抽取旅行需求，并只返回 JSON 对象，不要 Markdown。
@@ -37,13 +45,36 @@ public class AnalyzeLlmClient {
                         1. 没有明确提到的字段返回 null 或空数组，不要编造。
                         2. 如果“用户已选择目的地”存在，destination 必须使用该值。
                         3. days 只提取天数；budget 只提取人民币金额；peopleCount 只提取人数。
-                        4. pace 只能是 LIGHT、NORMAL、TIGHT 之一；不明确时返回 null。
-                        5. budgetType 只能是 TOTAL、DAILY、PER_PERSON 之一；不明确时返回 null。
+                        4. 所有枚举字段只能使用给定枚举值；不明确时返回 null。
+                        5. 用户明确说租车/自驾时，rentalIntent 返回 USER_REQUIRED，transportMode 优先 SELF_DRIVE 或 RENTAL_CAR。
+                        6. 用户明确说不租车/公共交通时，rentalIntent 返回 NO_RENTAL，transportMode 返回 PUBLIC_TRANSIT。
+                        7. routeCities 只放明确目的地或途经城市，不要编造城市。
 
                         JSON 字段：
                         {
                           "departure": string|null,
                           "destination": string|null,
+                          "routeMode": "DESTINATION_CITY_TRIP"|"ROAD_TRIP"|"LANDING_RENTAL_TRIP"|"REGION_ROUTE"|null,
+                          "routeStructure": "SINGLE_CITY"|"MULTI_CITY"|"LOOP"|"ONE_WAY"|null,
+                          "routeRegion": string|null,
+                          "routeCities": string[],
+                          "transportMode": "PUBLIC_TRANSIT"|"SELF_DRIVE"|"RENTAL_CAR"|"MIXED"|null,
+                          "rentalIntent": "NO_RENTAL"|"USER_REQUIRED"|"CONSIDERING"|null,
+                          "rentalRequirement": {
+                            "needRental": boolean|null,
+                            "rentalStartCity": string|null,
+                            "rentalEndCity": string|null,
+                            "pickupMode": string|null,
+                            "returnMode": string|null,
+                            "pickupCity": string|null,
+                            "returnCity": string|null,
+                            "vehiclePreference": string|null,
+                            "rentalDays": number|null,
+                            "deliveryRequired": boolean|null,
+                            "deliveryAddress": string|null,
+                            "returnAddress": string|null,
+                            "isOneWay": boolean|null
+                          }|null,
                           "days": number|null,
                           "budget": number|null,
                           "budgetType": "TOTAL"|"DAILY"|"PER_PERSON"|null,
@@ -65,94 +96,21 @@ public class AnalyzeLlmClient {
         return new TravelRequirementDTO(
                 text(root, "departure"),
                 destination,
-                null,
-                null,
-                null,
-                List.of(),
-                null,
-                "NO_RENTAL",
-                null,
+                enumValue(root, "routeMode", ROUTE_MODES, null),
+                enumValue(root, "routeStructure", ROUTE_STRUCTURES, null),
+                text(root, "routeRegion"),
+                stringList(root.get("routeCities")),
+                enumValue(root, "transportMode", TRANSPORT_MODES, null),
+                enumValue(root, "rentalIntent", RENTAL_INTENTS, null),
+                rentalRequirement(root.get("rentalRequirement")),
                 integer(root, "days"),
                 integer(root, "budget"),
-                text(root, "budgetType"),
+                enumValue(root, "budgetType", BUDGET_TYPES, null),
                 integer(root, "peopleCount"),
                 stringList(root.get("preferences")),
                 enumValue(root, "pace", PACES, null),
                 stringList(root.get("avoidances")),
                 text(root, "travelDate"));
-    }
-
-    public List<DestinationSuggestionDTO> recommendDestinations(
-            String cleanInput, TravelRequirementDTO requirement) {
-        String json =
-                callJsonArray(
-                        """
-                        你是旅行规划系统的目的地推荐节点。
-                        请基于用户输入和已抽取需求，推荐 3 个中国境内旅行目的地。
-                        只返回 JSON 数组，不要 Markdown，不要解释。
-
-                        每个元素格式：
-                        {
-                          "name": string,
-                          "reason": string,
-                          "tags": string[],
-                          "recommendedDays": number
-                        }
-
-                        用户输入：
-                        %s
-
-                        已抽取需求：
-                        %s
-                        """
-                                .formatted(cleanInput, toJson(requirement)));
-        JsonNode root = readTree(json);
-        List<DestinationSuggestionDTO> result = new ArrayList<>();
-        if (!root.isArray()) {
-            throw new BusinessException(ErrorCode.AI_RESPONSE_FORMAT_ERROR, "目的地推荐结果不是 JSON 数组");
-        }
-        for (JsonNode item : root) {
-            String name = text(item, "name");
-            if (!hasText(name)) {
-                continue;
-            }
-            result.add(
-                    new DestinationSuggestionDTO(
-                            name,
-                            firstNonBlank(text(item, "reason"), "符合当前旅行偏好。"),
-                            stringList(item.get("tags")),
-                            integer(item, "recommendedDays")));
-        }
-        return result;
-    }
-
-    private String callJsonObject(String prompt) {
-        return extractJson(call(prompt), '{', '}');
-    }
-
-    private String callJsonArray(String prompt) {
-        return extractJson(call(prompt), '[', ']');
-    }
-
-    private String call(String prompt) {
-        try {
-            return chatModel.call(new Prompt(prompt)).getResult().getOutput().getText();
-        } catch (Exception ex) {
-            log.warn("Analyze LLM 调用失败", ex);
-            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, "AI 分析服务调用失败");
-        }
-    }
-
-    private String extractJson(String content, char startChar, char endChar) {
-        if (!hasText(content)) {
-            throw new BusinessException(ErrorCode.AI_RESPONSE_FORMAT_ERROR, "AI 返回为空");
-        }
-        int start = content.indexOf(startChar);
-        int end = content.lastIndexOf(endChar);
-        if (start < 0 || end <= start) {
-            throw new BusinessException(ErrorCode.AI_RESPONSE_FORMAT_ERROR, "AI 未返回合法 JSON");
-        }
-        return content.substring(start, end + 1);
     }
 
     private JsonNode readTree(String json) {
@@ -163,18 +121,10 @@ public class AnalyzeLlmClient {
         }
     }
 
-    private String toJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.AI_RESPONSE_FORMAT_ERROR, "需求上下文序列化失败");
-        }
-    }
-
     private String enumValue(
             JsonNode root, String field, Set<String> allowed, String defaultValue) {
         String value = text(root, field);
-        return allowed.contains(value) ? value : defaultValue;
+        return value != null && allowed.contains(value) ? value : defaultValue;
     }
 
     private Integer integer(JsonNode root, String field) {
@@ -222,6 +172,45 @@ public class AnalyzeLlmClient {
             case "十" -> 10;
             default -> null;
         };
+    }
+
+    private Boolean bool(JsonNode root, String field) {
+        JsonNode node = root == null ? null : root.get(field);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isBoolean()) {
+            return node.asBoolean();
+        }
+        String value = node.asText();
+        if (!hasText(value)) {
+            return null;
+        }
+        return switch (value.trim().toLowerCase()) {
+            case "true", "yes", "y", "1", "需要", "是" -> Boolean.TRUE;
+            case "false", "no", "n", "0", "不需要", "否" -> Boolean.FALSE;
+            default -> null;
+        };
+    }
+
+    private RentalRequirementDTO rentalRequirement(JsonNode node) {
+        if (node == null || node.isNull() || !node.isObject()) {
+            return null;
+        }
+        return new RentalRequirementDTO(
+                bool(node, "needRental"),
+                text(node, "rentalStartCity"),
+                text(node, "rentalEndCity"),
+                text(node, "pickupMode"),
+                text(node, "returnMode"),
+                text(node, "pickupCity"),
+                text(node, "returnCity"),
+                text(node, "vehiclePreference"),
+                integer(node, "rentalDays"),
+                bool(node, "deliveryRequired"),
+                text(node, "deliveryAddress"),
+                text(node, "returnAddress"),
+                bool(node, "isOneWay"));
     }
 
     private String text(JsonNode root, String field) {

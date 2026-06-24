@@ -1,6 +1,7 @@
 package com.sora.aitravel.workflow.analyze;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.request.TripAnalyzeRequest;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -19,33 +20,111 @@ public class RequirementStandardizeNode {
             return;
         }
 
+        TripAnalyzeRequest request = context.getRequest();
+        TravelRequirementDTO formInput = request.getFormInput();
+        TravelRequirementDTO confirmed = request.getRequirement();
+
+        String departure =
+                firstNonBlank(
+                        value(formInput, TravelRequirementDTO::getDeparture),
+                        value(confirmed, TravelRequirementDTO::getDeparture),
+                        extracted.getDeparture());
         String destination =
                 firstNonBlank(
-                        context.getRequest().getSelectedDestination(), extracted.getDestination());
-        List<String> routeCities = cleanList(extracted.getRouteCities());
+                        request.getSelectedDestination(),
+                        value(formInput, TravelRequirementDTO::getDestination),
+                        value(confirmed, TravelRequirementDTO::getDestination),
+                        extracted.getDestination());
+        String routeMode =
+                normalizeRouteMode(
+                        firstNonBlank(
+                                value(formInput, TravelRequirementDTO::getRouteMode),
+                                value(confirmed, TravelRequirementDTO::getRouteMode),
+                                extracted.getRouteMode()));
+        String transportMode =
+                normalizeTransportMode(
+                        firstNonBlank(
+                                value(formInput, TravelRequirementDTO::getTransportMode),
+                                value(confirmed, TravelRequirementDTO::getTransportMode),
+                                extracted.getTransportMode()));
+        String rentalIntent =
+                normalizeRentalIntent(
+                        firstNonBlank(
+                                value(formInput, TravelRequirementDTO::getRentalIntent),
+                                value(confirmed, TravelRequirementDTO::getRentalIntent),
+                                extracted.getRentalIntent()));
+        Integer days =
+                firstNonNull(
+                        value(formInput, TravelRequirementDTO::getDays),
+                        value(confirmed, TravelRequirementDTO::getDays),
+                        extracted.getDays());
+        Integer peopleCount =
+                firstNonNull(
+                        value(formInput, TravelRequirementDTO::getPeopleCount),
+                        value(confirmed, TravelRequirementDTO::getPeopleCount),
+                        extracted.getPeopleCount(),
+                        1);
+
+        List<String> routeCities =
+                firstNonEmpty(
+                        cleanList(value(formInput, TravelRequirementDTO::getRouteCities)),
+                        cleanList(value(confirmed, TravelRequirementDTO::getRouteCities)),
+                        cleanList(extracted.getRouteCities()));
         if (routeCities.isEmpty() && hasText(destination)) {
             routeCities = List.of(destination);
         }
 
         TravelRequirementDTO standardized =
                 new TravelRequirementDTO(
-                        cleanText(extracted.getDeparture()),
+                        cleanText(departure),
                         cleanText(destination),
-                        defaultText(extracted.getRouteMode(), "DESTINATION_CITY_TRIP"),
-                        defaultText(extracted.getRouteStructure(), "SINGLE_CITY"),
-                        cleanText(extracted.getRouteRegion()),
+                        firstNonBlank(routeMode, "DESTINATION_CITY_TRIP"),
+                        normalizeRouteStructure(
+                                firstNonBlank(
+                                        value(formInput, TravelRequirementDTO::getRouteStructure),
+                                        value(confirmed, TravelRequirementDTO::getRouteStructure),
+                                        extracted.getRouteStructure())),
+                        cleanText(
+                                firstNonBlank(
+                                        value(formInput, TravelRequirementDTO::getRouteRegion),
+                                        value(confirmed, TravelRequirementDTO::getRouteRegion),
+                                        extracted.getRouteRegion())),
                         routeCities,
-                        defaultText(extracted.getTransportMode(), "PUBLIC_TRANSIT"),
-                        "NO_RENTAL",
-                        null,
-                        extracted.getDays(),
-                        extracted.getBudget(),
-                        normalizeBudgetType(extracted.getBudgetType()),
-                        extracted.getPeopleCount() == null ? 1 : extracted.getPeopleCount(),
-                        cleanList(extracted.getPreferences()),
-                        normalizePace(extracted.getPace()),
-                        cleanList(extracted.getAvoidances()),
-                        cleanText(extracted.getTravelDate()));
+                        transportMode,
+                        rentalIntent,
+                        firstNonNull(
+                                value(formInput, TravelRequirementDTO::getRentalRequirement),
+                                value(confirmed, TravelRequirementDTO::getRentalRequirement),
+                                extracted.getRentalRequirement()),
+                        days,
+                        firstNonNull(
+                                value(formInput, TravelRequirementDTO::getBudget),
+                                value(confirmed, TravelRequirementDTO::getBudget),
+                                extracted.getBudget()),
+                        normalizeBudgetType(
+                                firstNonBlank(
+                                        value(formInput, TravelRequirementDTO::getBudgetType),
+                                        value(confirmed, TravelRequirementDTO::getBudgetType),
+                                        extracted.getBudgetType())),
+                        peopleCount,
+                        firstNonEmpty(
+                                cleanList(value(formInput, TravelRequirementDTO::getPreferences)),
+                                cleanList(value(confirmed, TravelRequirementDTO::getPreferences)),
+                                cleanList(extracted.getPreferences())),
+                        normalizePace(
+                                firstNonBlank(
+                                        value(formInput, TravelRequirementDTO::getPace),
+                                        value(confirmed, TravelRequirementDTO::getPace),
+                                        extracted.getPace())),
+                        firstNonEmpty(
+                                cleanList(value(formInput, TravelRequirementDTO::getAvoidances)),
+                                cleanList(value(confirmed, TravelRequirementDTO::getAvoidances)),
+                                cleanList(extracted.getAvoidances())),
+                        cleanText(
+                                firstNonBlank(
+                                        value(formInput, TravelRequirementDTO::getTravelDate),
+                                        value(confirmed, TravelRequirementDTO::getTravelDate),
+                                        extracted.getTravelDate())));
 
         context.setExtractedRequirement(standardized);
         log.info("节点[requirement-standardize]：已用规则标准化 Analyze 抽取结果。");
@@ -84,6 +163,56 @@ public class RequirementStandardizeNode {
         };
     }
 
+    private String normalizeRouteMode(String value) {
+        String text = cleanText(value);
+        if (text == null) {
+            return null;
+        }
+        String upper = text.toUpperCase(Locale.ROOT);
+        return switch (upper) {
+            case "DESTINATION_CITY_TRIP", "ROAD_TRIP", "LANDING_RENTAL_TRIP", "REGION_ROUTE" ->
+                    upper;
+            default -> null;
+        };
+    }
+
+    private String normalizeRouteStructure(String value) {
+        String text = cleanText(value);
+        if (text == null) {
+            return "SINGLE_CITY";
+        }
+        String upper = text.toUpperCase(Locale.ROOT);
+        return switch (upper) {
+            case "SINGLE_CITY", "MULTI_CITY", "LOOP", "ONE_WAY" -> upper;
+            default -> "SINGLE_CITY";
+        };
+    }
+
+    private String normalizeTransportMode(String value) {
+        String text = cleanText(value);
+        if (text == null) {
+            return null;
+        }
+        String upper = text.toUpperCase(Locale.ROOT);
+        return switch (upper) {
+            case "PUBLIC_TRANSIT", "SELF_DRIVE", "RENTAL_CAR", "MIXED" -> upper;
+            default -> null;
+        };
+    }
+
+    private String normalizeRentalIntent(String value) {
+        String text = cleanText(value);
+        if (text == null) {
+            return null;
+        }
+        String upper = text.toUpperCase(Locale.ROOT);
+        return switch (upper) {
+            case "NO_RENTAL", "USER_REQUIRED", "CONSIDERING" -> upper;
+            case "NEED_RENTAL", "REQUIRED" -> "USER_REQUIRED";
+            default -> null;
+        };
+    }
+
     private List<String> cleanList(List<String> values) {
         if (values == null) {
             return List.of();
@@ -91,13 +220,38 @@ public class RequirementStandardizeNode {
         return values.stream().map(this::cleanText).filter(Objects::nonNull).distinct().toList();
     }
 
-    private String defaultText(String value, String defaultValue) {
-        String text = cleanText(value);
-        return text == null ? defaultValue : text;
+    @SafeVarargs
+    private <T> T firstNonNull(T... values) {
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
-    private String firstNonBlank(String first, String second) {
-        return hasText(first) ? first.trim() : cleanText(second);
+    @SafeVarargs
+    private final List<String> firstNonEmpty(List<String>... values) {
+        for (List<String> value : values) {
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
+        }
+        return List.of();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            String text = cleanText(value);
+            if (text != null) {
+                return text;
+            }
+        }
+        return null;
+    }
+
+    private <T> T value(TravelRequirementDTO requirement, FieldReader<T> reader) {
+        return requirement == null ? null : reader.read(requirement);
     }
 
     private String cleanText(String value) {
@@ -110,5 +264,10 @@ public class RequirementStandardizeNode {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    @FunctionalInterface
+    private interface FieldReader<T> {
+        T read(TravelRequirementDTO requirement);
     }
 }

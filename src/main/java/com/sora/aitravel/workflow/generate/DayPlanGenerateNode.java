@@ -15,7 +15,7 @@ public class DayPlanGenerateNode {
         List<TripPlanDTO.DailyPlan> dailyPlans = new ArrayList<>();
         for (DayDataPackage dataPackage : context.getRankedDayDataPackages()) {
             DayContext dayContext = findDayContext(context, dataPackage.getDay());
-            // TODO 调用 ChatModel：输入 requirement、dayContext、候选 POI、交通路线，只允许使用候选数据。
+            // TODO 通过 ChatClient 输入 requirement、dayContext、候选 POI、交通路线，只允许使用候选数据。
             log.info(
                     "节点[day-plan-generate]：TODO 调用 AI 基于真实候选生成第 {} 天行程，scenic={}, food={}, routes={}",
                     dataPackage.getDay(),

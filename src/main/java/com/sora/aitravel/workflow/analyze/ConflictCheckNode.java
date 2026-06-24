@@ -26,9 +26,12 @@ public class ConflictCheckNode {
         }
 
         checkDays(requirement, conflicts);
+        checkPeopleCount(requirement, conflicts);
         checkBudget(requirement, conflicts);
         checkPace(requirement, conflicts);
         checkTravelDate(requirement, conflicts);
+        checkRoute(requirement, conflicts);
+        checkRental(requirement, conflicts);
 
         context.setConflicts(conflicts);
         context.setStatus(
@@ -72,6 +75,22 @@ public class ConflictCheckNode {
         }
     }
 
+    private void checkPeopleCount(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
+        Integer peopleCount = requirement.getPeopleCount();
+        if (peopleCount == null) {
+            return;
+        }
+        if (peopleCount < 1) {
+            conflicts.add(new ConflictDTO("PEOPLE_COUNT_INVALID", "出行人数不能小于 1。", "请确认实际出行人数。"));
+        } else if (peopleCount > 20) {
+            conflicts.add(
+                    new ConflictDTO(
+                            "PEOPLE_COUNT_TOO_LARGE",
+                            "当前需求人数较多，普通自由行规划可能无法覆盖团队接待细节。",
+                            "建议拆分小组，或补充团队出行的车辆、住宿和集合要求。"));
+        }
+    }
+
     private void checkPace(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
         if (!"LIGHT".equals(requirement.getPace())
                 || requirement.getPreferences() == null
@@ -104,5 +123,55 @@ public class ConflictCheckNode {
                     new ConflictDTO(
                             "TRAVEL_DATE_INVALID", "出行日期格式无法识别。", "请使用 yyyy-MM-dd 格式补充出行日期。"));
         }
+    }
+
+    private void checkRoute(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
+        List<String> routeCities = requirement.getRouteCities();
+        if ("SINGLE_CITY".equals(requirement.getRouteStructure())
+                && routeCities != null
+                && routeCities.size() > 1) {
+            conflicts.add(
+                    new ConflictDTO(
+                            "ROUTE_STRUCTURE_CONFLICT",
+                            "路线结构是单城市，但途经城市包含多个城市。",
+                            "请确认是只玩目标城市，还是改成多城市路线。"));
+        }
+        if ("ROAD_TRIP".equals(requirement.getRouteMode())
+                && routeCities != null
+                && routeCities.isEmpty()
+                && isBlank(requirement.getRouteRegion())
+                && isBlank(requirement.getDestination())) {
+            conflicts.add(
+                    new ConflictDTO(
+                            "ROAD_TRIP_TARGET_MISSING",
+                            "自驾路线缺少目标城市、途经城市或路线区域。",
+                            "请至少补充一个目标城市或自驾区域。"));
+        }
+    }
+
+    private void checkRental(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
+        boolean rentalRequired =
+                "USER_REQUIRED".equals(requirement.getRentalIntent())
+                        || (requirement.getRentalRequirement() != null
+                                && Boolean.TRUE.equals(
+                                        requirement.getRentalRequirement().getNeedRental()));
+        if (rentalRequired && "PUBLIC_TRANSIT".equals(requirement.getTransportMode())) {
+            conflicts.add(
+                    new ConflictDTO(
+                            "RENTAL_TRANSPORT_CONFLICT",
+                            "用户选择了租车，但交通方式仍是公共交通。",
+                            "请确认本次是租车自驾，还是公共交通出行。"));
+        }
+        if (requirement.getRentalRequirement() != null
+                && requirement.getRentalRequirement().getRentalDays() != null
+                && requirement.getDays() != null
+                && requirement.getRentalRequirement().getRentalDays() > requirement.getDays()) {
+            conflicts.add(
+                    new ConflictDTO("RENTAL_DAYS_CONFLICT", "租车天数大于旅行总天数。", "请调整租车天数，或确认旅行总天数。"));
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

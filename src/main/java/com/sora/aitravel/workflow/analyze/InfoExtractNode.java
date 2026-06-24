@@ -13,7 +13,7 @@ public class InfoExtractNode {
     private final AnalyzeLlmClient llmClient;
 
     public void execute(AnalyzeWorkflowContext context) {
-        log.info("节点[info-extract]：调用真实 ChatModel 抽取结构化旅行需求。");
+        log.info("节点[info-extract]：通过 ChatClient 抽取结构化旅行需求。");
         context.setExtractedRequirement(
                 llmClient.extractRequirement(
                         context.getCleanInput(), context.getRequest().getSelectedDestination()));

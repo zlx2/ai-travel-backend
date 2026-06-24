@@ -2,6 +2,8 @@ package com.sora.aitravel.controller;
 
 import com.sora.aitravel.common.result.*;
 import com.sora.aitravel.dto.response.HomeResponse;
+import com.sora.aitravel.service.HomeService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -15,7 +17,10 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/home")
+@RequiredArgsConstructor
 public class HomeController {
+    private final HomeService homeService;
+
     /**
      * 获取首页数据（公开接口）。
      *
@@ -25,6 +30,6 @@ public class HomeController {
      */
     @GetMapping
     public R<HomeResponse> home() {
-        return ScaffoldResponses.notImplemented();
+        return R.ok(homeService.aggregate());
     }
 }

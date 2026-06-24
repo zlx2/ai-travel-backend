@@ -43,9 +43,25 @@ public class InputPreprocessNode {
         }
         append(input, prefix("表单出发地", requirement.getDeparture()));
         append(input, prefix("表单目的地", requirement.getDestination()));
+        append(input, prefix("表单路线模式", requirement.getRouteMode()));
+        append(input, prefix("表单路线结构", requirement.getRouteStructure()));
         append(input, prefix("表单路线区域", requirement.getRouteRegion()));
         if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
             append(input, "表单途经城市：" + String.join("、", requirement.getRouteCities()));
+        }
+        append(input, prefix("表单交通方式", requirement.getTransportMode()));
+        append(input, prefix("表单租车意图", requirement.getRentalIntent()));
+        if (requirement.getRentalRequirement() != null) {
+            append(
+                    input,
+                    requirement.getRentalRequirement().getNeedRental() == null
+                            ? null
+                            : "表单是否租车：" + requirement.getRentalRequirement().getNeedRental());
+            append(input, prefix("表单取车城市", requirement.getRentalRequirement().getPickupCity()));
+            append(input, prefix("表单还车城市", requirement.getRentalRequirement().getReturnCity()));
+            append(
+                    input,
+                    prefix("表单车型偏好", requirement.getRentalRequirement().getVehiclePreference()));
         }
         append(input, requirement.getDays() == null ? null : "表单天数：" + requirement.getDays());
         append(input, requirement.getBudget() == null ? null : "表单预算：" + requirement.getBudget());

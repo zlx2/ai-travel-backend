@@ -27,6 +27,9 @@ public class CompletenessCheckNode {
         if (isBlank(requirement.getDeparture())) {
             questions.add(new QuestionDTO("departure", "你准备从哪个城市出发？", true));
         }
+        if (isBlank(requirement.getDestination())) {
+            questions.add(new QuestionDTO("destination", "你这次想去哪个目标城市？", true));
+        }
         if (requirement.getDays() == null) {
             questions.add(new QuestionDTO("days", "这次旅行大概安排几天？", true));
         }
@@ -35,21 +38,6 @@ public class CompletenessCheckNode {
             context.setQuestions(questions);
             context.setStatus(AnalyzeStatusEnum.NEED_MORE_INFO.name());
             log.info("节点[completeness-check]：缺少关键信息，进入追问分支，missing={}", questions);
-            return;
-        }
-
-        if (isBlank(requirement.getDestination())) {
-            boolean hasPreference =
-                    requirement.getPreferences() != null && !requirement.getPreferences().isEmpty();
-            if (hasPreference) {
-                context.setStatus(AnalyzeStatusEnum.NEED_DESTINATION_CHOICE.name());
-                log.info("节点[completeness-check]：缺少目的地但已有偏好，进入目的地推荐分支。");
-            } else {
-                context.setQuestions(
-                        List.of(new QuestionDTO("destination", "这次有没有明确想去的城市或区域？", true)));
-                context.setStatus(AnalyzeStatusEnum.NEED_MORE_INFO.name());
-                log.info("节点[completeness-check]：缺少目的地和偏好，进入追问分支。");
-            }
             return;
         }
 

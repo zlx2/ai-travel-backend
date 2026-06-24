@@ -35,7 +35,6 @@ public class TripAnalyzeWorkflow {
     private final InfoExtractNode infoExtractNode;
     private final RequirementStandardizeNode requirementStandardizeNode;
     private final CompletenessCheckNode completenessCheckNode;
-    private final DestinationSuggestNode destinationSuggestNode;
     private final ConflictCheckNode conflictCheckNode;
     private final AnalyzeResultMergeNode resultMergeNode;
 
@@ -50,7 +49,6 @@ public class TripAnalyzeWorkflow {
                         infoExtractNode,
                         requirementStandardizeNode,
                         completenessCheckNode,
-                        destinationSuggestNode,
                         conflictCheckNode,
                         resultMergeNode);
     }
@@ -65,7 +63,6 @@ public class TripAnalyzeWorkflow {
             InfoExtractNode infoExtractNode,
             RequirementStandardizeNode requirementStandardizeNode,
             CompletenessCheckNode completenessCheckNode,
-            DestinationSuggestNode destinationSuggestNode,
             ConflictCheckNode conflictCheckNode,
             AnalyzeResultMergeNode resultMergeNode) {
         try {
@@ -90,7 +87,6 @@ public class TripAnalyzeWorkflow {
             graph.addNode("info-extract", node(infoExtractNode::execute));
             graph.addNode("requirement-standardize", node(requirementStandardizeNode::execute));
             graph.addNode("completeness-check", node(completenessCheckNode::execute));
-            graph.addNode("destination-suggest", node(destinationSuggestNode::execute));
             graph.addNode("conflict-check", node(conflictCheckNode::execute));
             graph.addNode("result-merge", node(resultMergeNode::execute));
 
@@ -102,18 +98,8 @@ public class TripAnalyzeWorkflow {
             graph.addConditionalEdges(
                     "completeness-check",
                     AsyncEdgeAction.edge_async(state -> state.value(STATUS, "NEED_MORE_INFO")),
-                    Map.of(
-                            "NEED_MORE_INFO",
-                            "result-merge",
-                            "NEED_DESTINATION_CHOICE",
-                            "destination-suggest",
-                            "READY",
-                            "conflict-check"));
-            graph.addEdge("destination-suggest", "result-merge");
-            graph.addConditionalEdges(
-                    "conflict-check",
-                    AsyncEdgeAction.edge_async(state -> state.value(STATUS, "READY")),
-                    Map.of("READY", "result-merge", "CONFLICT", "result-merge"));
+                    Map.of("NEED_MORE_INFO", "result-merge", "READY", "conflict-check"));
+            graph.addEdge("conflict-check", "result-merge");
             graph.addEdge("result-merge", StateGraph.END);
             return graph.compile();
         } catch (GraphStateException ex) {
