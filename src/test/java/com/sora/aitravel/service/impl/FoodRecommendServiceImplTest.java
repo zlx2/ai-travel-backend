@@ -2,6 +2,7 @@ package com.sora.aitravel.service.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
+import com.sora.aitravel.client.amap.AmapFoodClient;
 import com.sora.aitravel.common.enums.FoodSearchIntentTypeEnum;
 import com.sora.aitravel.config.AmapProperties;
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
@@ -35,7 +36,8 @@ class FoodRecommendServiceImplTest {
     /** 每个测试开始前创建一个新的实现类对象，避免不同测试之间互相影响。 */
     @BeforeEach
     void setUp() {
-        service = new FoodRecommendServiceImpl(new AmapProperties());
+        AmapFoodClient amapFoodClient = new AmapFoodClient(new AmapProperties());
+        service = new FoodRecommendServiceImpl(amapFoodClient);
     }
 
     /** 测试“重庆附近火锅”不能被误认为“重庆这个具体地点附近”。 */

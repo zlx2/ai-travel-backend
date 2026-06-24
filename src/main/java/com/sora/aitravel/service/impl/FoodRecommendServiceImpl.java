@@ -1,12 +1,9 @@
 package com.sora.aitravel.service.impl;
 
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
+import com.sora.aitravel.client.amap.AmapFoodClient;
 import com.sora.aitravel.common.enums.FoodSearchIntentTypeEnum;
-import com.sora.aitravel.config.AmapProperties;
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;
 import com.sora.aitravel.service.FoodRecommendService;
@@ -30,12 +27,6 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
     // ==================== 常量区 ====================
 
-    /** 高德餐饮服务大类编码。050000 表示餐饮服务。 */
-    private static final String AMAP_FOOD_TYPE = "050000";
-
-    /** 请求 business 扩展字段，里面可能包含评分、人均、标签、营业时间等信息。 */
-    private static final String AMAP_BUSINESS_FIELDS = "business";
-
     /** 默认搜索半径，单位：米。 */
     private static final int DEFAULT_RADIUS = 1500;
 
@@ -56,8 +47,8 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
     // ==================== 依赖注入区 ====================
 
-    /** 高德配置，读取 app.amap.api-key/base-url/timeout。 */
-    private final AmapProperties amapProperties;
+    /** 美食模块专用高德客户端。 */
+    private final AmapFoodClient amapFoodClient;
 
     // ==================== recommend 主入口 ====================
 
@@ -67,7 +58,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         if (!StringUtils.hasText(query)) {
             return FoodRecommendResponse.fail("请输入想查询的美食内容");
         }
-        if (missingAmapApiKey()) {
+        if (amapFoodClient.missingApiKey()) {
             return FoodRecommendResponse.fail("高德 API Key 未配置，请先设置 AMAP_API_KEY");
         }
 
@@ -286,7 +277,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                         "请先允许获取当前位置，或输入具体地点，例如：洪崖洞附近火锅");
             }
             JSONObject amapResponse =
-                    searchAround(
+                    amapFoodClient.searchAround(
                             currentLocation,
                             intent.keywords(),
                             intent.city(),
@@ -300,9 +291,10 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             if (!StringUtils.hasText(intent.address())) {
                 throw new IllegalArgumentException("请补充具体地点，例如：洪崖洞附近火锅");
             }
-            String centerLocation = geocodeToLocation(intent.address(), intent.city());
+            String centerLocation =
+                    amapFoodClient.geocodeToLocation(intent.address(), intent.city());
             JSONObject amapResponse =
-                    searchAround(
+                    amapFoodClient.searchAround(
                             centerLocation,
                             intent.keywords(),
                             intent.city(),
@@ -317,114 +309,12 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 throw new IllegalArgumentException("请补充城市和美食关键词，例如：重庆火锅");
             }
             JSONObject amapResponse =
-                    searchText(intent.city(), intent.keywords(), pageSize, pageNum);
+                    amapFoodClient.searchText(
+                            intent.city(), intent.keywords(), pageSize, pageNum);
             return new SearchResult("TEXT", null, "搜索地点", amapResponse);
         }
 
         throw new IllegalArgumentException("暂不支持该美食查询意图");
-    }
-
-    /** 调用高德周边搜索：用于当前位置附近、景点附近这两类查询。 */
-    private JSONObject searchAround(
-            String location,
-            String keywords,
-            String region,
-            Integer radius,
-            Integer pageSize,
-            Integer pageNum) {
-        HttpRequest request =
-                amapGet("/v5/place/around")
-                        .form("location", location)
-                        .form("types", AMAP_FOOD_TYPE)
-                        .form("radius", radius)
-                        .form("sortrule", "distance")
-                        .form("show_fields", AMAP_BUSINESS_FIELDS)
-                        .form("page_size", pageSize)
-                        .form("page_num", pageNum);
-        if (StringUtils.hasText(keywords)) {
-            request.form("keywords", keywords);
-        }
-        if (StringUtils.hasText(region)) {
-            request.form("region", region).form("city_limit", "true");
-        }
-        return executeJson(request);
-    }
-
-    /** 调用高德关键字搜索：用于“重庆火锅推荐”这类城市美食查询。 */
-    private JSONObject searchText(
-            String city, String keywords, Integer pageSize, Integer pageNum) {
-        return executeJson(
-                amapGet("/v5/place/text")
-                        .form("keywords", keywords)
-                        .form("region", city)
-                        .form("city_limit", "true")
-                        .form("types", AMAP_FOOD_TYPE)
-                        .form("show_fields", AMAP_BUSINESS_FIELDS)
-                        .form("page_size", pageSize)
-                        .form("page_num", pageNum));
-    }
-
-    /** 调用高德地理编码，把文字地点转成经纬度。 */
-    private String geocodeToLocation(String address, String city) {
-        JSONObject json = geocode(address, city);
-        if (!isAmapSuccess(json)) {
-            throw new IllegalStateException("地理编码失败：" + text(json, "info"));
-        }
-        JSONArray geocodes = json.getJSONArray("geocodes");
-        if (geocodes == null || geocodes.isEmpty()) {
-            throw new IllegalStateException("未解析到地点坐标");
-        }
-        String location = text(geocodes.getJSONObject(0), "location");
-        if (!StringUtils.hasText(location)) {
-            throw new IllegalStateException("地点坐标为空");
-        }
-        return location;
-    }
-
-    /** 调用高德地理编码接口。 */
-    private JSONObject geocode(String address, String city) {
-        HttpRequest request = amapGet("/v3/geocode/geo").form("address", address);
-        if (StringUtils.hasText(city)) {
-            request.form("city", city);
-        }
-        return executeJson(request);
-    }
-
-    /** 构造高德 GET 请求，统一拼接 baseUrl、key 和 timeout。 */
-    private HttpRequest amapGet(String path) {
-        String baseUrl = amapProperties.getBaseUrl();
-        if (!StringUtils.hasText(baseUrl)) {
-            baseUrl = "https://restapi.amap.com";
-        }
-        if (baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-        }
-        int timeoutMillis =
-                amapProperties.getTimeout() == null
-                        ? 10000
-                        : Math.toIntExact(amapProperties.getTimeout().toMillis());
-        return HttpRequest.get(baseUrl + path)
-                .timeout(timeoutMillis)
-                .form("key", amapProperties.getApiKey());
-    }
-
-    /** 执行 HTTP 请求，并把响应体解析成 Hutool JSONObject。 */
-    private JSONObject executeJson(HttpRequest request) {
-        try (HttpResponse response = request.execute()) {
-            return JSONUtil.parseObj(response.body());
-        }
-    }
-
-    /** 判断高德接口是否成功。status=1 且 infocode=10000 表示成功。 */
-    private boolean isAmapSuccess(JSONObject json) {
-        return json != null
-                && "1".equals(text(json, "status"))
-                && "10000".equals(text(json, "infocode"));
-    }
-
-    /** 判断是否缺少高德 Key。 */
-    private boolean missingAmapApiKey() {
-        return amapProperties.getApiKey() == null || amapProperties.getApiKey().isBlank();
     }
 
     // ==================== 响应构建区 ====================
@@ -433,7 +323,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     private FoodRecommendResponse buildResponse(
             FoodSearchIntent intent, SearchResult searchResult) {
         JSONObject amapResponse = searchResult.amapResponse();
-        if (!isAmapSuccess(amapResponse)) {
+        if (!amapFoodClient.isAmapSuccess(amapResponse)) {
             return FoodRecommendResponse.fail("高德 API 调用失败：" + text(amapResponse, "info"));
         }
 
