@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 标注样式
+ * 地图标记点（内置图标 / 自定义图标二选一互斥）
  */
 @Data
 @Builder
@@ -17,56 +17,50 @@ import java.util.List;
 @AllArgsConstructor
 public class Marker {
     /**
-     * 标注大小：small, mid, large
+     * 内置图标大小：small / mid / large，自定义图标时无效，默认small
      */
     @Builder.Default
     private String size = "small";
 
     /**
-     * 标注颜色，格式：0xRRGGBB
+     * 内置图标颜色 0xRRGGBB，自定义图标时无效，默认0xFC6054
      */
     @Builder.Default
     private String color = "0xFC6054";
 
     /**
-     * 标注文字：[0-9]、[A-Z]、单个中文字
+     * 图标上单字符标记（数字/大写字母/单个汉字），自定义图标时无效
      */
     private String label;
 
     /**
-     * 自定义图片URL（使用此参数时，size/color/label无效）
+     * 自定义图标网络URL，赋值后size、color、label全部失效
      */
     private String customIconUrl;
 
     /**
-     * 标注位置列表
+     * 【必填】标记点坐标集合，单个坐标格式：经度,纬度
      */
     @Builder.Default
     private List<String> locations = new ArrayList<>();
 
     /**
-     * 生成markers参数字符串
+     * 自动生成接口请求markers分段字符串，AI无需手动拼接
      */
     public String toParamString() {
         if (locations == null || locations.isEmpty()) {
             return null;
         }
-
         StringBuilder sb = new StringBuilder();
-
         if (customIconUrl != null && !customIconUrl.isEmpty()) {
-            // 自定义图片格式: -1,url,0:location1;location2
             sb.append("-1,").append(customIconUrl).append(",0:");
         } else {
-            // 系统样式格式: size,color,label:location1;location2
-            sb.append(size).append(",");
-            sb.append(color);
+            sb.append(size).append(",").append(color);
             if (label != null && !label.isEmpty()) {
                 sb.append(",").append(label);
             }
             sb.append(":");
         }
-
         sb.append(String.join(";", locations));
         return sb.toString();
     }

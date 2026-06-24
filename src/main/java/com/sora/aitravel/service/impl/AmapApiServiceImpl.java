@@ -9,6 +9,7 @@ import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.sora.aitravel.config.AmapProperties;
 import com.sora.aitravel.dto.model.AmapApiResp;
 import com.sora.aitravel.dto.model.geo.GeoCode;
 import com.sora.aitravel.dto.model.geo.RegeoCode;
@@ -19,7 +20,6 @@ import com.sora.aitravel.dto.model.staticmap.StaticMapResp;
 import com.sora.aitravel.service.AmapApiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -33,31 +33,72 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class AmapApiServiceImpl implements AmapApiService {
-    @Value("${app.amap.base-url}")
-    private static String BASE_URL = "https://restapi.amap.com";
-    @Value("${app.amap.api-key:}")
-    private String apiKey = System.getenv("AMAP_API_KEY");
-    @Value("${app.amap.timeout:10000}")
-    private Duration timeout = Duration.ofSeconds(10);
+    private final AmapProperties amapProperties;
+
+    /**
+     * 获取高德API基础URL
+     */
+    private String getBaseUrl() {
+        String url = amapProperties.getBaseUrl();
+        return StrUtil.isNotBlank(url) ? url : "https://restapi.amap.com";
+    }
+
+    /**
+     * 获取API Key（优先配置文件，其次环境变量）
+     */
+    private String getApiKey() {
+        String key = amapProperties.getApiKey();
+        return StrUtil.isNotBlank(key) ? key : System.getenv("AMAP_API_KEY");
+    }
+
+    /**
+     * 获取请求超时时间
+     */
+    private Duration getTimeout() {
+        Duration timeout = amapProperties.getTimeout();
+        return timeout != null ? timeout : Duration.ofSeconds(10);
+    }
 
 
-    // POI搜索
-    private static final String POI_TEXT_URL = BASE_URL + "/v5/place/text";
-    private static final String POI_AROUND_URL = BASE_URL + "/v5/place/around";
+    private String getPoiTextUrl() {
+        return getBaseUrl() + "/v5/place/text";
+    }
 
-    // 地理编码
-    private static final String GEO_URL = BASE_URL + "/v3/geocode/geo";
-    private static final String REGEO_URL = BASE_URL + "/v3/geocode/regeo";
+    private String getPoiAroundUrl() {
+        return getBaseUrl() + "/v5/place/around";
+    }
 
-    // 路径规划
-    private static final String DRIVING_URL = BASE_URL + "/v5/direction/driving";
-    private static final String WALKING_URL = BASE_URL + "/v5/direction/walking";
-    private static final String BICYCLING_URL = BASE_URL + "/v5/direction/bicycling";
-    private static final String ELECTROBIKE_URL = BASE_URL + "/v5/direction/electrobike";
-    private static final String TRANSIT_URL = BASE_URL + "/v5/direction/transit/integrated";
+    private String getGeoUrl() {
+        return getBaseUrl() + "/v3/geocode/geo";
+    }
 
-    // 静态地图API地址
-    private static final String STATIC_MAP_URL = BASE_URL + "/v3/staticmap";
+    private String getRegeoUrl() {
+        return getBaseUrl() + "/v3/geocode/regeo";
+    }
+
+    private String getDrivingUrl() {
+        return getBaseUrl() + "/v5/direction/driving";
+    }
+
+    private String getWalkingUrl() {
+        return getBaseUrl() + "/v5/direction/walking";
+    }
+
+    private String getBicyclingUrl() {
+        return getBaseUrl() + "/v5/direction/bicycling";
+    }
+
+    private String getElectrobikeUrl() {
+        return getBaseUrl() + "/v5/direction/electrobike";
+    }
+
+    private String getTransitUrl() {
+        return getBaseUrl() + "/v5/direction/transit/integrated";
+    }
+
+    private String getStaticMapUrl() {
+        return getBaseUrl() + "/v3/staticmap";
+    }
 
 
     // ==================== POI搜索 ====================
@@ -74,7 +115,7 @@ public class AmapApiServiceImpl implements AmapApiService {
     public AmapApiResp<List<Poi>> searchPoiText(String keywords, String types,
                                                 String region, Boolean cityLimit) {
         Map<String, Object> params = new HashMap<>();
-        params.put("key", apiKey);
+        params.put("key", getApiKey());
 
         if (StrUtil.isNotBlank(keywords)) {
             params.put("keywords", keywords);
@@ -94,7 +135,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             throw new IllegalArgumentException("keywords和types至少需要提供一个");
         }
 
-        String response = executeGet(POI_TEXT_URL, params);
+        String response = executeGet(getPoiTextUrl(), params);
         return parsePoiResponse(response);
     }
 
@@ -117,7 +158,7 @@ public class AmapApiServiceImpl implements AmapApiService {
     public AmapApiResp<List<Poi>> searchPoiAround(String location, String keywords,
                                                   String types, Integer radius) {
         Map<String, Object> params = new HashMap<>();
-        params.put("key", apiKey);
+        params.put("key", getApiKey());
         params.put("location", location);
 
         if (StrUtil.isNotBlank(keywords)) {
@@ -130,7 +171,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("radius", radius);
         }
 
-        String response = executeGet(POI_AROUND_URL, params);
+        String response = executeGet(getPoiAroundUrl(), params);
         return parsePoiResponse(response);
     }
 
@@ -152,14 +193,14 @@ public class AmapApiServiceImpl implements AmapApiService {
      */
     public AmapApiResp<List<GeoCode>> geoCode(String address, String city) {
         Map<String, Object> params = new HashMap<>();
-        params.put("key", apiKey);
+        params.put("key", getApiKey());
         params.put("address", address);
 
         if (StrUtil.isNotBlank(city)) {
             params.put("city", city);
         }
 
-        String response = executeGet(GEO_URL, params);
+        String response = executeGet(getGeoUrl(), params);
         return parseGeoCodeResponse(response);
     }
 
@@ -180,7 +221,7 @@ public class AmapApiServiceImpl implements AmapApiService {
      */
     public AmapApiResp<RegeoCode> reGeoCode(String location, Integer radius, String extensions) {
         Map<String, Object> params = new HashMap<>();
-        params.put("key", apiKey);
+        params.put("key", getApiKey());
         params.put("location", location);
 
         if (radius != null && radius > 0) {
@@ -190,7 +231,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("extensions", extensions);
         }
 
-        String response = executeGet(REGEO_URL, params);
+        String response = executeGet(getRegeoUrl(), params);
         return parseRegeoCodeResponse(response);
     }
 
@@ -232,7 +273,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("cartype", cartype);
         }
 
-        String response = executeGet(DRIVING_URL, params);
+        String response = executeGet(getDrivingUrl(), params);
         return parseRouteResponse(response);
     }
 
@@ -259,7 +300,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("alternative_route", alternativeRoute);
         }
 
-        String response = executeGet(WALKING_URL, params);
+        String response = executeGet(getWalkingUrl(), params);
         return parseRouteResponse(response);
     }
 
@@ -281,7 +322,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("alternative_route", alternativeRoute);
         }
 
-        String response = executeGet(BICYCLING_URL, params);
+        String response = executeGet(getBicyclingUrl(), params);
         return parseRouteResponse(response);
     }
 
@@ -303,7 +344,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("alternative_route", alternativeRoute);
         }
 
-        String response = executeGet(ELECTROBIKE_URL, params);
+        String response = executeGet(getElectrobikeUrl(), params);
         return parseRouteResponse(response);
     }
 
@@ -337,7 +378,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             params.put("nightflag", nightflag);
         }
 
-        String response = executeGet(TRANSIT_URL, params);
+        String response = executeGet(getTransitUrl(), params);
         return parseRouteResponse(response);
     }
 
@@ -356,7 +397,7 @@ public class AmapApiServiceImpl implements AmapApiService {
      */
     private Map<String, Object> buildRouteParams(String origin, String destination) {
         Map<String, Object> params = new HashMap<>();
-        params.put("key", apiKey);
+        params.put("key", getApiKey());
         params.put("origin", origin);
         params.put("destination", destination);
         return params;
@@ -369,7 +410,7 @@ public class AmapApiServiceImpl implements AmapApiService {
         try {
             // 使用Hutool的HttpRequest
             HttpRequest request = HttpUtil.createGet(url)
-                    .timeout(timeout.toMillisPart())
+                    .timeout(getTimeout().toMillisPart())
                     .form(MapUtil.toCamelCaseMap(params));
 
             try (HttpResponse response = request.execute()) {
@@ -516,12 +557,12 @@ public class AmapApiServiceImpl implements AmapApiService {
     // ===================== 静态地图请求接口 =====================
     public StaticMapResp staticMap(StaticMapRequest request) {
         // 填充key
-        request.setKey(apiKey);
+        request.setKey(getApiKey());
         // 参数校验
         validateStaticMapParam(request);
 
-        HttpRequest httpRequest = HttpRequest.get(STATIC_MAP_URL)
-                .timeout(timeout.toMillisPart());
+        HttpRequest httpRequest = HttpRequest.get(getStaticMapUrl())
+                .timeout(getTimeout().toMillisPart());
 
         // 填充非空参数
         if (StrUtil.isNotBlank(request.getKey())) httpRequest.form("key", request.getKey());
