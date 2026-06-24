@@ -1,93 +1,122 @@
+
+
 # PlanGo 后端
 
-Spring Boot 3.5 + Java 17，包名 `com.sora.aitravel`，接口前缀 `/api`。
-
-## 今日任务（6月24日）
-
-| 任务 | 状态 |
-|------|------|
-| 修复美食模块自定义规则 bug（意图识别不准确） | 进行中 |
-| 把美食推荐接入 travel generate 工作流（替换 MockFoodRecommendNode） | 待做 |
-| 景点工具接入工作流（替换 MockScenicSpotRecommendNode） | 待做 |
-| 联调测试：food 工具测试 + 工作流测试 | 待做 |
-
-<details>
-<summary>昨日完成 & 遇到的问题</summary>
-
-### 昨日完成（6月23日）
-
-| 事项 | 说明 |
-|------|------|
-| 美食推荐模块 | 接入高德餐饮 POI，支持附近美食/地点附近/城市特色美食 |
-| 查询意图识别 | 自定义规则 + LLM 兜底，识别 NEAR_CURRENT / NEAR_ADDRESS / CITY_KEYWORD |
-| 推荐理由生成 | LLM 优先，失败模板兜底，只拼高德真实字段 |
-| 景点工具注册 | ScenicTool 基于高德 POI 返回景点名称列表 |
-| 测试 | FoodToolTest 5 个用例覆盖三种查询场景 + 异常场景 |
-
-### 昨日遇到的问题
-
-| 问题 | 解决方案 |
-|------|----------|
-| 用户输入口语化，全靠 LLM → 慢+贵 | 自定义规则优先，匹配不到才走 LLM |
-| 高德 business 字段不统一 | valueFromBusinessOrPoi 双层取值 + isValidFoodPoi 过滤 |
-| Open-Meteo gzip 压缩 Hutool 解压失败 | Accept-Encoding: identity 禁用压缩 |
-| DeepSeek 日期认知偏差（以为 2025） | 系统提示词注入 LocalDate.now() |
-| 数据库字段初期遗漏（城市/订单等） | 后续补充，租车模块 5 张表已覆盖 |
-
-</details>
+基于 Spring Boot 3.5 + Java 17 的 AI 智能旅游后端服务，提供行程规划、美食推荐、景点查询、租车预订等核心功能。
 
 ## 技术栈
 
-Spring Boot 3.5 / MyBatis-Plus / Sa-Token / Spring AI 1.1.8 / Spring AI Alibaba Agent Framework / DeepSeek / DashScope Embedding / MySQL / Redis / RabbitMQ / 腾讯云 COS
+- **后端框架**：Spring Boot 3.5
+- **持久层**：MyBatis-Plus + MySQL
+- **缓存**：Redis
+- **消息队列**：RabbitMQ
+- **认证**：Sa-Token
+- **AI 能力**：Spring AI 1.1.8 + DeepSeek + DashScope Embedding
+- **文件存储**：腾讯云 COS
 
-## 已实现的 API
-
-| 模块 | 接口 | 状态 |
-|------|------|------|
-| 认证 | 发送邮箱验证码、注册、登录、退出 | 完成 |
-| 用户 | 获取当前用户、修改资料 | 完成 |
-| 行程 | 创建/列表/详情/修改/删除 | 完成 |
-| AI 分析 | POST /api/ai/trips/analyze | 完成（工作流编排） |
-| AI 生成 | POST /api/ai/trips/generate | 完成（工作流编排） |
-| AI 对话 | POST /api/ai/chat | 未实现（返回 501） |
-| 游记 | 列表/创建/详情/修改/删除 | 完成 |
-| 游记互动 | 点赞/收藏/评论 | 完成 |
-| 目的地 | 列表 | 完成 |
-| 标签 | 列表 | 完成 |
-| 文件 | 上传（COS） | 完成 |
-| 连接测试 | POST /api/debug/connect | 完成 |
-
-## AI 工作流
-
-- `analyze`：9 个节点（预处理→提取→完整性检查→冲突检测→目的地推荐→JSON 校验→合并）
-- `generate`：12 个节点（需求验证→Prompt 构建→行程生成→推荐内容→JSON 修复校验→合并）
-- `chat`：6 个节点（框架已搭好，等待实现）
-- `rental`：1 个节点（仅租车服务点解析，无 Controller）
-
-## 租车模块
-
-数据库 `ai_travel` 包含 5 张租车表（rental_vehicle_group / rental_vehicle_model / rental_price_template / rental_pickup_poi / rental_order），已填充真实数据。后端仅实现 `RentalStoreResolveNode`，无 API。Flask 演示页独立展示数据（`/rental/demo`）。
-
-## 代码分层
+## 项目结构
 
 ```
 com.sora.aitravel
-├── controller/     # 15 个 Controller
-├── service/        # 业务接口 + impl
-├── mapper/         # MyBatis-Plus Mapper
-├── entity/         # 18 张表实体
-├── dto/            # request / response / model
+├── controller/      # REST API 控制器
+├── service/         # 业务逻辑接口及实现
+├── mapper/          # MyBatis Plus Mapper
+├── entity/         # 数据库实体
+├── dto/             # 数据传输对象
 ├── workflow/       # AI 工作流编排
-├── prompt/         # Prompt 模板
-├── config/         # Spring 配置
 ├── tools/          # AI Tool 定义
-└── common/         # 枚举 / 异常 / 结果封装
+├── config/         # Spring 配置
+├── client/         # 第三方 API 客户端
+└── common/         # 公共组件（枚举、异常、工具类）
+```
+
+## 核心功能
+
+### API 模块
+
+| 模块 | 说明 |
+|------|------|
+| 认证 | 邮箱验证码、注册、登录、退出 |
+| 用户 | 获取资料、修改资料 |
+| 行程 | 创建、列表、详情、修改、删除 |
+| AI 分析 | 需求分析 + 目的地推荐（工作流） |
+| AI 生成 | 智能行程规划生成（工作流） |
+| 游记 | CRUD + 点赞、收藏、评论 |
+| 目的地 | 列表、热门推荐 |
+| 标签 | 标签管理 |
+| 文件 | 腾讯云 COS 上传 |
+| 租车 | 报价预览、订单创建、支付 |
+
+### AI 工作流
+
+- **analyze**：用户需求分析 → 信息提取 → 完整性检查 → 目的地推荐 → 冲突检测 → 结果合并
+- **generate**：需求验证 → 数据获取 → 逐日规划 → JSON 校验 → 结果合并
+
+### 工具（Tool）
+
+- `FoodTool`：美食推荐（高德餐饮 POI）
+- `ScenicTool`：景点查询
+- `HotelTool`：酒店搜索
+- `WeatherTool`：天气查询
+- `AmapGeoTool`：地理编码/逆地理编码
+- `AmapPoiTool`：POI 搜索
+- `AmapRouteTool`：路线规划
+- `AmapStaticMapTool`：静态地图生成
+- `RentalStoreAiTool`：租车门店解析
+
+## 快速开始
+
+### 环境要求
+
+- Java 17+
+- Maven 3.8+
+- MySQL 8.0+
+- Redis 6.0+
+
+### 配置
+
+1. 复制并配置环境文件：
+   ```bash
+   cp .env.example .env
+   ```
+
+2. 修改 `application.yml` 中的数据库、Redis 等配置
+
+### 编译运行
+
+```bash
+# 编译
+mvn clean package
+
+# 运行
+mvn spring-boot:run
+
+# 或直接运行 jar
+java -jar target/ai-travel-*.jar
+```
+
+### 代码格式化
+
+```bash
+mvn spotless:apply
 ```
 
 ## 数据库
 
-18 张表：admin_operation_log / ai_call_log / ai_conversation / destination / file_resource / note / note_comment / note_favorite / note_like / note_tag / sys_user / tag / trip / rental_vehicle_group / rental_vehicle_model / rental_price_template / rental_pickup_poi / rental_order
+项目使用 18 张数据表，主要包括：
 
-## 环境
+- `sys_user`：用户表
+- `trip`：行程表
+- `note`：游记表
+- `destination`：目的地表
+- `rental_*`：租车相关表（车辆组、车型、价格模板、取车点、订单）
 
-复制 `.env.example` → `.env`。`mvn clean package` 编译，`mvn spotless:apply` 格式化。
+初始化脚本位于 `src/main/resources/sql/`
+
+## 接口前缀
+
+所有 API 接口统一前缀：`/api`
+
+## License
+
+MIT License
