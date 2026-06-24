@@ -29,7 +29,7 @@ public class HotelFetchNode {
      */
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
-        String destination = requirement.destination();
+        String destination = requirement.getDestination();
 
         if (destination == null || destination.isBlank()) {
             log.warn("节点[hotel-fetch]：目的地为空，跳过酒店查询");
@@ -37,9 +37,9 @@ public class HotelFetchNode {
         }
 
         // 计算入住/离店日期
-        String travelDate = requirement.travelDate();
+        String travelDate = requirement.getTravelDate();
         LocalDate checkIn = travelDate != null ? LocalDate.parse(travelDate) : LocalDate.now().plusDays(1);
-        LocalDate checkOut = checkIn.plusDays(requirement.days() != null ? requirement.days() : 3);
+        LocalDate checkOut = checkIn.plusDays(requirement.getDays() != null ? requirement.getDays() : 3);
         String checkInStr = checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE);
         String checkOutStr = checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE);
 

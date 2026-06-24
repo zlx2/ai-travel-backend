@@ -22,7 +22,7 @@ public class WeatherFetchNode {
 
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
-        String destination = requirement.destination();
+        String destination = requirement.getDestination();
 
         if (destination == null || destination.isBlank()) {
             log.warn("节点[weather-fetch]：目的地为空，跳过天气查询");
