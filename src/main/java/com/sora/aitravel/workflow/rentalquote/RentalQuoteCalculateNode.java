@@ -1,17 +1,20 @@
 package com.sora.aitravel.workflow.rentalquote;
 
-import com.sora.aitravel.service.RentalQuoteService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class RentalQuoteCalculateNode {
-    private final RentalQuoteService rentalQuoteService;
+    private final MockRentalQuoteFactory mockRentalQuoteFactory;
 
-    public RentalQuoteCalculateNode(RentalQuoteService rentalQuoteService) {
-        this.rentalQuoteService = rentalQuoteService;
+    public RentalQuoteCalculateNode(MockRentalQuoteFactory mockRentalQuoteFactory) {
+        this.mockRentalQuoteFactory = mockRentalQuoteFactory;
     }
 
     public void execute(RentalQuotePreviewWorkflowContext context) {
-        context.setResult(rentalQuoteService.preview(context.getRequirement()));
+        // TODO 租车业务接入后恢复调用 RentalQuoteService.preview。
+        log.info("节点[rental-quote-calculate]：租车业务未接入，返回模拟报价用于前后端联调。");
+        context.setResult(mockRentalQuoteFactory.preview(context.getRequirement()));
     }
 }

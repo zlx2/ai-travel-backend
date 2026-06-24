@@ -1,8 +1,12 @@
 package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
+import java.util.List;
 import lombok.Data;
 
 /**
@@ -26,6 +30,33 @@ public class GenerateWorkflowContext {
 
     /** 用户提交的行程生成请求，包含出发地、目的地、天数等必填参数。 */
     private TripGenerateRequest request;
+
+    /** 已确认的结构化旅行需求。 */
+    private TravelRequirementDTO requirement;
+
+    /** 行程生成使用的租车报价；租车业务未接入时可由模拟报价补齐。 */
+    private RentalQuoteOptionDTO selectedQuote;
+
+    /** 整体行程骨架，只描述每天主题和区域，不代表最终地点推荐。 */
+    private List<DaySkeleton> daySkeletons;
+
+    /** 城市基础数据池，后续会替换为真实工具查询结果。 */
+    private CityProfile cityProfile;
+
+    /** 每天生成时所需上下文。 */
+    private List<DayContext> dayContexts;
+
+    /** 每天需要调用工具查询的数据计划。 */
+    private List<DayQueryPlan> dayQueryPlans;
+
+    /** 每天通过工具查询并经后端清洗后的候选数据。 */
+    private List<DayDataPackage> rankedDayDataPackages;
+
+    /** 每天行程校验报告。 */
+    private List<DayPlanValidationReport> dayValidationReports;
+
+    /** 已通过校验并锁定的每日行程。 */
+    private List<TripPlanDTO.DailyPlan> lockedDailyPlans;
 
     /** AI 模型返回的原始行程计划 JSON 字符串，由 TripPlanGenerateNode 调用模型后填充。 */
     private String rawModelResponse;

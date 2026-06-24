@@ -2,58 +2,67 @@ package com.sora.aitravel.workflow.generate;
 
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.sora.aitravel.workflow.AlibabaGraphWorkflow;
+
 import java.util.List;
+
 import org.springframework.stereotype.Component;
 
 @Component
 public class TripGenerateWorkflow {
 
     private final CompiledGraph graph;
+    private final GenerateResponseNormalizer responseNormalizer;
 
     public TripGenerateWorkflow(
             RequirementValidateNode requirementValidateNode,
-            TravelModeDecisionNode travelModeDecisionNode,
-            MockScenicSpotRecommendNode mockScenicSpotRecommendNode,
-            MockFoodRecommendNode mockFoodRecommendNode,
-            MockHotelAreaRecommendNode mockHotelAreaRecommendNode,
-            TransportRecommendNode transportRecommendNode,
-            RecommendationPromptBuildNode recommendationPromptBuildNode,
-            TripPlanGenerateNode tripPlanGenerateNode,
-            GenerateJsonValidateNode generateJsonValidateNode,
-            GenerateJsonRepairNode generateJsonRepairNode,
-            GenerateResultMergeNode generateResultMergeNode) {
+            RequirementLoadNode requirementLoadNode,
+            TripSkeletonNode tripSkeletonNode,
+            CityDataProfileNode cityDataProfileNode,
+            DayStateInitNode dayStateInitNode,
+            DayContextBuildNode dayContextBuildNode,
+            DayQueryPlanNode dayQueryPlanNode,
+            DayDataFetchNode dayDataFetchNode,
+            DayDataRankNode dayDataRankNode,
+            DayPlanGenerateNode dayPlanGenerateNode,
+            DayPlanValidateNode dayPlanValidateNode,
+            TripSummaryNode tripSummaryNode,
+            GenerateResultMergeNode generateResultMergeNode,
+            GenerateResponseNormalizer responseNormalizer) {
+        this.responseNormalizer = responseNormalizer;
         this.graph =
-                AlibabaGraphWorkflow.<GenerateWorkflowContext>compile(
+                AlibabaGraphWorkflow.compile(
                         "trip-generate-workflow",
                         List.of(
                                 AlibabaGraphWorkflow.step(
                                         "requirement-validate", requirementValidateNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "travel-mode-decision", travelModeDecisionNode::execute),
+                                        "requirement-load", requirementLoadNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "scenic-spot-recommend",
-                                        mockScenicSpotRecommendNode::execute),
+                                        "trip-skeleton", tripSkeletonNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "food-recommend", mockFoodRecommendNode::execute),
+                                        "city-data-profile", cityDataProfileNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "hotel-area-recommend",
-                                        mockHotelAreaRecommendNode::execute),
+                                        "day-state-init", dayStateInitNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "transport-recommend", transportRecommendNode::execute),
+                                        "day-context-build", dayContextBuildNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "recommendation-prompt-build",
-                                        recommendationPromptBuildNode::execute),
+                                        "day-query-plan", dayQueryPlanNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "trip-plan-generate", tripPlanGenerateNode::execute),
+                                        "day-data-fetch", dayDataFetchNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "json-validate", generateJsonValidateNode::execute),
+                                        "day-data-rank", dayDataRankNode::execute),
                                 AlibabaGraphWorkflow.step(
-                                        "json-repair", generateJsonRepairNode::execute),
+                                        "day-plan-generate", dayPlanGenerateNode::execute),
+                                AlibabaGraphWorkflow.step(
+                                        "day-plan-validate", dayPlanValidateNode::execute),
+                                AlibabaGraphWorkflow.step("trip-summary", tripSummaryNode::execute),
                                 AlibabaGraphWorkflow.step(
                                         "result-merge", generateResultMergeNode::execute)));
     }
 
     public GenerateWorkflowContext execute(GenerateWorkflowContext context) {
-        return AlibabaGraphWorkflow.invoke(graph, context);
+        GenerateWorkflowContext result = AlibabaGraphWorkflow.invoke(graph, context);
+        responseNormalizer.normalize(result);
+        return result;
     }
 }

@@ -1,4 +1,4 @@
-package com.sora.aitravel.test;
+package com.sora.aitravel.workflow;
 
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.StateGraph;
@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Generate 工作流 — 基于 Spring AI Alibaba StateGraph 的正规编排。

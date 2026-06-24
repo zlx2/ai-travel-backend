@@ -1,27 +1,71 @@
 package com.sora.aitravel.workflow.analyze;
 
+import com.sora.aitravel.common.enums.ErrorCode;
+import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.request.TripAnalyzeRequest;
+import java.util.StringJoiner;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * 输入预处理节点。
- *
- * <p>实现 Spring AI Alibaba Graph node 接口，是 {@link TripAnalyzeWorkflow} 工作流的第一个步骤。
- * 负责对用户的原始自然语言输入进行标准化和预处理，如去除多余空格、统一标点符号、 解析常见缩写等，为后续的信息提取节点提供干净的输入数据。
- *
- * <p>在整个工作流中的位置：流程第 1 步（最先执行）。
- *
- * <p>输入：{@link AnalyzeWorkflowContext#request}（用户原始请求）。 输出：将预处理后的数据写回 {@link
- * AnalyzeWorkflowContext#request}（修改原对象或设置规范化字段）。
- */
+/** 合并用户文本、表单、追问回答和已选择目的地。 */
+@Slf4j
 @Component
 public class InputPreprocessNode {
 
-    /**
-     * 执行输入预处理逻辑。
-     *
-     * @param context 工作流上下文，从中读取用户请求并进行规范化处理
-     */
     public void execute(AnalyzeWorkflowContext context) {
-        /* TODO normalize input */
+        TripAnalyzeRequest request = context.getRequest();
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "分析请求不能为空");
+        }
+
+        StringJoiner input = new StringJoiner("；");
+        append(input, request.userInput());
+        appendRequirement(input, request.formInput());
+        appendRequirement(input, request.requirement());
+        if (request.extraAnswers() != null && !request.extraAnswers().isEmpty()) {
+            append(input, "补充回答：" + String.join("；", request.extraAnswers()));
+        }
+        append(input, prefix("用户已选择目的地", request.selectedDestination()));
+
+        String cleanInput = input.toString().replaceAll("\\s+", " ").trim();
+        if (cleanInput.isBlank()) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "请先输入旅行需求");
+        }
+
+        context.setCleanInput(cleanInput);
+        log.info("节点[input-preprocess]：已合并用户文本、表单、追问回答和已选目的地。");
+    }
+
+    private void appendRequirement(StringJoiner input, TravelRequirementDTO requirement) {
+        if (requirement == null) {
+            return;
+        }
+        append(input, prefix("表单出发地", requirement.departure()));
+        append(input, prefix("表单目的地", requirement.destination()));
+        append(input, prefix("表单路线区域", requirement.routeRegion()));
+        if (requirement.routeCities() != null && !requirement.routeCities().isEmpty()) {
+            append(input, "表单途经城市：" + String.join("、", requirement.routeCities()));
+        }
+        append(input, requirement.days() == null ? null : "表单天数：" + requirement.days());
+        append(input, requirement.budget() == null ? null : "表单预算：" + requirement.budget());
+        append(
+                input,
+                requirement.peopleCount() == null ? null : "表单人数：" + requirement.peopleCount());
+        if (requirement.preferences() != null && !requirement.preferences().isEmpty()) {
+            append(input, "表单偏好：" + String.join("、", requirement.preferences()));
+        }
+        append(input, prefix("表单节奏", requirement.pace()));
+        append(input, prefix("表单出行日期", requirement.travelDate()));
+    }
+
+    private void append(StringJoiner input, String value) {
+        if (value != null && !value.isBlank()) {
+            input.add(value.trim());
+        }
+    }
+
+    private String prefix(String label, String value) {
+        return value == null || value.isBlank() ? null : label + "：" + value.trim();
     }
 }

@@ -3,6 +3,7 @@ package com.sora.aitravel.workflow.generate;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
  * <p>输入：{@link GenerateWorkflowContext#request}（行程生成请求，包含 departure/destination/days）。
  * 输出：校验通过则无副作用；校验失败时抛出 {@link com.sora.aitravel.common.exception.BusinessException}。
  */
+@Slf4j
 @Component
 public class RequirementValidateNode {
 
@@ -42,7 +44,8 @@ public class RequirementValidateNode {
                         || "RENTAL_CAR".equals(requirement.transportMode())
                         || "USER_REQUIRED".equals(requirement.rentalIntent());
         if (rentalTrip && context.getRequest().selectedQuote() == null) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "租车行程生成必须传入 selectedQuote");
+            // TODO 租车业务接入后恢复强校验；当前由 RequirementLoadNode 自动补模拟报价。
+            log.info("节点[requirement-validate]：租车需求未传 selectedQuote，将在后续节点补充模拟报价。");
         }
         boolean roadTrip = "ROAD_TRIP".equals(requirement.routeMode());
         if (roadTrip) {
