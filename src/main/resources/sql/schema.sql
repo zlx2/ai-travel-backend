@@ -90,3 +90,74 @@ CREATE TABLE IF NOT EXISTS admin_operation_log (
   target_type VARCHAR(64), target_id BIGINT, content VARCHAR(1000), ip VARCHAR(64),
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_admin_log_time (admin_id, create_time)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS rental_vehicle_group (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, group_code VARCHAR(50) NOT NULL, group_name VARCHAR(100) NOT NULL,
+  display_name VARCHAR(100), vehicle_class VARCHAR(50), body_type VARCHAR(50), energy_type VARCHAR(32) DEFAULT 'UNLIMITED',
+  transmission VARCHAR(32), seats_min INT, seats_max INT, recommended_people VARCHAR(50),
+  recommended_luggage VARCHAR(50), travel_tags VARCHAR(255), example_models VARCHAR(255), description TEXT,
+  icon_url VARCHAR(512), status TINYINT NOT NULL DEFAULT 1, sort_order INT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted TINYINT NOT NULL DEFAULT 0, UNIQUE KEY uk_rental_group_code (group_code),
+  KEY idx_rental_group_status_sort (status, deleted, sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS rental_vehicle_model (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, group_id BIGINT, group_code VARCHAR(50), brand VARCHAR(64) NOT NULL,
+  series VARCHAR(128) NOT NULL, series_full_name VARCHAR(255), model_year INT, launch_year INT,
+  vehicle_class VARCHAR(32), body_type VARCHAR(32), energy_type VARCHAR(32), raw_energy_type VARCHAR(64),
+  transmission VARCHAR(32), seats INT, guide_price_min_cent INT, guide_price_max_cent INT,
+  image_url VARCHAR(512), source_url VARCHAR(1000), confidence VARCHAR(16) DEFAULT 'medium', note TEXT,
+  status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  KEY idx_rental_model_group_id (group_id), KEY idx_rental_model_group_code (group_code),
+  KEY idx_rental_model_brand_series (brand, series), KEY idx_rental_model_status (status, deleted)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS rental_pickup_poi (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, source VARCHAR(32) NOT NULL DEFAULT 'AMAP',
+  source_poi_id VARCHAR(64) NOT NULL, poi_name VARCHAR(255) NOT NULL, poi_type VARCHAR(255),
+  poi_typecode VARCHAR(32), province VARCHAR(64), city VARCHAR(64), district VARCHAR(64),
+  citycode VARCHAR(16), adcode VARCHAR(16), address VARCHAR(500), longitude DECIMAL(10,7) NOT NULL,
+  latitude DECIMAL(10,7) NOT NULL, raw_json JSON, status TINYINT NOT NULL DEFAULT 1,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted TINYINT NOT NULL DEFAULT 0, UNIQUE KEY uk_rental_source_poi (source, source_poi_id),
+  KEY idx_rental_poi_citycode (citycode), KEY idx_rental_poi_adcode (adcode),
+  KEY idx_rental_poi_location (longitude, latitude), KEY idx_rental_poi_status (status, deleted)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS rental_price_template (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, city VARCHAR(64) NOT NULL, citycode VARCHAR(16), adcode VARCHAR(16) NOT NULL DEFAULT '',
+  vehicle_group_id BIGINT NOT NULL, weekday_rental_fee_cent INT NOT NULL DEFAULT 0,
+  weekend_rental_fee_cent INT NOT NULL DEFAULT 0, base_service_fee_cent INT NOT NULL DEFAULT 0,
+  vehicle_prepare_fee_cent INT NOT NULL DEFAULT 2000, rental_deposit_cent INT NOT NULL DEFAULT 0,
+  violation_deposit_cent INT NOT NULL DEFAULT 200000, deposit_free_threshold_score INT DEFAULT 600,
+  one_way_base_fee_cent INT NOT NULL DEFAULT 30000, one_way_per_km_fee_cent INT NOT NULL DEFAULT 0,
+  one_way_discount_rate DECIMAL(4,2) DEFAULT 1.00, available_count INT DEFAULT 5,
+  source_platform VARCHAR(64), source_note VARCHAR(1000), sampled_at DATETIME, confidence VARCHAR(16) DEFAULT 'medium',
+  status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_rental_city_adcode_group (city, adcode, vehicle_group_id),
+  KEY idx_rental_price_citycode_group (citycode, vehicle_group_id), KEY idx_rental_price_group (vehicle_group_id),
+  KEY idx_rental_price_status (status, deleted)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS rental_order (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, order_no VARCHAR(64) NOT NULL, user_id BIGINT NOT NULL, trip_id BIGINT,
+  pickup_poi_id BIGINT, pickup_mode VARCHAR(30) NOT NULL DEFAULT 'POI', return_poi_id BIGINT,
+  return_mode VARCHAR(30) NOT NULL DEFAULT 'POI', delivery_address VARCHAR(500), return_address VARCHAR(500),
+  delivery_fee_cent INT NOT NULL DEFAULT 0, pickup_poi_snapshot JSON NOT NULL, return_poi_snapshot JSON NOT NULL,
+  vehicle_group_id BIGINT NOT NULL, assigned_model_id BIGINT, pickup_time DATETIME NOT NULL, return_time DATETIME NOT NULL,
+  rental_days DECIMAL(5,2) NOT NULL, is_one_way TINYINT NOT NULL DEFAULT 0, rental_fee_cent INT NOT NULL DEFAULT 0,
+  base_service_fee_cent INT NOT NULL DEFAULT 0, vehicle_prepare_fee_cent INT NOT NULL DEFAULT 2000,
+  one_way_base_fee_cent INT NOT NULL DEFAULT 0, one_way_discount_cent INT NOT NULL DEFAULT 0,
+  one_way_final_fee_cent INT NOT NULL DEFAULT 0, rental_deposit_cent INT NOT NULL DEFAULT 0,
+  violation_deposit_cent INT NOT NULL DEFAULT 0, deposit_free_threshold_score INT DEFAULT 600,
+  total_price_cent INT NOT NULL, price_template_id BIGINT, price_snapshot JSON, contact_name VARCHAR(50),
+  contact_phone VARCHAR(50), order_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  payment_status VARCHAR(30) NOT NULL DEFAULT 'unpaid', remark VARCHAR(1000),
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted TINYINT NOT NULL DEFAULT 0, UNIQUE KEY uk_rental_order_no (order_no), KEY idx_rental_order_user_time (user_id, create_time),
+  KEY idx_rental_order_trip (trip_id), KEY idx_rental_order_status (order_status, payment_status),
+  KEY idx_rental_order_pickup_time (pickup_time), KEY idx_rental_order_vehicle_group (vehicle_group_id)
+) ENGINE=InnoDB;
