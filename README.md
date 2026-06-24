@@ -2,6 +2,41 @@
 
 Spring Boot 3.5 + Java 17，包名 `com.sora.aitravel`，接口前缀 `/api`。
 
+## 今日任务（6月24日）
+
+| 任务 | 状态 |
+|------|------|
+| 修复美食模块自定义规则 bug（意图识别不准确） | 进行中 |
+| 把美食推荐接入 travel generate 工作流（替换 MockFoodRecommendNode） | 待做 |
+| 景点工具接入工作流（替换 MockScenicSpotRecommendNode） | 待做 |
+| 联调测试：food 工具测试 + 工作流测试 | 待做 |
+
+<details>
+<summary>昨日完成 & 遇到的问题</summary>
+
+### 昨日完成（6月23日）
+
+| 事项 | 说明 |
+|------|------|
+| 美食推荐模块 | 接入高德餐饮 POI 数据，支持：附近美食、指定地点附近餐厅、城市特色美食 |
+| 查询意图识别 | 自定义规则识别 NEAR_CURRENT / NEAR_ADDRESS / CITY_KEYWORD，复杂场景 LLM 兜底 |
+| 推荐理由生成 | LLM 优先，失败时模板兜底；只拼接高德真实字段，不编造数据 |
+| 返回数据封装 | FoodRecommendResponse + FoodRestaurantItemDTO，含距离/评分/人均/标签/推荐理由 |
+| 景点工具注册 | ScenicTool 注册为 AI Tool，基于高德 POI 搜索返回景点名称列表 |
+| 测试 | FoodToolTest 5 个测试用例覆盖三种查询场景 + 异常场景 |
+
+### 昨日遇到的问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 用户输入口语化，全靠 LLM 识别意图 → 响应慢、成本高 | 自定义规则优先识别，规则匹配不到才走 LLM 兜底 |
+| 高德返回字段不统一（business 扩展字段不一定有） | valueFromBusinessOrPoi 双层取值 + isValidFoodPoi 过滤 |
+| Open-Meteo 返回 gzip 压缩，Hutool 5.8.36 解压失败 | 加 Accept-Encoding: identity 请求头禁用压缩 |
+| DeepSeek 日期认知偏差（以为现在是 2025 年） | 系统提示词注入 LocalDate.now() 动态日期 |
+| 数据库字段设计初期遗漏（城市/订单等信息） | 后续补充添加，租车模块 5 张表已覆盖完整 |
+
+</details>
+
 ## 技术栈
 
 Spring Boot 3.5 / MyBatis-Plus / Sa-Token / Spring AI 1.1.8 / Spring AI Alibaba Agent Framework / DeepSeek / DashScope Embedding / MySQL / Redis / RabbitMQ / 腾讯云 COS
