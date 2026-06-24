@@ -16,18 +16,18 @@ public class AnalyzeResultMergeNode {
 
     public void execute(AnalyzeWorkflowContext context) {
         String conversationId =
-                context.getRequest().conversationId() == null
+                context.getRequest().getConversationId() == null
                         ? UUID.randomUUID().toString()
-                        : context.getRequest().conversationId();
+                        : context.getRequest().getConversationId();
 
         List<QuestionDTO> questions = emptyIfNull(context.getQuestions());
         List<DestinationSuggestionDTO> suggestions =
                 emptyIfNull(context.getDestinationSuggestions());
         List<ConflictDTO> conflicts = emptyIfNull(context.getConflicts());
         int askRound =
-                context.getRequest().extraAnswers() == null
+                context.getRequest().getExtraAnswers() == null
                         ? 0
-                        : context.getRequest().extraAnswers().size();
+                        : context.getRequest().getExtraAnswers().size();
 
         context.setResult(
                 new TripAnalyzeResponse(

@@ -46,8 +46,8 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /** 规则能直接识别的常见城市。 */
     private static final List<String> KNOWN_CITIES =
             List.of(
-                    "北京", "上海", "广州", "深圳", "重庆", "成都", "西安", "杭州", "武汉", "南京",
-                    "厦门", "三亚", "长沙", "苏州", "天津", "青岛", "大理", "丽江", "昆明");
+                    "北京", "上海", "广州", "深圳", "重庆", "成都", "西安", "杭州", "武汉", "南京", "厦门", "三亚", "长沙",
+                    "苏州", "天津", "青岛", "大理", "丽江", "昆明");
 
     /**
      * 美食模块依赖。
@@ -72,7 +72,11 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
      */
     @Override
     public FoodRecommendResponse recommend(
-            String query, String currentLocation, Integer radius, Integer pageSize, Integer pageNum) {
+            String query,
+            String currentLocation,
+            Integer radius,
+            Integer pageSize,
+            Integer pageNum) {
         if (!StringUtils.hasText(query)) {
             return FoodRecommendResponse.fail("请输入想查询的内容");
         }
@@ -225,10 +229,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             }
 
             return new FoodSearchIntent(
-                    FoodSearchIntentTypeEnum.NEAR_ADDRESS,
-                    city,
-                    address,
-                    defaultKeyword(keywords));
+                    FoodSearchIntentTypeEnum.NEAR_ADDRESS, city, address, defaultKeyword(keywords));
         }
         return null;
     }
@@ -242,10 +243,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
         String keywords = cleanupKeywords(query.replaceFirst(city, ""));
         return new FoodSearchIntent(
-                FoodSearchIntentTypeEnum.CITY_KEYWORD,
-                city,
-                null,
-                defaultKeyword(keywords));
+                FoodSearchIntentTypeEnum.CITY_KEYWORD, city, null, defaultKeyword(keywords));
     }
 
     /** 从 query 中提取已知城市。 */
@@ -306,8 +304,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             Integer pageNum) {
         if (intent.getIntentType() == FoodSearchIntentTypeEnum.NEAR_CURRENT) {
             if (!StringUtils.hasText(currentLocation)) {
-                throw new IllegalArgumentException(
-                        "请先允许获取当前位置，或输入具体地点，例如：洪崖洞附近火锅");
+                throw new IllegalArgumentException("请先允许获取当前位置，或输入具体地点，例如：洪崖洞附近火锅");
             }
             JSONObject amapResponse =
                     amapFoodClient.searchAround(
@@ -409,9 +406,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
     /** 构建包含饭店列表的成功结果。 */
     private FoodRecommendResponse buildSuccessResponse(
-            FoodSearchIntent intent,
-            SearchResult searchResult,
-            List<FoodRestaurantItemDTO> items) {
+            FoodSearchIntent intent, SearchResult searchResult, List<FoodRestaurantItemDTO> items) {
         return new FoodRecommendResponse(
                 true,
                 "success",
@@ -426,8 +421,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /**
      * 将高德 POI 转换为饭店 DTO。
      *
-     * <p>该组方法负责校验餐饮类型、读取高德根字段和 business 扩展字段、解析经纬度、提取美食类型并生成距离文案，
-     * 不负责用户意图解析，也不调用高德接口。
+     * <p>该组方法负责校验餐饮类型、读取高德根字段和 business 扩展字段、解析经纬度、提取美食类型并生成距离文案， 不负责用户意图解析，也不调用高德接口。
      */
     private boolean isValidFoodPoi(JSONObject poi) {
         if (!StringUtils.hasText(text(poi, "name"))
@@ -563,8 +557,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /**
      * 通用数据安全处理。
      *
-     * <p>该组方法负责安全读取 JSON 字段、选取第一个非空字符串，以及把字符串转换为 BigDecimal 或 Integer。
-     * 转换失败时返回空值，避免单个异常字段中断整次美食推荐。
+     * <p>该组方法负责安全读取 JSON 字段、选取第一个非空字符串，以及把字符串转换为 BigDecimal 或 Integer。 转换失败时返回空值，避免单个异常字段中断整次美食推荐。
      */
     private String text(JSONObject object, String fieldName) {
         if (object == null) {

@@ -7,8 +7,7 @@ import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 /**
  * 租车服务点解析服务。
  *
- * <p>服务边界：只负责把“用户想在哪里取车/还车”解析为一个推荐地图服务点。它不查询车辆库存、不计算价格、不锁车、
- * 不创建订单，也不处理支付。
+ * <p>服务边界：只负责把“用户想在哪里取车/还车”解析为一个推荐地图服务点。它不查询车辆库存、不计算价格、不锁车、 不创建订单，也不处理支付。
  */
 public interface RentalStoreService {
 
@@ -30,5 +29,6 @@ public interface RentalStoreService {
      * @param usage 使用场景
      * @return 推荐服务点
      */
-    RentalStoreDTO resolveRentalStore(String targetName, String cityName, RentalStoreUsageEnum usage);
+    RentalStoreDTO resolveRentalStore(
+            String targetName, String cityName, RentalStoreUsageEnum usage);
 }

@@ -13,10 +13,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * 全局异常处理器。
- * <p>
- * 通过 {@link RestControllerAdvice} 统一捕获 Controller 层抛出的各类异常，
- * 转换为统一的 {@link R} 响应格式返回给前端，避免将异常堆栈暴露出去。
- * </p>
+ *
+ * <p>通过 {@link RestControllerAdvice} 统一捕获 Controller 层抛出的各类异常， 转换为统一的 {@link R}
+ * 响应格式返回给前端，避免将异常堆栈暴露出去。
  */
 @Slf4j
 @RestControllerAdvice
@@ -35,9 +34,8 @@ public class GlobalExceptionHandler {
 
     /**
      * 处理参数校验异常（MethodArgumentNotValidException / BindException / ConstraintViolationException）。
-     * <p>
-     * 不直接返回框架异常文本，避免泄露内部类名、字段路径等实现细节。
-     * </p>
+     *
+     * <p>不直接返回框架异常文本，避免泄露内部类名、字段路径等实现细节。
      *
      * @param exception 参数校验异常
      * @return 参数错误的统一响应
@@ -76,9 +74,8 @@ public class GlobalExceptionHandler {
 
     /**
      * 处理所有未预料的异常（兜底处理）。
-     * <p>
-     * 记录完整异常堆栈到日志，防止生产环境丢失排查线索。
-     * </p>
+     *
+     * <p>记录完整异常堆栈到日志，防止生产环境丢失排查线索。
      *
      * @param exception 未预料的异常
      * @return 系统错误的统一响应

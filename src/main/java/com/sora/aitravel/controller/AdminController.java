@@ -13,9 +13,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 管理员后台控制器。
- * <p>接口前缀：/api/admin</p>
- * <p>请求方式：RESTful</p>
- * <p>权限要求：仅角色为管理员（@SaCheckRole("2")）可访问</p>
+ *
+ * <p>接口前缀：/api/admin
+ *
+ * <p>请求方式：RESTful
+ *
+ * <p>权限要求：仅角色为管理员（@SaCheckRole("2")）可访问
  */
 @SaCheckRole("2")
 @RestController
@@ -34,9 +37,9 @@ public class AdminController {
     /**
      * 分页查询所有用户列表（管理后台）。
      *
-     * @param pageNum  页码，默认 1
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
-     * @param keyword  搜索关键字（可选，模糊匹配用户名/昵称）
+     * @param keyword 搜索关键字（可选，模糊匹配用户名/昵称）
      * @return 分页的用户列表
      */
     @GetMapping("/users")
@@ -50,7 +53,7 @@ public class AdminController {
     /**
      * 更新指定用户的账号状态（启用/禁用）。
      *
-     * @param id      用户 ID
+     * @param id 用户 ID
      * @param request 包含目标状态（0-禁用，1-启用）的请求体
      * @return 无返回内容，更新成功即返回成功响应
      */
@@ -63,7 +66,7 @@ public class AdminController {
     /**
      * 分页查询所有旅行计划列表（管理后台）。
      *
-     * @param pageNum  页码，默认 1
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
      * @return 分页的旅行计划列表
      */
@@ -99,7 +102,7 @@ public class AdminController {
     /**
      * 分页查询所有游记列表（管理后台）。
      *
-     * @param pageNum  页码，默认 1
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
      * @return 分页的游记列表
      */
@@ -135,7 +138,7 @@ public class AdminController {
     /**
      * 分页查询所有评论列表（管理后台）。
      *
-     * @param pageNum  页码，默认 1
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
      * @return 分页的评论列表
      */
@@ -160,7 +163,7 @@ public class AdminController {
     /**
      * 分页查询所有目的地列表（管理后台）。
      *
-     * @param pageNum  页码，默认 1
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
      * @return 分页的目的地列表（DestinationResponse）
      */
@@ -185,7 +188,7 @@ public class AdminController {
     /**
      * 更新指定目的地信息（管理后台）。
      *
-     * @param id      目的地 ID
+     * @param id 目的地 ID
      * @param request 包含待更新字段的请求体
      * @return 无返回内容，更新成功即返回成功响应
      */
@@ -209,7 +212,7 @@ public class AdminController {
     /**
      * 分页查询所有标签列表（管理后台）。
      *
-     * @param pageNum  页码，默认 1
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
      * @return 分页的标签列表（TagResponse）
      */
@@ -234,7 +237,7 @@ public class AdminController {
     /**
      * 更新指定标签信息（管理后台）。
      *
-     * @param id      标签 ID
+     * @param id 标签 ID
      * @param request 包含待更新字段的请求体
      * @return 无返回内容，更新成功即返回成功响应
      */

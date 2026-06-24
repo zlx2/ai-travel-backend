@@ -1,5 +1,9 @@
 package com.sora.aitravel.dto.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * 住宿区域推荐。
  *
@@ -9,4 +13,12 @@ package com.sora.aitravel.dto.model;
  * @param reason 推荐原因
  * @param priceRange 参考价格区间
  */
-public record HotelAreaDTO(String area, String reason, String priceRange) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class HotelAreaDTO {
+
+    private String area;
+    private String reason;
+    private String priceRange;
+}

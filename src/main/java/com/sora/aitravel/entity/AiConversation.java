@@ -6,13 +6,10 @@ import lombok.Data;
 
 /**
  * AI 对话会话实体类。
- * <p>
- * 对应数据库表 {@code ai_conversation}，记录用户与 AI 助手之间的一次完整对话会话。
- * 每个会话包含唯一的会话 ID（conversationId），关联的用户 ID，所属业务场景
- * （如行程分析、行程生成、AI 聊天），以及用于多轮追问的上下文快照。
- * 上下文快照（contextJson）同时存储在 Redis（热数据）和 MySQL（持久化恢复）中。
+ *
+ * <p>对应数据库表 {@code ai_conversation}，记录用户与 AI 助手之间的一次完整对话会话。 每个会话包含唯一的会话 ID（conversationId），关联的用户
+ * ID，所属业务场景 （如行程分析、行程生成、AI 聊天），以及用于多轮追问的上下文快照。 上下文快照（contextJson）同时存储在 Redis（热数据）和 MySQL（持久化恢复）中。
  * 会话状态包括正常、已结束和已过期三种。
- * </p>
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>

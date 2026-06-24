@@ -9,9 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 旅行计划控制器。
- * <p>接口前缀：/api/trips</p>
- * <p>请求方式：RESTful</p>
- * <p>权限要求：所有接口均需登录（@SaCheckLogin）</p>
+ *
+ * <p>接口前缀：/api/trips
+ *
+ * <p>请求方式：RESTful
+ *
+ * <p>权限要求：所有接口均需登录（@SaCheckLogin）
  */
 @SaCheckLogin
 @RestController
@@ -31,9 +34,9 @@ public class TripController {
     /**
      * 分页查询当前登录用户的旅行计划列表。
      *
-     * @param pageNum     页码，默认 1
-     * @param pageSize    每页条数，默认 10
-     * @param keyword     搜索关键字（可选，模糊匹配标题）
+     * @param pageNum 页码，默认 1
+     * @param pageSize 每页条数，默认 10
+     * @param keyword 搜索关键字（可选，模糊匹配标题）
      * @param destination 目的地筛选（可选）
      * @return 分页的旅行计划列表（TripListItemResponse）
      */
@@ -60,7 +63,7 @@ public class TripController {
     /**
      * 更新指定旅行计划。
      *
-     * @param id      旅行计划 ID
+     * @param id 旅行计划 ID
      * @param request 包含待更新字段的请求体
      * @return 无返回内容，更新成功即返回成功响应
      */

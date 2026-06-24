@@ -1,25 +1,16 @@
 package com.sora.aitravel.workflow.rental;
 
-import com.alibaba.cloud.ai.graph.CompiledGraph;
-import com.sora.aitravel.workflow.AlibabaGraphWorkflow;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class RentalWorkflow {
 
-    private final CompiledGraph graph;
-
-    public RentalWorkflow(RentalStoreResolveNode rentalStoreResolveNode) {
-        this.graph =
-                AlibabaGraphWorkflow.compile(
-                        "rental-workflow",
-                        List.of(
-                                AlibabaGraphWorkflow.step(
-                                        "rental-store-resolve", rentalStoreResolveNode::execute)));
-    }
+    private final RentalStoreResolveNode rentalStoreResolveNode;
 
     public RentalWorkflowContext execute(RentalWorkflowContext context) {
-        return AlibabaGraphWorkflow.invoke(graph, context);
+        rentalStoreResolveNode.execute(context);
+        return context;
     }
 }

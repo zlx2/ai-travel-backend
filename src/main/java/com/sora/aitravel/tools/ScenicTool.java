@@ -2,22 +2,25 @@ package com.sora.aitravel.tools;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.List;
 @Component
 public class ScenicTool {
     @Tool(description = "根据关键词查询景点名称列表，例如：西昌景点、成都景点")
-    public String Scenic( @ToolParam(description = "用户输入景点信息入成都景点,西安景点,青城山等")String keywords) throws Exception {
+    public String Scenic(@ToolParam(description = "用户输入景点信息入成都景点,西安景点,青城山等") String keywords)
+            throws Exception {
 
         // 1️⃣ 调用高德API
-        String url = "https://restapi.amap.com/v3/place/text"
-                + "?key=2b1d87340145d770b92bc5dacb942c01"
-                + "&keywords=" + keywords;
+        String url =
+                "https://restapi.amap.com/v3/place/text"
+                        + "?key=2b1d87340145d770b92bc5dacb942c01"
+                        + "&keywords="
+                        + keywords;
 
         RestTemplate restTemplate = new RestTemplate();
         String json = restTemplate.getForObject(url, String.class);

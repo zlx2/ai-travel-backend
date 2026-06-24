@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class MockFoodRecommendNode {
     public void execute(GenerateWorkflowContext context) {
-        String destination = displayDestination(context.getRequest().requirement());
+        String destination = displayDestination(context.getRequest().getRequirement());
         RecommendationContextDTO current = context.getRecommendationContext();
 
         List<FoodSpotDTO> foodSpots =
@@ -25,23 +25,23 @@ public class MockFoodRecommendNode {
 
         context.setRecommendationContext(
                 new RecommendationContextDTO(
-                        current.scenicSpots(),
+                        current.getScenicSpots(),
                         foodSpots,
-                        current.hotelAreas(),
-                        current.transportPlan()));
+                        current.getHotelAreas(),
+                        current.getTransportPlan()));
     }
 
     private String displayDestination(
             com.sora.aitravel.dto.model.TravelRequirementDTO requirement) {
-        if (requirement.destination() != null && !requirement.destination().isBlank()) {
-            return requirement.destination();
+        if (requirement.getDestination() != null && !requirement.getDestination().isBlank()) {
+            return requirement.getDestination();
         }
-        if (requirement.routeRegion() != null && !requirement.routeRegion().isBlank()) {
-            return requirement.routeRegion();
+        if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
+            return requirement.getRouteRegion();
         }
-        if (requirement.routeCities() != null && !requirement.routeCities().isEmpty()) {
-            return String.join("-", requirement.routeCities());
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            return String.join("-", requirement.getRouteCities());
         }
-        return requirement.departure();
+        return requirement.getDeparture();
     }
 }

@@ -7,22 +7,20 @@ import cn.hutool.json.JSONUtil;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.config.AmapProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
  * 高德 POI 通用客户端。
  *
- * <p>该客户端只负责调用高德 Web Service POI 搜索接口，并做统一的 API Key、网关地址、超时和错误处理。
- * 业务侧不要在这里写酒店、景点、租车等筛选规则；不同业务应在自己的 Service 中消费这些通用 POI 结果。
+ * <p>该客户端只负责调用高德 Web Service POI 搜索接口，并做统一的 API Key、网关地址、超时和错误处理。 业务侧不要在这里写酒店、景点、租车等筛选规则；不同业务应在自己的
+ * Service 中消费这些通用 POI 结果。
  */
 @Component
+@RequiredArgsConstructor
 public class AmapPoiClient {
 
     private final AmapProperties properties;
-
-    public AmapPoiClient(AmapProperties properties) {
-        this.properties = properties;
-    }
 
     /**
      * 按关键字搜索目标地点，并返回最适合作为中心点的 POI。
@@ -119,7 +117,10 @@ public class AmapPoiClient {
         if (!"1".equals(status)) {
             throw new BusinessException(
                     ErrorCode.SYSTEM_ERROR,
-                    "高德接口调用失败，info=" + text(result, "info") + ", infocode=" + text(result, "infocode"));
+                    "高德接口调用失败，info="
+                            + text(result, "info")
+                            + ", infocode="
+                            + text(result, "infocode"));
         }
     }
 

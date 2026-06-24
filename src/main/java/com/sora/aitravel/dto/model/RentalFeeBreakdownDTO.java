@@ -1,12 +1,21 @@
 package com.sora.aitravel.dto.model;
 
-public record RentalFeeBreakdownDTO(
-        Integer rentalFeeCent,
-        Integer baseServiceFeeCent,
-        Integer vehiclePrepareFeeCent,
-        Integer oneWayFeeCent,
-        Integer deliveryFeeCent,
-        Integer totalPriceCent,
-        Integer rentalDepositCent,
-        Integer violationDepositCent,
-        Integer depositFreeThresholdScore) {}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RentalFeeBreakdownDTO {
+
+    private Integer rentalFeeCent;
+    private Integer baseServiceFeeCent;
+    private Integer vehiclePrepareFeeCent;
+    private Integer oneWayFeeCent;
+    private Integer deliveryFeeCent;
+    private Integer totalPriceCent;
+    private Integer rentalDepositCent;
+    private Integer violationDepositCent;
+    private Integer depositFreeThresholdScore;
+}

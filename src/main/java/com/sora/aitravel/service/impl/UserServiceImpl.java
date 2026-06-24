@@ -28,8 +28,8 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void updateCurrentUser(UpdateUserProfileRequest request) {
         SysUser user = requireCurrentUser();
-        user.setNickname(request.nickname());
-        user.setAvatarUrl(request.avatarUrl());
+        user.setNickname(request.getNickname());
+        user.setAvatarUrl(request.getAvatarUrl());
         user.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(user);
     }

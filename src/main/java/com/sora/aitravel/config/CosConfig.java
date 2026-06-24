@@ -10,10 +10,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * 腾讯云对象存储（COS）客户端配置。
- * <p>
- * 根据注入的 {@link CosProperties} 创建 COSClient 实例，
- * Spring 容器关闭时自动调用 shutdown() 释放连接资源。
- * </p>
+ *
+ * <p>根据注入的 {@link CosProperties} 创建 COSClient 实例， Spring 容器关闭时自动调用 shutdown() 释放连接资源。
  */
 @Configuration
 public class CosConfig {

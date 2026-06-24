@@ -1,6 +1,9 @@
 package com.sora.aitravel.dto.model;
 
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 租车服务点解析命令。
@@ -11,5 +14,12 @@ import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
  * @param cityName 目标地点所在城市，例如“成都市”“杭州市”
  * @param usage 取车或还车用途
  */
-public record RentalStoreResolveCommand(
-        String targetName, String cityName, RentalStoreUsageEnum usage) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RentalStoreResolveCommand {
+
+    private String targetName;
+    private String cityName;
+    private RentalStoreUsageEnum usage;
+}

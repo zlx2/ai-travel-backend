@@ -8,9 +8,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * MyBatis-Plus 插件配置。
- * <p>
- * 注册分页插件，支持 MySQL 数据库的分页查询功能。
- * </p>
+ *
+ * <p>注册分页插件，支持 MySQL 数据库的分页查询功能。
  */
 @Configuration
 public class MybatisPlusConfig {

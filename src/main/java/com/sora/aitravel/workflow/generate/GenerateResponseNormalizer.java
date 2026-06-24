@@ -3,11 +3,9 @@ package com.sora.aitravel.workflow.generate;
 import com.sora.aitravel.dto.model.FoodSpotDTO;
 import com.sora.aitravel.dto.model.HotelAreaDTO;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
-import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.ScenicSpotDTO;
 import com.sora.aitravel.dto.model.TransportPlanDTO;
 import com.sora.aitravel.dto.model.TravelModeDTO;
-import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import java.util.List;
@@ -25,11 +23,11 @@ public class GenerateResponseNormalizer {
         TripGenerateResponse result = context.getResult();
         context.setResult(
                 new TripGenerateResponse(
-                        result.conversationId(),
-                        result.requirement(),
-                        result.selectedQuote(),
-                        normalizeRecommendationContext(result.recommendationContext()),
-                        normalizeTripPlan(result.tripPlan())));
+                        result.getConversationId(),
+                        result.getRequirement(),
+                        result.getSelectedQuote(),
+                        normalizeRecommendationContext(result.getRecommendationContext()),
+                        normalizeTripPlan(result.getTripPlan())));
     }
 
     private RecommendationContextDTO normalizeRecommendationContext(Object value) {
@@ -38,10 +36,10 @@ public class GenerateResponseNormalizer {
         }
         if (value instanceof RecommendationContextDTO dto) {
             return new RecommendationContextDTO(
-                    normalizeScenicSpots(dto.scenicSpots()),
-                    normalizeFoodSpots(dto.foodSpots()),
-                    normalizeHotelAreas(dto.hotelAreas()),
-                    normalizeTransportPlan(dto.transportPlan()));
+                    normalizeScenicSpots(dto.getScenicSpots()),
+                    normalizeFoodSpots(dto.getFoodSpots()),
+                    normalizeHotelAreas(dto.getHotelAreas()),
+                    normalizeTransportPlan(dto.getTransportPlan()));
         }
         Map<?, ?> map = asMap(value);
         return new RecommendationContextDTO(
@@ -108,7 +106,10 @@ public class GenerateResponseNormalizer {
         }
         if (value instanceof TransportPlanDTO dto) {
             return new TransportPlanDTO(
-                    normalizeTravelMode(dto.travelMode()), dto.pickupStore(), dto.returnStore(), dto.tips());
+                    normalizeTravelMode(dto.getTravelMode()),
+                    dto.getPickupStore(),
+                    dto.getReturnStore(),
+                    dto.getTips());
         }
         Map<?, ?> map = asMap(value);
         return new TransportPlanDTO(
@@ -136,14 +137,14 @@ public class GenerateResponseNormalizer {
         }
         if (value instanceof TripPlanDTO dto) {
             return new TripPlanDTO(
-                    dto.title(),
-                    dto.destination(),
-                    dto.days(),
-                    dto.summary(),
-                    normalizeDailyPlans(dto.dailyPlans()),
-                    normalizeBudgetSummary(dto.budgetSummary()),
-                    normalizeAccommodationSuggestion(dto.accommodationSuggestion()),
-                    dto.tips());
+                    dto.getTitle(),
+                    dto.getDestination(),
+                    dto.getDays(),
+                    dto.getSummary(),
+                    normalizeDailyPlans(dto.getDailyPlans()),
+                    normalizeBudgetSummary(dto.getBudgetSummary()),
+                    normalizeAccommodationSuggestion(dto.getAccommodationSuggestion()),
+                    dto.getTips());
         }
         Map<?, ?> map = asMap(value);
         return new TripPlanDTO(
@@ -167,17 +168,17 @@ public class GenerateResponseNormalizer {
     private TripPlanDTO.DailyPlan toDailyPlan(Object value) {
         if (value instanceof TripPlanDTO.DailyPlan dto) {
             return new TripPlanDTO.DailyPlan(
-                    dto.day(),
-                    dto.theme(),
-                    dto.fromCity(),
-                    dto.toCity(),
-                    dto.overnightCity(),
-                    dto.driveHoursEstimate(),
-                    dto.driveDistanceEstimate(),
-                    normalizePlanItems(dto.items()),
-                    dto.foodSuggestions(),
-                    dto.estimatedCost(),
-                    dto.dayTips());
+                    dto.getDay(),
+                    dto.getTheme(),
+                    dto.getFromCity(),
+                    dto.getToCity(),
+                    dto.getOvernightCity(),
+                    dto.getDriveHoursEstimate(),
+                    dto.getDriveDistanceEstimate(),
+                    normalizePlanItems(dto.getItems()),
+                    dto.getFoodSuggestions(),
+                    dto.getEstimatedCost(),
+                    dto.getDayTips());
         }
         Map<?, ?> map = asMap(value);
         return new TripPlanDTO.DailyPlan(

@@ -7,9 +7,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Jackson JSON 序列化配置。
- * <p>
- * 设置默认日期格式为 "yyyy-MM-dd HH:mm:ss"，时区为 Asia/Shanghai（东八区）。
- * </p>
+ *
+ * <p>设置默认日期格式为 "yyyy-MM-dd HH:mm:ss"，时区为 Asia/Shanghai（东八区）。
  */
 @Configuration
 public class JacksonConfig {

@@ -4,6 +4,7 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 import com.sora.aitravel.service.RentalStoreService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,13 +14,10 @@ import org.springframework.stereotype.Component;
  * API，也不负责库存、价格或订单。
  */
 @Component
+@RequiredArgsConstructor
 public class RentalStoreResolveNode {
 
     private final RentalStoreService rentalStoreService;
-
-    public RentalStoreResolveNode(RentalStoreService rentalStoreService) {
-        this.rentalStoreService = rentalStoreService;
-    }
 
     public void execute(RentalWorkflowContext context) {
         RentalStoreResolveCommand command = context.getStoreResolveCommand();

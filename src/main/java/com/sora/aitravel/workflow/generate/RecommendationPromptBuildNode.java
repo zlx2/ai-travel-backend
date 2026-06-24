@@ -17,16 +17,16 @@ public class RecommendationPromptBuildNode {
     public void execute(GenerateWorkflowContext context) {
         RecommendationContextDTO recommendation = context.getRecommendationContext();
         String scenic =
-                recommendation.scenicSpots().stream()
-                        .map(ScenicSpotDTO::name)
+                recommendation.getScenicSpots().stream()
+                        .map(ScenicSpotDTO::getName)
                         .collect(Collectors.joining("、"));
         String food =
-                recommendation.foodSpots().stream()
-                        .map(FoodSpotDTO::name)
+                recommendation.getFoodSpots().stream()
+                        .map(FoodSpotDTO::getName)
                         .collect(Collectors.joining("、"));
         String hotel =
-                recommendation.hotelAreas().stream()
-                        .map(HotelAreaDTO::area)
+                recommendation.getHotelAreas().stream()
+                        .map(HotelAreaDTO::getArea)
                         .collect(Collectors.joining("、"));
 
         context.setRecommendationPromptContext(
@@ -41,7 +41,7 @@ public class RecommendationPromptBuildNode {
                                 scenic,
                                 food,
                                 hotel,
-                                recommendation.transportPlan().travelMode().mode(),
-                                recommendation.transportPlan().travelMode().reason()));
+                                recommendation.getTransportPlan().getTravelMode().getMode(),
+                                recommendation.getTransportPlan().getTravelMode().getReason()));
     }
 }

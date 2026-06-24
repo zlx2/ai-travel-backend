@@ -4,9 +4,8 @@ import cn.dev33.satoken.stp.StpUtil;
 
 /**
  * 当前登录用户工具类。
- * <p>
- * 封装 Sa-Token 的常用操作，提供获取当前登录用户 ID、判断是否为管理员等便捷方法。
- * </p>
+ *
+ * <p>封装 Sa-Token 的常用操作，提供获取当前登录用户 ID、判断是否为管理员等便捷方法。
  */
 public final class LoginUserUtils {
     private LoginUserUtils() {}

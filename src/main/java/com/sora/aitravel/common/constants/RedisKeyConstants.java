@@ -2,10 +2,8 @@ package com.sora.aitravel.common.constants;
 
 /**
  * Redis 键名常量。
- * <p>
- * 集中管理 Redis 中使用的所有 Key 前缀和过期时间常量，
- * 避免在业务代码中分散定义。
- * </p>
+ *
+ * <p>集中管理 Redis 中使用的所有 Key 前缀和过期时间常量， 避免在业务代码中分散定义。
  */
 public final class RedisKeyConstants {
     /** 验证码完整 Key：email:code:{scene}:{email}。 */
@@ -19,8 +17,10 @@ public final class RedisKeyConstants {
 
     /** 邮箱验证码过期时间，单位分钟。 */
     public static final long EMAIL_CODE_TTL_MINUTES = 5;
+
     /** 邮箱验证码发送限流时间间隔，单位秒。 */
     public static final long EMAIL_CODE_LIMIT_SECONDS = 60;
+
     /** AI 会话缓存过期时间，单位小时。 */
     public static final long AI_CONVERSATION_TTL_HOURS = 24;
 

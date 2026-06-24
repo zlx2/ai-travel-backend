@@ -2,9 +2,7 @@ package com.sora.aitravel.dto.model.geo;
 
 import lombok.Data;
 
-/**
- * 逆地理编码POI
- */
+/** 逆地理编码POI */
 @Data
 public class RegeoPoi {
     private String id;

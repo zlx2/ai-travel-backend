@@ -2,9 +2,8 @@ package com.sora.aitravel.service;
 
 /**
  * 游记互动服务接口。
- * <p>
- * 提供用户对游记的点赞和收藏等社交互动功能。
- * </p>
+ *
+ * <p>提供用户对游记的点赞和收藏等社交互动功能。
  */
 public interface NoteInteractionService {
     /**

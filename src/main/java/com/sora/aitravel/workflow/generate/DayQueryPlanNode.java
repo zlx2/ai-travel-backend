@@ -12,18 +12,36 @@ public class DayQueryPlanNode {
 
     public void execute(GenerateWorkflowContext context) {
         List<DayQueryPlan> plans = new ArrayList<>();
-        String city = context.getCityProfile().destination();
+        String city = context.getCityProfile().getDestination();
 
         for (DayContext dayContext : context.getDayContexts()) {
             String targetArea = dayContext.skeleton().targetArea();
             List<QueryItem> queries =
                     List.of(
                             new QueryItem(
-                                    "SCENIC", targetArea + " 景点", city, targetArea, null, null, "查询当天核心景点"),
+                                    "SCENIC",
+                                    targetArea + " 景点",
+                                    city,
+                                    targetArea,
+                                    null,
+                                    null,
+                                    "查询当天核心景点"),
                             new QueryItem(
-                                    "FOOD", targetArea + " 美食", city, targetArea, null, null, "查询午餐和晚餐候选"),
+                                    "FOOD",
+                                    targetArea + " 美食",
+                                    city,
+                                    targetArea,
+                                    null,
+                                    null,
+                                    "查询午餐和晚餐候选"),
                             new QueryItem(
-                                    "HOTEL", dayContext.hotelArea(), city, null, null, null, "确认住宿区域上下文"),
+                                    "HOTEL",
+                                    dayContext.hotelArea(),
+                                    city,
+                                    null,
+                                    null,
+                                    null,
+                                    "确认住宿区域上下文"),
                             new QueryItem(
                                     "TRANSPORT",
                                     null,
@@ -32,8 +50,8 @@ public class DayQueryPlanNode {
                                     dayContext.hotelArea(),
                                     targetArea,
                                     "估算住宿区域到当天核心区域交通"));
-            plans.add(new DayQueryPlan(dayContext.day(), queries));
-            log.info("节点[day-query-plan]：第 {} 天查询计划={}", dayContext.day(), queries);
+            plans.add(new DayQueryPlan(dayContext.getDay(), queries));
+            log.info("节点[day-query-plan]：第 {} 天查询计划={}", dayContext.getDay(), queries);
         }
 
         context.setDayQueryPlans(plans);

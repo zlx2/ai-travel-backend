@@ -5,6 +5,7 @@ import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
 import com.sora.aitravel.service.RentalStoreService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -12,17 +13,14 @@ import org.springframework.stereotype.Component;
 /**
  * 租车服务点 AI Tool。
  *
- * <p>这是给 Spring AI Function Calling 使用的正式工具入口。它只做参数校验和用途枚举转换，真实解析逻辑统一委托给
- * {@link RentalStoreService}，避免 AI 调用路径和普通 HTTP 调用路径出现两套规则。
+ * <p>这是给 Spring AI Function Calling 使用的正式工具入口。它只做参数校验和用途枚举转换，真实解析逻辑统一委托给 {@link
+ * RentalStoreService}，避免 AI 调用路径和普通 HTTP 调用路径出现两套规则。
  */
 @Component
+@RequiredArgsConstructor
 public class RentalStoreAiTool {
 
     private final RentalStoreService rentalStoreService;
-
-    public RentalStoreAiTool(RentalStoreService rentalStoreService) {
-        this.rentalStoreService = rentalStoreService;
-    }
 
     /**
      * 根据用户输入地点解析推荐取车或还车服务点。
@@ -39,8 +37,7 @@ public class RentalStoreAiTool {
                     usage 只能传 PICKUP 或 RETURN。
                     """)
     public RentalStoreDTO resolveRentalStore(
-            @ToolParam(description = "用户输入的目标地点，例如：成都东站、杭州东站、西湖、萧山机场")
-                    String targetName,
+            @ToolParam(description = "用户输入的目标地点，例如：成都东站、杭州东站、西湖、萧山机场") String targetName,
             @ToolParam(description = "城市名称，例如：成都市、杭州市、上海市") String cityName,
             @ToolParam(description = "用途：PICKUP 表示取车点，RETURN 表示还车点") String usage) {
         if (targetName == null || targetName.isBlank()) {

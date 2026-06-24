@@ -26,33 +26,25 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class RentalOrderServiceImpl implements RentalOrderService {
     private final RentalOrderMapper rentalOrderMapper;
     private final TripMapper tripMapper;
     private final RentalQuoteService rentalQuoteService;
     private final ObjectMapper objectMapper;
 
-    public RentalOrderServiceImpl(
-            RentalOrderMapper rentalOrderMapper,
-            TripMapper tripMapper,
-            RentalQuoteService rentalQuoteService,
-            ObjectMapper objectMapper) {
-        this.rentalOrderMapper = rentalOrderMapper;
-        this.tripMapper = tripMapper;
-        this.rentalQuoteService = rentalQuoteService;
-        this.objectMapper = objectMapper;
-    }
-
     @Override
     @Transactional
     public Long create(Long userId, RentalOrderCreateRequest request) {
         RentalQuoteOptionDTO quote =
-                rentalQuoteService.recalculate(request.requirement(), request.selectedQuote());
-        if (!sameQuote(request.selectedQuote(), quote)) {
+                rentalQuoteService.recalculate(
+                        request.getRequirement(), request.getSelectedQuote());
+        if (!sameQuote(request.getSelectedQuote(), quote)) {
             throw new BusinessException(ErrorCode.CONFLICT, "所选车型报价已变化，请重新选择报价");
         }
         Trip trip = buildTrip(userId, request, quote);
@@ -71,8 +63,8 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         }
         boolean success =
                 request == null
-                        || request.success() == null
-                        || Boolean.TRUE.equals(request.success());
+                        || request.getSuccess() == null
+                        || Boolean.TRUE.equals(request.getSuccess());
         if (!success) {
             return;
         }
@@ -111,21 +103,23 @@ public class RentalOrderServiceImpl implements RentalOrderService {
 
     private Trip buildTrip(
             Long userId, RentalOrderCreateRequest request, RentalQuoteOptionDTO quote) {
-        TravelRequirementDTO requirement = request.requirement();
-        TripPlanDTO tripPlan = request.tripPlan();
+        TravelRequirementDTO requirement = request.getRequirement();
+        TripPlanDTO tripPlan = request.getTripPlan();
         Trip trip = new Trip();
         trip.setUserId(userId);
-        trip.setConversationId(request.conversationId());
+        trip.setConversationId(request.getConversationId());
         trip.setTitle(
-                notBlank(tripPlan.title()) ? tripPlan.title() : tripDestination(requirement, tripPlan) + "行程");
+                notBlank(tripPlan.getTitle())
+                        ? tripPlan.getTitle()
+                        : tripDestination(requirement, tripPlan) + "行程");
         trip.setDeparture(tripDeparture(requirement, quote));
         trip.setDestination(tripDestination(requirement, tripPlan));
-        trip.setDays(requirement.days());
-        trip.setBudget(requirement.budget());
-        trip.setPreferencesJson(toJson(requirement.preferences()));
+        trip.setDays(requirement.getDays());
+        trip.setBudget(requirement.getBudget());
+        trip.setPreferencesJson(toJson(requirement.getPreferences()));
         trip.setRequirementJson(toJson(requirement));
         trip.setTripPlanJson(toJson(tripPlan));
-        trip.setSummary(tripPlan.summary());
+        trip.setSummary(tripPlan.getSummary());
         trip.setSource(1);
         trip.setStatus(1);
         trip.setDeleted(0);
@@ -137,10 +131,10 @@ public class RentalOrderServiceImpl implements RentalOrderService {
             Long tripId,
             RentalOrderCreateRequest request,
             RentalQuoteOptionDTO quote) {
-        TravelRequirementDTO requirement = request.requirement();
-        RentalRequirementDTO rental = requirement.rentalRequirement();
-        RentalFeeBreakdownDTO fee = quote.feeBreakdown();
-        LocalDate pickupDate = parseDate(requirement.travelDate());
+        TravelRequirementDTO requirement = request.getRequirement();
+        RentalRequirementDTO rental = requirement.getRentalRequirement();
+        RentalFeeBreakdownDTO fee = quote.getFeeBreakdown();
+        LocalDate pickupDate = parseDate(requirement.getTravelDate());
 
         RentalOrder order = new RentalOrder();
         order.setOrderNo(
@@ -152,37 +146,37 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                         + UUID.randomUUID().toString().substring(0, 6).toUpperCase());
         order.setUserId(userId);
         order.setTripId(tripId);
-        order.setPickupPoiId(quote.pickupPoiId());
-        order.setPickupMode(quote.pickupMode());
-        order.setReturnPoiId(quote.returnPoiId());
-        order.setReturnMode(quote.returnMode());
-        order.setDeliveryAddress(rental == null ? null : rental.deliveryAddress());
-        order.setReturnAddress(rental == null ? null : rental.returnAddress());
-        order.setDeliveryFeeCent(fee.deliveryFeeCent());
+        order.setPickupPoiId(quote.getPickupPoiId());
+        order.setPickupMode(quote.getPickupMode());
+        order.setReturnPoiId(quote.getReturnPoiId());
+        order.setReturnMode(quote.getReturnMode());
+        order.setDeliveryAddress(rental == null ? null : rental.getDeliveryAddress());
+        order.setReturnAddress(rental == null ? null : rental.getReturnAddress());
+        order.setDeliveryFeeCent(fee.getDeliveryFeeCent());
         order.setPickupPoiSnapshot(toJson(poiSnapshot("pickup", quote)));
         order.setReturnPoiSnapshot(toJson(poiSnapshot("return", quote)));
-        order.setVehicleGroupId(quote.vehicleGroupId());
+        order.setVehicleGroupId(quote.getVehicleGroupId());
         order.setPickupTime(pickupDate.atTime(10, 0));
-        order.setReturnTime(pickupDate.plusDays(quote.rentalDays()).atTime(18, 0));
-        order.setRentalDays(BigDecimal.valueOf(quote.rentalDays()));
-        order.setIsOneWay(Boolean.TRUE.equals(quote.isOneWay()) ? 1 : 0);
-        order.setRentalFeeCent(fee.rentalFeeCent());
-        order.setBaseServiceFeeCent(fee.baseServiceFeeCent());
-        order.setVehiclePrepareFeeCent(fee.vehiclePrepareFeeCent());
-        order.setOneWayBaseFeeCent(fee.oneWayFeeCent());
+        order.setReturnTime(pickupDate.plusDays(quote.getRentalDays()).atTime(18, 0));
+        order.setRentalDays(BigDecimal.valueOf(quote.getRentalDays()));
+        order.setIsOneWay(Boolean.TRUE.equals(quote.getIsOneWay()) ? 1 : 0);
+        order.setRentalFeeCent(fee.getRentalFeeCent());
+        order.setBaseServiceFeeCent(fee.getBaseServiceFeeCent());
+        order.setVehiclePrepareFeeCent(fee.getVehiclePrepareFeeCent());
+        order.setOneWayBaseFeeCent(fee.getOneWayFeeCent());
         order.setOneWayDiscountCent(0);
-        order.setOneWayFinalFeeCent(fee.oneWayFeeCent());
-        order.setRentalDepositCent(fee.rentalDepositCent());
-        order.setViolationDepositCent(fee.violationDepositCent());
-        order.setDepositFreeThresholdScore(fee.depositFreeThresholdScore());
-        order.setTotalPriceCent(fee.totalPriceCent());
-        order.setPriceTemplateId(quote.priceTemplateId());
-        order.setPriceSnapshot(toJson(quote.priceSnapshot()));
-        order.setContactName(request.contactName());
-        order.setContactPhone(request.contactPhone());
+        order.setOneWayFinalFeeCent(fee.getOneWayFeeCent());
+        order.setRentalDepositCent(fee.getRentalDepositCent());
+        order.setViolationDepositCent(fee.getViolationDepositCent());
+        order.setDepositFreeThresholdScore(fee.getDepositFreeThresholdScore());
+        order.setTotalPriceCent(fee.getTotalPriceCent());
+        order.setPriceTemplateId(quote.getPriceTemplateId());
+        order.setPriceSnapshot(toJson(quote.getPriceSnapshot()));
+        order.setContactName(request.getContactName());
+        order.setContactPhone(request.getContactPhone());
         order.setOrderStatus("pending");
         order.setPaymentStatus("unpaid");
-        order.setRemark(request.remark());
+        order.setRemark(request.getRemark());
         order.setDeleted(0);
         return order;
     }
@@ -190,18 +184,18 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     private Map<String, Object> poiSnapshot(String type, RentalQuoteOptionDTO quote) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("type", type);
-        snapshot.put("rentalCity", quote.rentalCity());
-        snapshot.put("citycode", quote.citycode());
+        snapshot.put("rentalCity", quote.getRentalCity());
+        snapshot.put("citycode", quote.getCitycode());
         if ("pickup".equals(type)) {
-            snapshot.put("poiId", quote.pickupPoiId());
-            snapshot.put("poiName", quote.pickupPoiName());
-            snapshot.put("address", quote.pickupAddress());
-            snapshot.put("mode", quote.pickupMode());
+            snapshot.put("poiId", quote.getPickupPoiId());
+            snapshot.put("poiName", quote.getPickupPoiName());
+            snapshot.put("address", quote.getPickupAddress());
+            snapshot.put("mode", quote.getPickupMode());
         } else {
-            snapshot.put("poiId", quote.returnPoiId());
-            snapshot.put("poiName", quote.returnPoiName());
-            snapshot.put("address", quote.returnAddress());
-            snapshot.put("mode", quote.returnMode());
+            snapshot.put("poiId", quote.getReturnPoiId());
+            snapshot.put("poiName", quote.getReturnPoiName());
+            snapshot.put("address", quote.getReturnAddress());
+            snapshot.put("mode", quote.getReturnMode());
         }
         return snapshot;
     }
@@ -246,24 +240,24 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     }
 
     private String tripDestination(TravelRequirementDTO requirement, TripPlanDTO tripPlan) {
-        if (notBlank(requirement.destination())) {
-            return requirement.destination();
+        if (notBlank(requirement.getDestination())) {
+            return requirement.getDestination();
         }
-        if (requirement.routeCities() != null && !requirement.routeCities().isEmpty()) {
-            return String.join("-", requirement.routeCities());
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            return String.join("-", requirement.getRouteCities());
         }
-        if (notBlank(requirement.routeRegion())) {
-            return requirement.routeRegion();
+        if (notBlank(requirement.getRouteRegion())) {
+            return requirement.getRouteRegion();
         }
-        return tripPlan.destination();
+        return tripPlan.getDestination();
     }
 
     private String tripDeparture(TravelRequirementDTO requirement, RentalQuoteOptionDTO quote) {
-        if (notBlank(requirement.departure())) {
-            return requirement.departure();
+        if (notBlank(requirement.getDeparture())) {
+            return requirement.getDeparture();
         }
-        if (notBlank(quote.rentalCity())) {
-            return quote.rentalCity();
+        if (notBlank(quote.getRentalCity())) {
+            return quote.getRentalCity();
         }
         return "未知出发地";
     }
@@ -305,17 +299,19 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return value != null && !value.isBlank();
     }
 
-    private boolean sameQuote(RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
-        return equalsValue(selectedQuote.vehicleGroupId(), recalculatedQuote.vehicleGroupId())
-                && equalsValue(selectedQuote.priceTemplateId(), recalculatedQuote.priceTemplateId())
-                && equalsValue(selectedQuote.pickupPoiId(), recalculatedQuote.pickupPoiId())
-                && equalsValue(selectedQuote.returnPoiId(), recalculatedQuote.returnPoiId())
-                && equalsValue(selectedQuote.rentalDays(), recalculatedQuote.rentalDays())
+    private boolean sameQuote(
+            RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
+        return equalsValue(selectedQuote.getVehicleGroupId(), recalculatedQuote.getVehicleGroupId())
+                && equalsValue(
+                        selectedQuote.getPriceTemplateId(), recalculatedQuote.getPriceTemplateId())
+                && equalsValue(selectedQuote.getPickupPoiId(), recalculatedQuote.getPickupPoiId())
+                && equalsValue(selectedQuote.getReturnPoiId(), recalculatedQuote.getReturnPoiId())
+                && equalsValue(selectedQuote.getRentalDays(), recalculatedQuote.getRentalDays())
                 && equalsValue(totalPrice(selectedQuote), totalPrice(recalculatedQuote));
     }
 
     private Integer totalPrice(RentalQuoteOptionDTO quote) {
-        return quote.feeBreakdown() == null ? null : quote.feeBreakdown().totalPriceCent();
+        return quote.getFeeBreakdown() == null ? null : quote.getFeeBreakdown().getTotalPriceCent();
     }
 
     private boolean equalsValue(Object left, Object right) {

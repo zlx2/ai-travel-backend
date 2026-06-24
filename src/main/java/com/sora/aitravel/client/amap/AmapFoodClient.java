@@ -55,8 +55,7 @@ public class AmapFoodClient {
     }
 
     /** 调用高德关键字搜索：用于“重庆火锅推荐”这类城市美食查询。 */
-    public JSONObject searchText(
-            String city, String keywords, Integer pageSize, Integer pageNum) {
+    public JSONObject searchText(String city, String keywords, Integer pageSize, Integer pageNum) {
         return executeJson(
                 amapGet("/v5/place/text")
                         .form("keywords", keywords)

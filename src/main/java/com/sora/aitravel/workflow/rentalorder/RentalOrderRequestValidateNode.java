@@ -15,12 +15,12 @@ public class RentalOrderRequestValidateNode {
         if (request == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车订单请求不能为空");
         }
-        if (request.requirement() == null
-                || request.tripPlan() == null
-                || request.selectedQuote() == null) {
+        if (request.getRequirement() == null
+                || request.getTripPlan() == null
+                || request.getSelectedQuote() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "下单必须包含行程需求、行程方案和已选报价");
         }
-        if (request.requirement().days() == null || request.requirement().days() < 1) {
+        if (request.getRequirement().getDays() == null || request.getRequirement().getDays() < 1) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数不合法");
         }
     }

@@ -47,7 +47,8 @@ class RentalStoreServiceImplTest {
         assertThat(response.getDistanceMeters()).isEqualTo(392);
     }
 
-    private JSONObject poi(String name, String typeCode, String keytag, int distance, double rating) {
+    private JSONObject poi(
+            String name, String typeCode, String keytag, int distance, double rating) {
         JSONObject poi =
                 JSONUtil.createObj()
                         .set("id", "B0TEST")

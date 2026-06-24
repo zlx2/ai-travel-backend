@@ -3,20 +3,28 @@ package com.sora.aitravel.dto.response;
 import com.sora.aitravel.dto.model.RentalFeeBreakdownDTO;
 import java.time.LocalDateTime;
 import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record RentalOrderResponse(
-        Long id,
-        String orderNo,
-        Long tripId,
-        String rentalCity,
-        Long vehicleGroupId,
-        String orderStatus,
-        String paymentStatus,
-        Integer totalPriceCent,
-        RentalFeeBreakdownDTO feeBreakdown,
-        Map<String, Object> pickupPoiSnapshot,
-        Map<String, Object> returnPoiSnapshot,
-        Map<String, Object> priceSnapshot,
-        LocalDateTime pickupTime,
-        LocalDateTime returnTime,
-        LocalDateTime createTime) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RentalOrderResponse {
+
+    private Long id;
+    private String orderNo;
+    private Long tripId;
+    private String rentalCity;
+    private Long vehicleGroupId;
+    private String orderStatus;
+    private String paymentStatus;
+    private Integer totalPriceCent;
+    private RentalFeeBreakdownDTO feeBreakdown;
+    private Map<String, Object> pickupPoiSnapshot;
+    private Map<String, Object> returnPoiSnapshot;
+    private Map<String, Object> priceSnapshot;
+    private LocalDateTime pickupTime;
+    private LocalDateTime returnTime;
+    private LocalDateTime createTime;
+}

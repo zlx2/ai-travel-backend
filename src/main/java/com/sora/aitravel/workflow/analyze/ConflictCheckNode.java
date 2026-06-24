@@ -39,14 +39,12 @@ public class ConflictCheckNode {
     }
 
     private void checkDays(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
-        Integer days = requirement.days();
+        Integer days = requirement.getDays();
         if (days == null) {
             return;
         }
         if (days < 1) {
-            conflicts.add(
-                    new ConflictDTO(
-                            "DAYS_TOO_SHORT", "旅行天数不能小于 1 天。", "请把旅行天数调整为 1-7 天。"));
+            conflicts.add(new ConflictDTO("DAYS_TOO_SHORT", "旅行天数不能小于 1 天。", "请把旅行天数调整为 1-7 天。"));
         } else if (days > 7) {
             conflicts.add(
                     new ConflictDTO(
@@ -55,17 +53,15 @@ public class ConflictCheckNode {
     }
 
     private void checkBudget(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
-        Integer budget = requirement.budget();
+        Integer budget = requirement.getBudget();
         if (budget == null) {
             return;
         }
-        int peopleCount = requirement.peopleCount() == null ? 1 : requirement.peopleCount();
-        int days = requirement.days() == null ? 1 : Math.max(requirement.days(), 1);
+        int peopleCount = requirement.getPeopleCount() == null ? 1 : requirement.getPeopleCount();
+        int days = requirement.getDays() == null ? 1 : Math.max(requirement.getDays(), 1);
         int perPersonPerDay = budget / Math.max(peopleCount * days, 1);
         if (budget <= 0) {
-            conflicts.add(
-                    new ConflictDTO(
-                            "BUDGET_INVALID", "预算金额需要大于 0。", "请补充一个可用的旅行预算。"));
+            conflicts.add(new ConflictDTO("BUDGET_INVALID", "预算金额需要大于 0。", "请补充一个可用的旅行预算。"));
         } else if (perPersonPerDay < 100) {
             conflicts.add(
                     new ConflictDTO(
@@ -77,9 +73,9 @@ public class ConflictCheckNode {
     }
 
     private void checkPace(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
-        if (!"LIGHT".equals(requirement.pace())
-                || requirement.preferences() == null
-                || requirement.preferences().size() < 5) {
+        if (!"LIGHT".equals(requirement.getPace())
+                || requirement.getPreferences() == null
+                || requirement.getPreferences().size() < 5) {
             return;
         }
         conflicts.add(
@@ -90,7 +86,7 @@ public class ConflictCheckNode {
     }
 
     private void checkTravelDate(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
-        String travelDate = requirement.travelDate();
+        String travelDate = requirement.getTravelDate();
         if (travelDate == null || travelDate.isBlank()) {
             return;
         }
@@ -106,9 +102,7 @@ public class ConflictCheckNode {
         } catch (DateTimeParseException ignored) {
             conflicts.add(
                     new ConflictDTO(
-                            "TRAVEL_DATE_INVALID",
-                            "出行日期格式无法识别。",
-                            "请使用 yyyy-MM-dd 格式补充出行日期。"));
+                            "TRAVEL_DATE_INVALID", "出行日期格式无法识别。", "请使用 yyyy-MM-dd 格式补充出行日期。"));
         }
     }
 }

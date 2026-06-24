@@ -9,11 +9,9 @@ import lombok.Data;
 
 /**
  * 系统用户实体类。
- * <p>
- * 对应数据库表 {@code sys_user}，存储系统注册用户信息，包括用户名、密码哈希、邮箱、昵称、
- * 头像地址、角色与状态等。用户可通过邮箱注册并登录系统，角色分为普通用户和管理员两种。
- * 该表通过逻辑删除标记（deleted）实现软删除。
- * </p>
+ *
+ * <p>对应数据库表 {@code sys_user}，存储系统注册用户信息，包括用户名、密码哈希、邮箱、昵称、
+ * 头像地址、角色与状态等。用户可通过邮箱注册并登录系统，角色分为普通用户和管理员两种。 该表通过逻辑删除标记（deleted）实现软删除。
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -70,6 +68,5 @@ public class SysUser {
     private LocalDateTime updateTime;
 
     /** MyBatis-Plus 逻辑删除标记：0=未删除，1=已删除。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }

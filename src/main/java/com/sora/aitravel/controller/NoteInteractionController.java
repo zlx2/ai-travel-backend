@@ -6,9 +6,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 游记互动控制器（点赞/收藏）。
- * <p>接口前缀：/api/notes/{id}</p>
- * <p>请求方式：RESTful</p>
- * <p>权限要求：所有接口均需登录（@SaCheckLogin）</p>
+ *
+ * <p>接口前缀：/api/notes/{id}
+ *
+ * <p>请求方式：RESTful
+ *
+ * <p>权限要求：所有接口均需登录（@SaCheckLogin）
  */
 @SaCheckLogin
 @RestController

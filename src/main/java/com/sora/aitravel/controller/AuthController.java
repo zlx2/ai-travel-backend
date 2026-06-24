@@ -12,9 +12,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 用户认证控制器。
- * <p>接口前缀：/api/auth</p>
- * <p>请求方式：RESTful</p>
- * <p>权限要求：注册/登录/发送验证码无需登录；登出需登录（@SaCheckLogin）</p>
+ *
+ * <p>接口前缀：/api/auth
+ *
+ * <p>请求方式：RESTful
+ *
+ * <p>权限要求：注册/登录/发送验证码无需登录；登出需登录（@SaCheckLogin）
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -32,7 +35,7 @@ public class AuthController {
     @PostMapping("/email-code")
     public R<Void> sendCode(@Valid @RequestBody EmailCodeRequest request) {
         // Controller 只负责协议和参数边界；限流、发送模式及缓存均由验证码服务封装。
-        emailCodeService.send(request.email(), request.scene());
+        emailCodeService.send(request.getEmail(), request.getScene());
         return R.ok();
     }
 
@@ -62,7 +65,8 @@ public class AuthController {
 
     /**
      * 用户登出。
-     * <p>需要登录态。</p>
+     *
+     * <p>需要登录态。
      *
      * @return 无返回内容，登出成功即返回成功响应
      */

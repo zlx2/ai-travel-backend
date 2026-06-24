@@ -1,5 +1,9 @@
 package com.sora.aitravel.dto.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * 美食推荐候选。
  *
@@ -10,4 +14,13 @@ package com.sora.aitravel.dto.model;
  * @param specialty 特色
  * @param reason 推荐原因
  */
-public record FoodSpotDTO(String name, String area, String specialty, String reason) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class FoodSpotDTO {
+
+    private String name;
+    private String area;
+    private String specialty;
+    private String reason;
+}

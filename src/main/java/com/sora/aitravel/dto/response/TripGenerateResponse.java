@@ -4,6 +4,9 @@ import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * AI 旅行计划生成响应 DTO。
@@ -13,9 +16,14 @@ import com.sora.aitravel.dto.model.TripPlanDTO;
  * @param recommendationContext 行程生成前准备的景点、美食、住宿和交通推荐上下文
  * @param tripPlan AI 生成的完整旅行计划
  */
-public record TripGenerateResponse(
-        String conversationId,
-        TravelRequirementDTO requirement,
-        RentalQuoteOptionDTO selectedQuote,
-        RecommendationContextDTO recommendationContext,
-        TripPlanDTO tripPlan) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TripGenerateResponse {
+
+    private String conversationId;
+    private TravelRequirementDTO requirement;
+    private RentalQuoteOptionDTO selectedQuote;
+    private RecommendationContextDTO recommendationContext;
+    private TripPlanDTO tripPlan;
+}

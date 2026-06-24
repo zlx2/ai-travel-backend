@@ -2,39 +2,25 @@ package com.sora.aitravel.dto.model;
 
 import lombok.Data;
 
-/**
- * 高德API通用响应
- */
+/** 高德API通用响应 */
 @Data
 public class AmapApiResp<T> {
-    /**
-     * 状态码：1成功，0失败
-     */
+    /** 状态码：1成功，0失败 */
     private String status;
 
-    /**
-     * 状态说明
-     */
+    /** 状态说明 */
     private String info;
 
-    /**
-     * 返回状态说明，10000 代表正确
-     */
+    /** 返回状态说明，10000 代表正确 */
     private String infocode;
 
-    /**
-     * 结果数量
-     */
+    /** 结果数量 */
     private String count;
 
-    /**
-     * 具体数据
-     */
+    /** 具体数据 */
     private T data;
 
-    /**
-     * 原始JSON响应
-     */
+    /** 原始JSON响应 */
     private String rawJson;
 
     public boolean isSuccess() {

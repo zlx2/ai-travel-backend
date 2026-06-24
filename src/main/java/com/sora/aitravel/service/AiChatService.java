@@ -5,9 +5,8 @@ import com.sora.aitravel.dto.response.AiChatResponse;
 
 /**
  * AI 对话服务接口。
- * <p>
- * 提供与 AI 进行自由对话聊天的功能，用于行程规划前的需求沟通。
- * </p>
+ *
+ * <p>提供与 AI 进行自由对话聊天的功能，用于行程规划前的需求沟通。
  */
 public interface AiChatService {
     /**

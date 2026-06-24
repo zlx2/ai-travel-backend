@@ -5,10 +5,8 @@ import lombok.Getter;
 
 /**
  * 业务错误码枚举。
- * <p>
- * 统一管理系统中的所有错误码和提示信息，涵盖通用错误、认证错误、
- * AI 服务错误和文件上传错误等分类。
- * </p>
+ *
+ * <p>统一管理系统中的所有错误码和提示信息，涵盖通用错误、认证错误、 AI 服务错误和文件上传错误等分类。
  */
 @Getter
 @AllArgsConstructor
@@ -74,6 +72,7 @@ public enum ErrorCode {
 
     /** 错误码编号。 */
     private final Integer code;
+
     /** 错误描述信息。 */
     private final String message;
 }

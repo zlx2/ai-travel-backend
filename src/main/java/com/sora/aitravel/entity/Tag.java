@@ -6,12 +6,9 @@ import lombok.Data;
 
 /**
  * 标签实体类。
- * <p>
- * 对应数据库表 {@code tag}，存储系统标签数据。标签分为三种类型：游记标签
- * （用于游记内容分类）、偏好标签（用于用户旅行偏好选择）和目的地标签
- * （用于目的地特征标记）。标签可以被启用或禁用。该表通过逻辑删除标记
- * （deleted）实现软删除。
- * </p>
+ *
+ * <p>对应数据库表 {@code tag}，存储系统标签数据。标签分为三种类型：游记标签 （用于游记内容分类）、偏好标签（用于用户旅行偏好选择）和目的地标签
+ * （用于目的地特征标记）。标签可以被启用或禁用。该表通过逻辑删除标记 （deleted）实现软删除。
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -48,6 +45,5 @@ public class Tag {
     private LocalDateTime updateTime;
 
     /** 逻辑删除标记：0=未删除，1=已删除。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }

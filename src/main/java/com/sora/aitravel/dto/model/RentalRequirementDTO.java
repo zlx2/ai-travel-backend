@@ -1,16 +1,25 @@
 package com.sora.aitravel.dto.model;
 
-public record RentalRequirementDTO(
-        Boolean needRental,
-        String rentalStartCity,
-        String rentalEndCity,
-        String pickupMode,
-        String returnMode,
-        String pickupCity,
-        String returnCity,
-        String vehiclePreference,
-        Integer rentalDays,
-        Boolean deliveryRequired,
-        String deliveryAddress,
-        String returnAddress,
-        Boolean isOneWay) {}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RentalRequirementDTO {
+
+    private Boolean needRental;
+    private String rentalStartCity;
+    private String rentalEndCity;
+    private String pickupMode;
+    private String returnMode;
+    private String pickupCity;
+    private String returnCity;
+    private String vehiclePreference;
+    private Integer rentalDays;
+    private Boolean deliveryRequired;
+    private String deliveryAddress;
+    private String returnAddress;
+    private Boolean isOneWay;
+}

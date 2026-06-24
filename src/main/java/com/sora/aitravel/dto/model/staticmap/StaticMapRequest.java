@@ -1,72 +1,56 @@
 package com.sora.aitravel.dto.model.staticmap;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-/**
- * 静态地图请求参数
- */
+/** 静态地图请求参数 */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-/**
- * 静态地图请求参数
- */
+/** 静态地图请求参数 */
 public class StaticMapRequest {
 
-    /**
-     * 高德Key 自动填充，无需手动传入
-     */
+    /** 高德Key 自动填充，无需手动传入 */
     private String key;
 
-    /**
-     * 地图中心点 经度,纬度
-     */
+    /** 地图中心点 经度,纬度 */
     private String location;
 
-    /**
-     * 缩放级别 [1,17] 无标注覆盖物时必填
-     */
+    /** 缩放级别 [1,17] 无标注覆盖物时必填 */
     private Integer zoom;
 
-    /**
-     * 图片尺寸 w*h，最大1024*1024，默认400*400
-     */
+    /** 图片尺寸 w*h，最大1024*1024，默认400*400 */
     private String size;
 
-    /**
-     * 1普通图 2高清图，默认1
-     */
+    /** 1普通图 2高清图，默认1 */
     private Integer scale;
 
-    /**
-     * 标记点集合，多个用|分隔
-     */
+    /** 标记点集合，多个用|分隔 */
     private String markers;
 
-    /**
-     * 文字标签集合，多个用|分隔
-     */
+    /** 文字标签集合，多个用|分隔 */
     private String labels;
 
-    /**
-     * 折线/多边形路径，多个用|分隔
-     */
+    /** 折线/多边形路径，多个用|分隔 */
     private String paths;
 
-    /**
-     * 是否展示实时路况 0不展示 1展示，默认0
-     */
+    /** 是否展示实时路况 0不展示 1展示，默认0 */
     private Integer traffic;
 
-    public StaticMapRequest(String key, String location, Integer zoom,
-                            String size, Integer scale, List<Marker> markers,
-                            List<Label> labels, List<Path> paths, Integer traffic) {
+    public StaticMapRequest(
+            String key,
+            String location,
+            Integer zoom,
+            String size,
+            Integer scale,
+            List<Marker> markers,
+            List<Label> labels,
+            List<Path> paths,
+            Integer traffic) {
         String m = null, l = null, p = null;
         if (markers != null && !markers.isEmpty()) {
             for (Marker marker : markers) {
@@ -108,5 +92,4 @@ public class StaticMapRequest {
         this.paths = p;
         this.traffic = traffic;
     }
-
 }

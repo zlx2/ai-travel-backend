@@ -28,12 +28,12 @@ public class GenerateResultMergeNode {
         TripPlanDTO tripPlan = buildTripPlan(context, requirement);
         context.setResult(
                 new TripGenerateResponse(
-                        context.getRequest().conversationId(),
+                        context.getRequest().getConversationId(),
                         requirement,
                         context.getSelectedQuote(),
                         recommendationContext,
                         tripPlan));
-        log.info("节点[result-merge]：Generate 响应已组装，dailyPlans={}", tripPlan.dailyPlans().size());
+        log.info("节点[result-merge]：Generate 响应已组装，dailyPlans={}", tripPlan.getDailyPlans().size());
     }
 
     private RecommendationContextDTO normalizeRecommendationContext(
@@ -42,10 +42,10 @@ public class GenerateResultMergeNode {
             return null;
         }
         return new RecommendationContextDTO(
-                normalizeScenicSpots(recommendationContext.scenicSpots()),
-                normalizeFoodSpots(recommendationContext.foodSpots()),
-                normalizeHotelAreas(recommendationContext.hotelAreas()),
-                normalizeTransportPlan(recommendationContext.transportPlan()));
+                normalizeScenicSpots(recommendationContext.getScenicSpots()),
+                normalizeFoodSpots(recommendationContext.getFoodSpots()),
+                normalizeHotelAreas(recommendationContext.getHotelAreas()),
+                normalizeTransportPlan(recommendationContext.getTransportPlan()));
     }
 
     private List<ScenicSpotDTO> normalizeScenicSpots(Object value) {
@@ -127,27 +127,28 @@ public class GenerateResultMergeNode {
         tips.add("本版 Generate 已按“先查数据、再生成、再校验”的流程跑通。");
         tips.add("工具查询暂未真实接入，当前地点来源标记为 SIMULATED_AMAP。");
         if (context.getSelectedQuote() != null
-                && context.getSelectedQuote().priceSnapshot() != null
-                && Boolean.TRUE.equals(context.getSelectedQuote().priceSnapshot().get("mock"))) {
+                && context.getSelectedQuote().getPriceSnapshot() != null
+                && Boolean.TRUE.equals(context.getSelectedQuote().getPriceSnapshot().get("mock"))) {
             tips.add("租车报价为模拟数据，仅用于前后端联调。");
         }
         for (DayPlanValidationReport report : context.getDayValidationReports()) {
             if (!Boolean.TRUE.equals(report.passed())) {
-                tips.add("第 " + report.day() + " 天存在校验提示：" + String.join("；", report.warnings()));
+                tips.add(
+                        "第 " + report.getDay() + " 天存在校验提示：" + String.join("；", report.warnings()));
             }
         }
 
-        int foodCost = 180 * safePeopleCount(requirement) * requirement.days();
+        int foodCost = 180 * safePeopleCount(requirement) * requirement.getDays();
         int transportCost =
                 context.getSelectedQuote() == null
-                        ? 80 * safePeopleCount(requirement) * requirement.days()
-                        : context.getSelectedQuote().feeBreakdown().totalPriceCent() / 100;
-        int hotelCost = 300 * Math.max(requirement.days() - 1, 1);
+                        ? 80 * safePeopleCount(requirement) * requirement.getDays()
+                        : context.getSelectedQuote().getFeeBreakdown().getTotalPriceCent() / 100;
+        int hotelCost = 300 * Math.max(requirement.getDays() - 1, 1);
 
         return new TripPlanDTO(
-                displayDestination(requirement) + requirement.days() + "日旅行方案",
+                displayDestination(requirement) + requirement.getDays() + "日旅行方案",
                 displayDestination(requirement),
-                requirement.days(),
+                requirement.getDays(),
                 "基于逐日骨架、模拟工具候选数据和后端校验结果组装的 Generate V1 行程。",
                 context.getLockedDailyPlans(),
                 new TripPlanDTO.BudgetSummary(
@@ -164,16 +165,16 @@ public class GenerateResultMergeNode {
     private TripPlanDTO.AccommodationSuggestion buildAccommodationSuggestion(
             GenerateWorkflowContext context) {
         if (context.getRecommendationContext() == null
-                || context.getRecommendationContext().hotelAreas().isEmpty()) {
+                || context.getRecommendationContext().getHotelAreas().isEmpty()) {
             return new TripPlanDTO.AccommodationSuggestion("待确认住宿区域", "后续接入酒店/住宿区域工具。", null);
         }
-        var hotelArea = context.getRecommendationContext().hotelAreas().get(0);
+        var hotelArea = context.getRecommendationContext().getHotelAreas().get(0);
         return new TripPlanDTO.AccommodationSuggestion(
-                hotelArea.area(), hotelArea.reason(), hotelArea.priceRange());
+                hotelArea.getArea(), hotelArea.getReason(), hotelArea.getPriceRange());
     }
 
     private int safePeopleCount(TravelRequirementDTO requirement) {
-        return requirement.peopleCount() == null ? 1 : requirement.peopleCount();
+        return requirement.getPeopleCount() == null ? 1 : requirement.getPeopleCount();
     }
 
     private Map<?, ?> asMap(Object value) {
@@ -201,12 +202,12 @@ public class GenerateResultMergeNode {
     }
 
     private String displayDestination(TravelRequirementDTO requirement) {
-        if (requirement.destination() != null && !requirement.destination().isBlank()) {
-            return requirement.destination();
+        if (requirement.getDestination() != null && !requirement.getDestination().isBlank()) {
+            return requirement.getDestination();
         }
-        if (requirement.routeRegion() != null && !requirement.routeRegion().isBlank()) {
-            return requirement.routeRegion();
+        if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
+            return requirement.getRouteRegion();
         }
-        return String.join("-", requirement.routeCities());
+        return String.join("-", requirement.getRouteCities());
     }
 }

@@ -35,18 +35,18 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public Long register(RegisterRequest request) {
         // 先标准化唯一键，避免大小写或无意义空格绕过重复检查。
-        String username = request.username().trim();
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         ensureUsernameAvailable(username);
         ensureEmailAvailable(email);
         // 唯一性确认后再校验邮箱所有权，错误类型对调用方更明确。
-        emailCodeService.verify(email, REGISTER_SCENE, request.emailCode());
+        emailCodeService.verify(email, REGISTER_SCENE, request.getEmailCode());
 
         LocalDateTime now = LocalDateTime.now();
         SysUser user = new SysUser();
         user.setUsername(username);
         // 数据库只保存带盐的单向哈希，永不持久化明文密码。
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setEmail(email);
         user.setNickname(username);
         user.setRole(AuthConstants.USER_ROLE);
@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        String account = request.account().trim();
+        String account = request.getAccount().trim();
         SysUser user =
                 userMapper.selectOne(
                         new LambdaQueryWrapper<SysUser>()
@@ -74,7 +74,8 @@ public class AuthServiceImpl implements AuthService {
                                                         .eq(SysUser::getEmail, account))
                                 .last("LIMIT 1"));
         // 两种失败使用同一提示，避免接口泄露某个账号是否已经注册。
-        if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (user == null
+                || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.USERNAME_OR_PASSWORD_ERROR);
         }
         if (Integer.valueOf(0).equals(user.getStatus())) {

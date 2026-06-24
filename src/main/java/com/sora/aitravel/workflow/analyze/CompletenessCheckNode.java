@@ -24,10 +24,10 @@ public class CompletenessCheckNode {
             return;
         }
 
-        if (isBlank(requirement.departure())) {
+        if (isBlank(requirement.getDeparture())) {
             questions.add(new QuestionDTO("departure", "你准备从哪个城市出发？", true));
         }
-        if (requirement.days() == null) {
+        if (requirement.getDays() == null) {
             questions.add(new QuestionDTO("days", "这次旅行大概安排几天？", true));
         }
 
@@ -38,9 +38,9 @@ public class CompletenessCheckNode {
             return;
         }
 
-        if (isBlank(requirement.destination())) {
+        if (isBlank(requirement.getDestination())) {
             boolean hasPreference =
-                    requirement.preferences() != null && !requirement.preferences().isEmpty();
+                    requirement.getPreferences() != null && !requirement.getPreferences().isEmpty();
             if (hasPreference) {
                 context.setStatus(AnalyzeStatusEnum.NEED_DESTINATION_CHOICE.name());
                 log.info("节点[completeness-check]：缺少目的地但已有偏好，进入目的地推荐分支。");

@@ -37,8 +37,8 @@ class ArchitectureContractTest {
                         "NORMAL",
                         List.of(),
                         null);
-        assertThat(requirement.departure()).isEqualTo("上海");
-        assertThat(requirement.destination()).isEqualTo("重庆");
-        assertThat(requirement.days()).isBetween(1, 7);
+        assertThat(requirement.getDeparture()).isEqualTo("上海");
+        assertThat(requirement.getDestination()).isEqualTo("重庆");
+        assertThat(requirement.getDays()).isBetween(1, 7);
     }
 }

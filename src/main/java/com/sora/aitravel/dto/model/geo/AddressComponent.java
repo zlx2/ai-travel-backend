@@ -2,9 +2,7 @@ package com.sora.aitravel.dto.model.geo;
 
 import lombok.Data;
 
-/**
- * 地址组件
- */
+/** 地址组件 */
 @Data
 public class AddressComponent {
     private String country;

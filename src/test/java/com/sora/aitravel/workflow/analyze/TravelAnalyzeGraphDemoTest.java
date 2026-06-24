@@ -22,6 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -76,11 +79,11 @@ class TravelAnalyzeGraphDemoTest {
                         StateGraph.END);
 
         TripAnalyzeResponse result = result(outputs);
-        assertThat(result.status()).isIn("READY", "CONFLICT");
-        assertThat(result.requirement()).isNotNull();
-        assertThat(result.requirement().departure()).isNotBlank();
-        assertThat(result.requirement().destination()).isNotBlank();
-        assertThat(result.requirement().days()).isNotNull();
+        assertThat(result.getStatus()).isIn("READY", "CONFLICT");
+        assertThat(result.getRequirement()).isNotNull();
+        assertThat(result.getRequirement().getDeparture()).isNotBlank();
+        assertThat(result.getRequirement().getDestination()).isNotBlank();
+        assertThat(result.getRequirement().getDays()).isNotNull();
     }
 
     @Test
@@ -98,8 +101,8 @@ class TravelAnalyzeGraphDemoTest {
         assertThat(nodeNames(outputs)).doesNotContain("目的地推荐", "冲突检查");
 
         TripAnalyzeResponse result = result(outputs);
-        assertThat(result.status()).isEqualTo("NEED_MORE_INFO");
-        assertThat(result.questions()).isNotEmpty();
+        assertThat(result.getStatus()).isEqualTo("NEED_MORE_INFO");
+        assertThat(result.getQuestions()).isNotEmpty();
     }
 
     @Test
@@ -117,9 +120,9 @@ class TravelAnalyzeGraphDemoTest {
         assertThat(nodeNames(outputs)).doesNotContain("冲突检查");
 
         TripAnalyzeResponse result = result(outputs);
-        assertThat(result.status()).isEqualTo("NEED_DESTINATION_CHOICE");
-        assertThat(result.destinationSuggestions()).hasSize(3);
-        assertThat(destinationNames(result.destinationSuggestions()))
+        assertThat(result.getStatus()).isEqualTo("NEED_DESTINATION_CHOICE");
+        assertThat(result.getDestinationSuggestions()).hasSize(3);
+        assertThat(destinationNames(result.getDestinationSuggestions()))
                 .allSatisfy(name -> assertThat(name).isNotBlank());
     }
 
@@ -137,8 +140,8 @@ class TravelAnalyzeGraphDemoTest {
                 .containsSubsequence("标准化需求", "完整性检查", "冲突检查", "组装分析结果", StateGraph.END);
 
         TripAnalyzeResponse result = result(outputs);
-        assertThat(result.status()).isEqualTo("CONFLICT");
-        assertThat(result.conflicts()).isNotEmpty();
+        assertThat(result.getStatus()).isEqualTo("CONFLICT");
+        assertThat(result.getConflicts()).isNotEmpty();
     }
 
     private CompiledGraph buildAnalyzeGraph() throws Exception {
@@ -194,7 +197,7 @@ class TravelAnalyzeGraphDemoTest {
 
     private Map<String, Object> receiveRawInput(OverAllState state) {
         AnalyzeInput input = state.value(INPUT_REQUEST, AnalyzeInput.class).orElseThrow();
-        log.info("节点[接收原始输入]：接收用户文字/表单输入，conversationId={}", input.conversationId());
+        log.info("节点[接收原始输入]：接收用户文字/表单输入，conversationId={}", input.getConversationId());
         return Map.of(RAW_INPUT, input);
     }
 
@@ -203,22 +206,22 @@ class TravelAnalyzeGraphDemoTest {
         log.info("节点[整理输入]：合并 userInput、formInput、extraAnswers 和 selectedDestination。");
 
         StringBuilder cleanInput = new StringBuilder();
-        if (input.userInput() != null && !input.userInput().isBlank()) {
-            cleanInput.append(input.userInput().trim());
+        if (input.getUserInput() != null && !input.getUserInput().isBlank()) {
+            cleanInput.append(input.getUserInput().trim());
         }
-        if (input.formInput() != null) {
-            append(cleanInput, "出发地：" + input.formInput().departure());
-            append(cleanInput, "目的地：" + input.formInput().destination());
-            append(cleanInput, "天数：" + input.formInput().days());
-            append(cleanInput, "预算：" + input.formInput().budget());
-            append(cleanInput, "人数：" + input.formInput().peopleCount());
-            append(cleanInput, "偏好：" + input.formInput().preferences());
+        if (input.getFormInput() != null) {
+            append(cleanInput, "出发地：" + input.getFormInput().getDeparture());
+            append(cleanInput, "目的地：" + input.getFormInput().getDestination());
+            append(cleanInput, "天数：" + input.getFormInput().getDays());
+            append(cleanInput, "预算：" + input.getFormInput().getBudget());
+            append(cleanInput, "人数：" + input.getFormInput().getPeopleCount());
+            append(cleanInput, "偏好：" + input.getFormInput().getPreferences());
         }
-        if (input.extraAnswers() != null && !input.extraAnswers().isEmpty()) {
-            append(cleanInput, "补充回答：" + String.join("；", input.extraAnswers()));
+        if (input.getExtraAnswers() != null && !input.getExtraAnswers().isEmpty()) {
+            append(cleanInput, "补充回答：" + String.join("；", input.getExtraAnswers()));
         }
-        if (input.selectedDestination() != null && !input.selectedDestination().isBlank()) {
-            append(cleanInput, "用户已选择目的地：" + input.selectedDestination());
+        if (input.getSelectedDestination() != null && !input.getSelectedDestination().isBlank()) {
+            append(cleanInput, "用户已选择目的地：" + input.getSelectedDestination());
         }
         return Map.of(CLEAN_INPUT, cleanInput.toString().replaceAll("\\s+", " "));
     }
@@ -293,10 +296,10 @@ class TravelAnalyzeGraphDemoTest {
         log.info("节点[完整性检查]：检查出发地、目的地、天数是否满足 Analyze 最小必填。");
 
         List<String> missingFields = new ArrayList<>();
-        if (isBlank(requirement.departure())) {
+        if (isBlank(requirement.getDeparture())) {
             missingFields.add("departure");
         }
-        if (requirement.days() == null) {
+        if (requirement.getDays() == null) {
             missingFields.add("days");
         }
         if (!missingFields.isEmpty()) {
@@ -306,8 +309,8 @@ class TravelAnalyzeGraphDemoTest {
                     QUESTIONS,
                     buildQuestionsWithLlm(cleanInput, requirement, missingFields));
         }
-        if (isBlank(requirement.destination())) {
-            if (requirement.preferences() != null && !requirement.preferences().isEmpty()) {
+        if (isBlank(requirement.getDestination())) {
+            if (requirement.getPreferences() != null && !requirement.getPreferences().isEmpty()) {
                 return Map.of(STATUS, "NEED_DESTINATION_CHOICE", QUESTIONS, List.of());
             }
             return Map.of(
@@ -323,7 +326,7 @@ class TravelAnalyzeGraphDemoTest {
         TravelRequirementDTO requirement =
                 state.value(REQUIREMENT, TravelRequirementDTO.class).orElseThrow();
         String cleanInput = state.value(CLEAN_INPUT, "");
-        log.info("节点[目的地推荐]：真实调用 ChatModel，根据偏好推荐 3 个候选目的地。偏好={}", requirement.preferences());
+        log.info("节点[目的地推荐]：真实调用 ChatModel，根据偏好推荐 3 个候选目的地。偏好={}", requirement.getPreferences());
 
         String json =
                 callLlmForJson(
@@ -412,7 +415,7 @@ class TravelAnalyzeGraphDemoTest {
         return Map.of(
                 RESULT,
                 new TripAnalyzeResponse(
-                        input.conversationId(),
+                        input.getConversationId(),
                         status,
                         requirement,
                         questions,
@@ -497,7 +500,7 @@ class TravelAnalyzeGraphDemoTest {
     @SuppressWarnings("unchecked")
     private String valueOf(Object item, String field) {
         if (item instanceof DestinationSuggestionDTO suggestion && "name".equals(field)) {
-            return suggestion.name();
+            return suggestion.getName();
         }
         if (item instanceof Map<?, ?> map) {
             return String.valueOf(((Map<String, Object>) map).get(field));
@@ -667,18 +670,28 @@ class TravelAnalyzeGraphDemoTest {
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 
-    private record AnalyzeInput(
-            String conversationId,
-            String userInput,
-            FormInput formInput,
-            List<String> extraAnswers,
-            String selectedDestination) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private class AnalyzeInput {
 
-    private record FormInput(
-            String departure,
-            String destination,
-            Integer days,
-            Integer budget,
-            Integer peopleCount,
-            List<String> preferences) {}
+        private String conversationId;
+        private String userInput;
+        private FormInput formInput;
+        private List<String> extraAnswers;
+        private String selectedDestination;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private class FormInput {
+
+        private String departure;
+        private String destination;
+        private Integer days;
+        private Integer budget;
+        private Integer peopleCount;
+        private List<String> preferences;
+    }
 }

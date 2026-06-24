@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 /**
  * 饭店推荐条目 DTO。
  *
- * <p>一个对象代表一家饭店，最终会放在 FoodRecommendResponse 的 list 中返回给工作流。
- * 字段主要来自高德 POI 和 business 扩展信息；高德没有返回的数据保持为空，不手动编造评分、人均、营业时间。
+ * <p>一个对象代表一家饭店，最终会放在 FoodRecommendResponse 的 list 中返回给工作流。 字段主要来自高德 POI 和 business
+ * 扩展信息；高德没有返回的数据保持为空，不手动编造评分、人均、营业时间。
  */
 @Data
 @NoArgsConstructor

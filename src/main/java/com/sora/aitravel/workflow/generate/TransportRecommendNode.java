@@ -9,6 +9,7 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.service.RentalStoreService;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,26 +20,24 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class TransportRecommendNode {
 
     private final RentalStoreService rentalStoreService;
 
-    public TransportRecommendNode(RentalStoreService rentalStoreService) {
-        this.rentalStoreService = rentalStoreService;
-    }
-
     public void execute(GenerateWorkflowContext context) {
         RecommendationContextDTO current = context.getRecommendationContext();
-        TravelModeDTO travelMode = current.transportPlan().travelMode();
-        List<String> tips = new ArrayList<>(current.transportPlan().tips());
+        TravelModeDTO travelMode = current.getTransportPlan().getTravelMode();
+        List<String> tips = new ArrayList<>(current.getTransportPlan().getTips());
         RentalStoreDTO pickupStore = null;
         RentalStoreDTO returnStore = null;
 
-        if (Boolean.TRUE.equals(travelMode.recommended())
-                && "SELF_DRIVE".equals(travelMode.mode())) {
-            TravelRequirementDTO requirement = context.getRequest().requirement();
-            String targetName = firstNonBlank(requirement.departure(), requirement.destination());
-            String cityName = requirement.destination();
+        if (Boolean.TRUE.equals(travelMode.getRecommended())
+                && "SELF_DRIVE".equals(travelMode.getMode())) {
+            TravelRequirementDTO requirement = context.getRequest().getRequirement();
+            String targetName =
+                    firstNonBlank(requirement.getDeparture(), requirement.getDestination());
+            String cityName = requirement.getDestination();
             try {
                 pickupStore =
                         rentalStoreService.resolveRentalStore(
@@ -55,9 +54,9 @@ public class TransportRecommendNode {
 
         context.setRecommendationContext(
                 new RecommendationContextDTO(
-                        current.scenicSpots(),
-                        current.foodSpots(),
-                        current.hotelAreas(),
+                        current.getScenicSpots(),
+                        current.getFoodSpots(),
+                        current.getHotelAreas(),
                         new TransportPlanDTO(travelMode, pickupStore, returnStore, tips)));
     }
 

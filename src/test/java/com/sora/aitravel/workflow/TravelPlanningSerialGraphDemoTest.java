@@ -12,6 +12,9 @@ import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import java.util.List;
 import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
@@ -85,7 +88,7 @@ class TravelPlanningSerialGraphDemoTest {
         assertThat(finalState.value(RAW_PLAN, String.class).orElseThrow()).contains("杭州3日旅行方案");
         assertThat(finalState.value(RESULT, PlanningResult.class))
                 .get()
-                .extracting(PlanningResult::status)
+                .extracting(PlanningResult::getStatus)
                 .isEqualTo("GENERATED");
     }
 
@@ -112,7 +115,7 @@ class TravelPlanningSerialGraphDemoTest {
         assertThat(finalState.value(DESTINATION_OPTIONS)).contains(List.of("杭州", "苏州", "南京"));
         assertThat(finalState.value(RESULT, PlanningResult.class))
                 .get()
-                .extracting(PlanningResult::destination)
+                .extracting(PlanningResult::getDestination)
                 .isEqualTo("杭州");
     }
 
@@ -172,7 +175,7 @@ class TravelPlanningSerialGraphDemoTest {
                         state -> {
                             TravelRequirement requirement =
                                     state.value(REQUIREMENT, TravelRequirement.class).orElseThrow();
-                            return requirement.needRental() ? "NEED_RENTAL_QUOTE" : "NO_RENTAL";
+                            return requirement.isNeedRental() ? "NEED_RENTAL_QUOTE" : "NO_RENTAL";
                         }),
                 Map.of("NEED_RENTAL_QUOTE", "rental-quote-preview", "NO_RENTAL", "prompt-build"));
         graph.addEdge("rental-quote-preview", "prompt-build");
@@ -208,9 +211,9 @@ class TravelPlanningSerialGraphDemoTest {
         TravelRequirement requirement =
                 state.value(REQUIREMENT, TravelRequirement.class).orElseThrow();
         String status;
-        if (isBlank(requirement.departure()) || requirement.days() == null) {
+        if (isBlank(requirement.getDeparture()) || requirement.getDays() == null) {
             status = "NEED_MORE_INFO";
-        } else if (isBlank(requirement.destination())) {
+        } else if (isBlank(requirement.getDestination())) {
             status = "NEED_DESTINATION_RECOMMEND";
         } else {
             status = "READY";
@@ -232,11 +235,11 @@ class TravelPlanningSerialGraphDemoTest {
         List<String> options = List.of("杭州", "苏州", "南京");
         TravelRequirement completed =
                 new TravelRequirement(
-                        requirement.departure(),
+                        requirement.getDeparture(),
                         options.get(0),
-                        requirement.days(),
-                        requirement.preferences(),
-                        requirement.needRental());
+                        requirement.getDays(),
+                        requirement.getPreferences(),
+                        requirement.isNeedRental());
         return Map.of(DESTINATION_OPTIONS, options, REQUIREMENT, completed);
     }
 
@@ -245,9 +248,9 @@ class TravelPlanningSerialGraphDemoTest {
                 state.value(REQUIREMENT, TravelRequirement.class).orElseThrow();
         log.info(
                 "Node[conflict-check]: check route/date/budget conflicts. departure={}, destination={}, days={}",
-                requirement.departure(),
-                requirement.destination(),
-                requirement.days());
+                requirement.getDeparture(),
+                requirement.getDestination(),
+                requirement.getDays());
         return Map.of(CONFLICTS, List.of());
     }
 
@@ -256,19 +259,19 @@ class TravelPlanningSerialGraphDemoTest {
                 state.value(REQUIREMENT, TravelRequirement.class).orElseThrow();
         log.info(
                 "Node[amap-poi-query]: call AmapPoiClient for scenic/food/hotel/rental POI. city={}",
-                requirement.destination());
+                requirement.getDestination());
 
         AmapContext amapContext =
                 new AmapContext(
                         List.of(
-                                requirement.destination() + "西湖景区",
-                                requirement.destination() + "城市夜景区"),
+                                requirement.getDestination() + "西湖景区",
+                                requirement.getDestination() + "城市夜景区"),
                         List.of(
-                                requirement.destination() + "本地菜餐厅",
-                                requirement.destination() + "夜市"),
-                        List.of(requirement.destination() + "核心商圈酒店区"),
-                        requirement.needRental()
-                                ? List.of(requirement.destination() + "高铁站租车点")
+                                requirement.getDestination() + "本地菜餐厅",
+                                requirement.getDestination() + "夜市"),
+                        List.of(requirement.getDestination() + "核心商圈酒店区"),
+                        requirement.isNeedRental()
+                                ? List.of(requirement.getDestination() + "高铁站租车点")
                                 : List.of());
         return Map.of(AMAP_CONTEXT, amapContext);
     }
@@ -282,9 +285,9 @@ class TravelPlanningSerialGraphDemoTest {
 
         RentalQuote quote =
                 new RentalQuote(
-                        requirement.destination() + "经济型轿车",
-                        amapContext.rentalStores().get(0),
-                        requirement.days() * 220);
+                        requirement.getDestination() + "经济型轿车",
+                        amapContext.getRentalStores().get(0),
+                        requirement.getDays() * 220);
         return Map.of(RENTAL_QUOTE, quote);
     }
 
@@ -309,13 +312,13 @@ class TravelPlanningSerialGraphDemoTest {
                 租车报价：%s
                 """
                         .formatted(
-                                requirement.departure(),
-                                requirement.destination(),
-                                requirement.days(),
-                                requirement.preferences(),
-                                amapContext.scenicPois(),
-                                amapContext.foodPois(),
-                                amapContext.hotelAreas(),
+                                requirement.getDeparture(),
+                                requirement.getDestination(),
+                                requirement.getDays(),
+                                requirement.getPreferences(),
+                                amapContext.getScenicPois(),
+                                amapContext.getFoodPois(),
+                                amapContext.getHotelAreas(),
                                 quote);
         return Map.of(PROMPT, prompt);
     }
@@ -333,7 +336,7 @@ class TravelPlanningSerialGraphDemoTest {
                 Day2: 白天城市深度游，晚上看夜景。
                 Day3: 轻松收尾，预留返程时间。
                 """
-                        .formatted(requirement.destination(), requirement.days());
+                        .formatted(requirement.getDestination(), requirement.getDays());
         return Map.of(RAW_PLAN, rawPlan);
     }
 
@@ -350,7 +353,7 @@ class TravelPlanningSerialGraphDemoTest {
                         ? new PlanningResult("NEED_MORE_INFO", null, followUpQuestion, null)
                         : new PlanningResult(
                                 "GENERATED",
-                                requirement == null ? null : requirement.destination(),
+                                requirement == null ? null : requirement.getDestination(),
                                 null,
                                 rawPlan);
         return Map.of(RESULT, result);
@@ -373,21 +376,47 @@ class TravelPlanningSerialGraphDemoTest {
         return value == null || value.isBlank();
     }
 
-    private record TravelRequirement(
-            String departure,
-            String destination,
-            Integer days,
-            List<String> preferences,
-            boolean needRental) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class TravelRequirement {
 
-    private record AmapContext(
-            List<String> scenicPois,
-            List<String> foodPois,
-            List<String> hotelAreas,
-            List<String> rentalStores) {}
+        private String departure;
+        private String destination;
+        private Integer days;
+        private List<String> preferences;
+        private boolean needRental;
+    }
 
-    private record RentalQuote(String vehicleGroup, String pickupStore, int totalPriceYuan) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class AmapContext {
 
-    private record PlanningResult(
-            String status, String destination, String followUpQuestion, String planText) {}
+        private List<String> scenicPois;
+        private List<String> foodPois;
+        private List<String> hotelAreas;
+        private List<String> rentalStores;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class RentalQuote {
+
+        private String vehicleGroup;
+        private String pickupStore;
+        private int totalPriceYuan;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class PlanningResult {
+
+        private String status;
+        private String destination;
+        private String followUpQuestion;
+        private String planText;
+    }
 }

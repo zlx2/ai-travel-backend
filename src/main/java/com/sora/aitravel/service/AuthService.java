@@ -6,9 +6,8 @@ import com.sora.aitravel.dto.response.LoginResponse;
 
 /**
  * 认证服务接口。
- * <p>
- * 提供用户注册、登录和退出登录的认证相关功能。
- * </p>
+ *
+ * <p>提供用户注册、登录和退出登录的认证相关功能。
  */
 public interface AuthService {
     /**
@@ -29,9 +28,8 @@ public interface AuthService {
 
     /**
      * 退出登录。
-     * <p>
-     * 清除当前用户的登录状态和 Token。
-     * </p>
+     *
+     * <p>清除当前用户的登录状态和 Token。
      */
     void logout();
 }

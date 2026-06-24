@@ -2,6 +2,9 @@ package com.sora.aitravel.test;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -9,22 +12,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.web.client.RestTemplate;
 
-import jakarta.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
-
 @SpringBootTest
 public class TestAi {
 
-    @Autowired
-    private ChatModel chatModel;
+    @Autowired private ChatModel chatModel;
 
     private ChatClient chatClient;
 
     @PostConstruct
     public void init() {
-        this.chatClient = ChatClient.builder(chatModel)
-                .defaultSystem("""
+        this.chatClient =
+                ChatClient.builder(chatModel)
+                        .defaultSystem(
+                                """
 你是一个旅游票价预测专家。
 
 你会根据用户输入的景点列表{input}如果有多个景点 就要输出多个json判断门票价格范围。
@@ -47,16 +47,17 @@ public class TestAi {
   "Suggestions":""
 }
 """)
-                .build();
+                        .build();
     }
 
     @Test
     void testExtractNames() throws Exception {
 
         // 1️⃣ 调用高德API
-        String url = "https://restapi.amap.com/v3/place/text"
-                + "?key=2b1d87340145d770b92bc5dacb942c01"
-                + "&keywords=西昌景点";
+        String url =
+                "https://restapi.amap.com/v3/place/text"
+                        + "?key=2b1d87340145d770b92bc5dacb942c01"
+                        + "&keywords=西昌景点";
 
         RestTemplate restTemplate = new RestTemplate();
         String json = restTemplate.getForObject(url, String.class);
@@ -80,15 +81,12 @@ public class TestAi {
         }
 
         System.out.println("景点列表：" + nameList);
-        System.out.println(nameList.toString()+"111111111111");
+        System.out.println(nameList.toString() + "111111111111");
 
         // 3️⃣ ⭐把列表发给AI
         String input = String.join("、", nameList);
 
-        String result = chatClient.prompt()
-                .user("请根据以下景点列表估算门票价格：" + input)
-                .call()
-                .content();
+        String result = chatClient.prompt().user("请根据以下景点列表估算门票价格：" + input).call().content();
 
         System.out.println("AI结果：");
         System.out.println(result);

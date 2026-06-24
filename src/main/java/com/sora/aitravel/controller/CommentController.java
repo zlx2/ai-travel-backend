@@ -9,9 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 评论控制器。
- * <p>接口前缀：/api</p>
- * <p>请求方式：RESTful</p>
- * <p>权限要求：评论列表（公开）无需登录；创建和删除评论需登录（@SaCheckLogin）</p>
+ *
+ * <p>接口前缀：/api
+ *
+ * <p>请求方式：RESTful
+ *
+ * <p>权限要求：评论列表（公开）无需登录；创建和删除评论需登录（@SaCheckLogin）
  */
 @RestController
 @RequestMapping("/api")
@@ -19,8 +22,8 @@ public class CommentController {
     /**
      * 分页查询指定游记的评论列表（公开接口）。
      *
-     * @param id       游记 ID
-     * @param pageNum  页码，默认 1
+     * @param id 游记 ID
+     * @param pageNum 页码，默认 1
      * @param pageSize 每页条数，默认 10
      * @return 分页的评论列表（CommentResponse）
      */
@@ -35,7 +38,7 @@ public class CommentController {
     /**
      * 创建对指定游记的评论（需登录）。
      *
-     * @param id      游记 ID
+     * @param id 游记 ID
      * @param request 包含评论内容的请求体
      * @return 创建成功返回新评论的详细信息（CommentResponse）
      */

@@ -29,20 +29,24 @@ public class TripSummaryNode {
                         profile.scenicCandidates().stream().map(this::toScenicSpot).toList(),
                         profile.foodCandidates().stream().map(this::toFoodSpot).toList(),
                         profile.hotelCandidates().stream().map(this::toHotelArea).toList(),
-                        new TransportPlanDTO(travelMode, null, null, travelMode.tips())));
+                        new TransportPlanDTO(travelMode, null, null, travelMode.getTips())));
         context.setRecommendationPromptContext("SIMULATED_TOOL_DATA_BASED_GENERATION");
-        log.info("节点[trip-summary]：已生成完整行程总览上下文，lockedDays={}", context.getLockedDailyPlans().size());
+        log.info(
+                "节点[trip-summary]：已生成完整行程总览上下文，lockedDays={}",
+                context.getLockedDailyPlans().size());
     }
 
     private ScenicSpotDTO toScenicSpot(PoiCandidate candidate) {
-        return new ScenicSpotDTO(candidate.name(), candidate.area(), candidate.reason(), "2小时", false);
+        return new ScenicSpotDTO(
+                candidate.getName(), candidate.getArea(), candidate.getReason(), "2小时", false);
     }
 
     private FoodSpotDTO toFoodSpot(PoiCandidate candidate) {
-        return new FoodSpotDTO(candidate.name(), candidate.area(), "本地美食", candidate.reason());
+        return new FoodSpotDTO(
+                candidate.getName(), candidate.getArea(), "本地美食", candidate.getReason());
     }
 
     private HotelAreaDTO toHotelArea(PoiCandidate candidate) {
-        return new HotelAreaDTO(candidate.name(), candidate.reason(), "价格以实际预订平台为准");
+        return new HotelAreaDTO(candidate.getName(), candidate.getReason(), "价格以实际预订平台为准");
     }
 }

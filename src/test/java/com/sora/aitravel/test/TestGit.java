@@ -5,8 +5,7 @@ package com.sora.aitravel.test;
  * @date: 2026/6/22 10:00
  * @version: v1.0.0
  * @description:
- **/
-
+ */
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,14 +16,13 @@ import static org.mockito.Mockito.when;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.service.MailSendService;
-import java.time.Duration;
-
 import com.sora.aitravel.service.impl.EmailCodeServiceImpl;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -51,8 +49,7 @@ class EmailCodeServiceImplTest {
         service.send("TEST@example.com", "register");
 
         ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
-        verify(mailSendService)
-                .sendVerificationCode(eq("test@example.com"), codeCaptor.capture());
+        verify(mailSendService).sendVerificationCode(eq("test@example.com"), codeCaptor.capture());
         assertThat(codeCaptor.getValue()).matches("\\d{6}");
         verify(valueOperations)
                 .set(

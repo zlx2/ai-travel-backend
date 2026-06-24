@@ -12,6 +12,7 @@ import com.sora.aitravel.service.RentalStoreService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
  * </ol>
  */
 @Service
+@RequiredArgsConstructor
 public class RentalStoreServiceImpl implements RentalStoreService {
 
     /** 当前只在目标地点 5 公里范围内找租车服务点，避免推荐过远地点。 */
@@ -35,16 +37,10 @@ public class RentalStoreServiceImpl implements RentalStoreService {
 
     private final AmapPoiClient amapPoiClient;
 
-    public RentalStoreServiceImpl(AmapPoiClient amapPoiClient) {
-        this.amapPoiClient = amapPoiClient;
-    }
-
     @Override
     public RentalStoreDTO resolveRentalStore(RentalStoreResolveCommand command) {
         return resolveRentalStore(
-                command.targetName(),
-                command.cityName(),
-                command.usage());
+                command.getTargetName(), command.getCityName(), command.getUsage());
     }
 
     @Override
@@ -119,8 +115,7 @@ public class RentalStoreServiceImpl implements RentalStoreService {
     /**
      * 给候选租车点打分。
      *
-     * <p>取车优先“汽车租赁”主类型，返还优先“汽车维修/租赁相关服务”类型；随后叠加汽车租赁标签、名称命中、
-     * 距离和评分。该分值只用于候选排序，不对用户展示。
+     * <p>取车优先“汽车租赁”主类型，返还优先“汽车维修/租赁相关服务”类型；随后叠加汽车租赁标签、名称命中、 距离和评分。该分值只用于候选排序，不对用户展示。
      */
     int scoreRentalStore(JSONObject poi, RentalStoreUsageEnum usage) {
         String name = text(poi, "name");
@@ -180,8 +175,7 @@ public class RentalStoreServiceImpl implements RentalStoreService {
 
         response.setStoreCode("AMAP_" + poiId);
         response.setDisplayName(
-                targetName
-                        + (usage == RentalStoreUsageEnum.PICKUP ? "推荐取车点" : "推荐还车点"));
+                targetName + (usage == RentalStoreUsageEnum.PICKUP ? "推荐取车点" : "推荐还车点"));
         response.setSource("AMAP_DYNAMIC");
         response.setUsage(usage.name());
         response.setAmapPoiId(poiId);

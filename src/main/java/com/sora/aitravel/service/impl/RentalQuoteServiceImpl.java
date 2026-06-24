@@ -26,24 +26,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class RentalQuoteServiceImpl implements RentalQuoteService {
     private static final int DELIVERY_FEE_CENT = 3000;
 
     private final RentalPickupPoiMapper pickupPoiMapper;
     private final RentalPriceTemplateMapper priceTemplateMapper;
     private final RentalVehicleGroupMapper vehicleGroupMapper;
-
-    public RentalQuoteServiceImpl(
-            RentalPickupPoiMapper pickupPoiMapper,
-            RentalPriceTemplateMapper priceTemplateMapper,
-            RentalVehicleGroupMapper vehicleGroupMapper) {
-        this.pickupPoiMapper = pickupPoiMapper;
-        this.priceTemplateMapper = priceTemplateMapper;
-        this.vehicleGroupMapper = vehicleGroupMapper;
-    }
 
     @Override
     public RentalQuotePreviewResponse preview(TravelRequirementDTO requirement) {
@@ -72,13 +68,13 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "当前城市暂无可用租车报价：" + rentalCity);
         }
         return new RentalQuotePreviewResponse(
-                requirement.routeMode(), rentalCity, cityMatch.citycode(), options);
+                requirement.getRouteMode(), rentalCity, cityMatch.getCitycode(), options);
     }
 
     @Override
     public RentalQuoteOptionDTO recalculate(
             TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
-        if (selectedQuote == null || selectedQuote.vehicleGroupId() == null) {
+        if (selectedQuote == null || selectedQuote.getVehicleGroupId() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "请选择租车报价");
         }
         String rentalCity = resolveRentalCity(requirement);
@@ -89,13 +85,13 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                                 item ->
                                         Objects.equals(
                                                 item.getVehicleGroupId(),
-                                                selectedQuote.vehicleGroupId()))
+                                                selectedQuote.getVehicleGroupId()))
                         .findFirst()
                         .orElseThrow(
                                 () ->
                                         new BusinessException(
                                                 ErrorCode.NOT_FOUND, "所选车型在当前城市暂无可用报价"));
-        RentalVehicleGroup group = vehicleGroupMapper.selectById(selectedQuote.vehicleGroupId());
+        RentalVehicleGroup group = vehicleGroupMapper.selectById(selectedQuote.getVehicleGroupId());
         if (group == null || !Integer.valueOf(1).equals(group.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "所选车型不可用");
         }
@@ -106,31 +102,33 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         if (requirement == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车报价需求不能为空");
         }
-        RentalRequirementDTO rental = requirement.rentalRequirement();
+        RentalRequirementDTO rental = requirement.getRentalRequirement();
         boolean needRental =
-                rental != null && Boolean.TRUE.equals(rental.needRental())
-                        || "ROAD_TRIP".equals(requirement.routeMode())
-                        || "LANDING_RENTAL_TRIP".equals(requirement.routeMode())
-                        || "RENTAL_CAR".equals(requirement.transportMode())
-                        || "SELF_DRIVE".equals(requirement.transportMode())
-                        || "USER_REQUIRED".equals(requirement.rentalIntent());
+                rental != null && Boolean.TRUE.equals(rental.getNeedRental())
+                        || "ROAD_TRIP".equals(requirement.getRouteMode())
+                        || "LANDING_RENTAL_TRIP".equals(requirement.getRouteMode())
+                        || "RENTAL_CAR".equals(requirement.getTransportMode())
+                        || "SELF_DRIVE".equals(requirement.getTransportMode())
+                        || "USER_REQUIRED".equals(requirement.getRentalIntent());
         if (!needRental) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "当前需求未选择租车");
         }
-        if (requirement.days() == null || requirement.days() < 1 || requirement.days() > 7) {
+        if (requirement.getDays() == null
+                || requirement.getDays() < 1
+                || requirement.getDays() > 7) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车天数必须在 1 到 7 天之间");
         }
     }
 
     private String resolveRentalCity(TravelRequirementDTO requirement) {
-        RentalRequirementDTO rental = requirement.rentalRequirement();
-        if (rental != null && notBlank(rental.rentalStartCity())) {
-            return rental.rentalStartCity();
+        RentalRequirementDTO rental = requirement.getRentalRequirement();
+        if (rental != null && notBlank(rental.getRentalStartCity())) {
+            return rental.getRentalStartCity();
         }
-        if ("ROAD_TRIP".equals(requirement.routeMode())) {
-            return requirement.departure();
+        if ("ROAD_TRIP".equals(requirement.getRouteMode())) {
+            return requirement.getDeparture();
         }
-        return requirement.destination();
+        return requirement.getDestination();
     }
 
     private CityMatch resolveCityMatch(String rentalCity) {
@@ -165,14 +163,14 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private List<RentalPriceTemplate> findTemplates(CityMatch cityMatch) {
         LambdaQueryWrapper<RentalPriceTemplate> query =
                 new LambdaQueryWrapper<RentalPriceTemplate>().eq(RentalPriceTemplate::getStatus, 1);
-        if (notBlank(cityMatch.citycode())) {
-            query.eq(RentalPriceTemplate::getCitycode, cityMatch.citycode());
+        if (notBlank(cityMatch.getCitycode())) {
+            query.eq(RentalPriceTemplate::getCitycode, cityMatch.getCitycode());
         } else {
-            query.eq(RentalPriceTemplate::getCity, cityMatch.city());
+            query.eq(RentalPriceTemplate::getCity, cityMatch.getCity());
         }
         List<RentalPriceTemplate> templates = priceTemplateMapper.selectList(query);
         if (templates.isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "当前城市暂无租车价格模板：" + cityMatch.city());
+            throw new BusinessException(ErrorCode.NOT_FOUND, "当前城市暂无租车价格模板：" + cityMatch.getCity());
         }
         return templates;
     }
@@ -202,13 +200,13 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private List<String> preferredGroupCodes(TravelRequirementDTO requirement) {
-        int people = requirement.peopleCount() == null ? 2 : requirement.peopleCount();
+        int people = requirement.getPeopleCount() == null ? 2 : requirement.getPeopleCount();
         String vehiclePreference =
-                requirement.rentalRequirement() == null
+                requirement.getRentalRequirement() == null
                         ? ""
-                        : safe(requirement.rentalRequirement().vehiclePreference());
+                        : safe(requirement.getRentalRequirement().getVehiclePreference());
         List<String> preferences =
-                requirement.preferences() == null ? List.of() : requirement.preferences();
+                requirement.getPreferences() == null ? List.of() : requirement.getPreferences();
         String text =
                 (vehiclePreference + " " + String.join(" ", preferences)).toUpperCase(Locale.ROOT);
         if (text.contains("EV") || text.contains("新能源") || text.contains("电")) {
@@ -243,8 +241,8 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         String code = safe(group.getGroupCode()).toUpperCase(Locale.ROOT);
         int index = preferredCodes.indexOf(code);
         int score = index >= 0 ? 100 - index * 15 : 20;
-        if (requirement.budget() != null
-                && requirement.budget() >= 8000
+        if (requirement.getBudget() != null
+                && requirement.getBudget() >= 8000
                 && code.contains("COMFORT")) {
             score += 10;
         }
@@ -257,19 +255,19 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             CityMatch cityMatch,
             RentalVehicleGroup group,
             RentalPriceTemplate template) {
-        RentalRequirementDTO rental = requirement.rentalRequirement();
+        RentalRequirementDTO rental = requirement.getRentalRequirement();
         String pickupMode =
-                rental == null ? "UNKNOWN" : safeDefault(rental.pickupMode(), "UNKNOWN");
+                rental == null ? "UNKNOWN" : safeDefault(rental.getPickupMode(), "UNKNOWN");
         String returnMode =
-                rental == null ? pickupMode : safeDefault(rental.returnMode(), pickupMode);
-        RentalPickupPoi pickupPoi = choosePoi(cityMatch.pois(), pickupMode);
-        RentalPickupPoi returnPoi = choosePoi(cityMatch.pois(), returnMode);
+                rental == null ? pickupMode : safeDefault(rental.getReturnMode(), pickupMode);
+        RentalPickupPoi pickupPoi = choosePoi(cityMatch.getPois(), pickupMode);
+        RentalPickupPoi returnPoi = choosePoi(cityMatch.getPois(), returnMode);
         int rentalDays =
-                rental != null && rental.rentalDays() != null
-                        ? rental.rentalDays()
-                        : requirement.days();
-        boolean isOneWay = rental != null && Boolean.TRUE.equals(rental.isOneWay());
-        boolean delivery = rental != null && Boolean.TRUE.equals(rental.deliveryRequired());
+                rental != null && rental.getRentalDays() != null
+                        ? rental.getRentalDays()
+                        : requirement.getDays();
+        boolean isOneWay = rental != null && Boolean.TRUE.equals(rental.getIsOneWay());
+        boolean delivery = rental != null && Boolean.TRUE.equals(rental.getDeliveryRequired());
 
         RentalFeeBreakdownDTO fee =
                 calculateFee(requirement, template, rentalDays, isOneWay, delivery);
@@ -277,7 +275,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         snapshot.put("source", "rental_price_template");
         snapshot.put("templateId", template.getId());
         snapshot.put("city", rentalCity);
-        snapshot.put("citycode", cityMatch.citycode());
+        snapshot.put("citycode", cityMatch.getCitycode());
         snapshot.put("vehicleGroupId", group.getId());
         snapshot.put("groupCode", group.getGroupCode());
         snapshot.put("rentalDays", rentalDays);
@@ -285,10 +283,10 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
         return new RentalQuoteOptionDTO(
                 "Q-" + template.getId() + "-" + group.getId(),
-                requirement.routeMode(),
+                requirement.getRouteMode(),
                 rentalCity,
-                cityMatch.citycode(),
-                cityMatch.adcode(),
+                cityMatch.getCitycode(),
+                cityMatch.getAdcode(),
                 group.getId(),
                 group.getGroupCode(),
                 group.getGroupName(),
@@ -319,7 +317,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             boolean isOneWay,
             boolean delivery) {
         int rentalFee = 0;
-        LocalDate start = parseDate(requirement.travelDate());
+        LocalDate start = parseDate(requirement.getTravelDate());
         for (int i = 0; i < rentalDays; i++) {
             LocalDate day = start.plusDays(i);
             boolean weekend =
@@ -430,6 +428,14 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         return isBlank(value) ? defaultValue : value;
     }
 
-    private record CityMatch(
-            String city, String citycode, String adcode, List<RentalPickupPoi> pois) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private class CityMatch {
+
+        private String city;
+        private String citycode;
+        private String adcode;
+        private List<RentalPickupPoi> pois;
+    }
 }

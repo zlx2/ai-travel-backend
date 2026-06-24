@@ -20,31 +20,32 @@ public class RequirementStandardizeNode {
         }
 
         String destination =
-                firstNonBlank(context.getRequest().selectedDestination(), extracted.destination());
-        List<String> routeCities = cleanList(extracted.routeCities());
+                firstNonBlank(
+                        context.getRequest().getSelectedDestination(), extracted.getDestination());
+        List<String> routeCities = cleanList(extracted.getRouteCities());
         if (routeCities.isEmpty() && hasText(destination)) {
             routeCities = List.of(destination);
         }
 
         TravelRequirementDTO standardized =
                 new TravelRequirementDTO(
-                        cleanText(extracted.departure()),
+                        cleanText(extracted.getDeparture()),
                         cleanText(destination),
-                        defaultText(extracted.routeMode(), "DESTINATION_CITY_TRIP"),
-                        defaultText(extracted.routeStructure(), "SINGLE_CITY"),
-                        cleanText(extracted.routeRegion()),
+                        defaultText(extracted.getRouteMode(), "DESTINATION_CITY_TRIP"),
+                        defaultText(extracted.getRouteStructure(), "SINGLE_CITY"),
+                        cleanText(extracted.getRouteRegion()),
                         routeCities,
-                        defaultText(extracted.transportMode(), "PUBLIC_TRANSIT"),
+                        defaultText(extracted.getTransportMode(), "PUBLIC_TRANSIT"),
                         "NO_RENTAL",
                         null,
-                        extracted.days(),
-                        extracted.budget(),
-                        normalizeBudgetType(extracted.budgetType()),
-                        extracted.peopleCount() == null ? 1 : extracted.peopleCount(),
-                        cleanList(extracted.preferences()),
-                        normalizePace(extracted.pace()),
-                        cleanList(extracted.avoidances()),
-                        cleanText(extracted.travelDate()));
+                        extracted.getDays(),
+                        extracted.getBudget(),
+                        normalizeBudgetType(extracted.getBudgetType()),
+                        extracted.getPeopleCount() == null ? 1 : extracted.getPeopleCount(),
+                        cleanList(extracted.getPreferences()),
+                        normalizePace(extracted.getPace()),
+                        cleanList(extracted.getAvoidances()),
+                        cleanText(extracted.getTravelDate()));
 
         context.setExtractedRequirement(standardized);
         log.info("节点[requirement-standardize]：已用规则标准化 Analyze 抽取结果。");
@@ -87,11 +88,7 @@ public class RequirementStandardizeNode {
         if (values == null) {
             return List.of();
         }
-        return values.stream()
-                .map(this::cleanText)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+        return values.stream().map(this::cleanText).filter(Objects::nonNull).distinct().toList();
     }
 
     private String defaultText(String value, String defaultValue) {
@@ -108,9 +105,7 @@ public class RequirementStandardizeNode {
             return null;
         }
         String text = value.trim();
-        return "null".equalsIgnoreCase(text) || "无".equals(text) || "暂无".equals(text)
-                ? null
-                : text;
+        return "null".equalsIgnoreCase(text) || "无".equals(text) || "暂无".equals(text) ? null : text;
     }
 
     private boolean hasText(String value) {

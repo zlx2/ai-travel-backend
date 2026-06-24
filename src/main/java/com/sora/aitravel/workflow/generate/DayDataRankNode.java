@@ -16,11 +16,13 @@ public class DayDataRankNode {
     public void execute(GenerateWorkflowContext context) {
         List<DayDataPackage> rankedPackages = new ArrayList<>();
         for (DayDataPackage dataPackage : context.getRankedDayDataPackages()) {
-            DayContext dayContext = findDayContext(context, dataPackage.day());
+            DayContext dayContext = findDayContext(context, dataPackage.getDay());
             rankedPackages.add(
                     new DayDataPackage(
-                            dataPackage.day(),
-                            rank(dataPackage.scenicCandidates(), dayContext.skeleton().targetArea()),
+                            dataPackage.getDay(),
+                            rank(
+                                    dataPackage.scenicCandidates(),
+                                    dayContext.skeleton().targetArea()),
                             rank(dataPackage.foodCandidates(), dayContext.skeleton().targetArea()),
                             rank(dataPackage.hotelCandidates(), dayContext.hotelArea()),
                             dataPackage.transportRoutes()));
@@ -32,7 +34,7 @@ public class DayDataRankNode {
     private List<PoiCandidate> rank(List<PoiCandidate> candidates, String preferredArea) {
         Map<String, PoiCandidate> deduped = new LinkedHashMap<>();
         for (PoiCandidate candidate : candidates) {
-            deduped.putIfAbsent(candidate.name(), candidate);
+            deduped.putIfAbsent(candidate.getName(), candidate);
         }
         return deduped.values().stream()
                 .sorted(
@@ -44,13 +46,13 @@ public class DayDataRankNode {
 
     private boolean containsPreferredArea(PoiCandidate candidate, String preferredArea) {
         return preferredArea != null
-                && candidate.area() != null
-                && preferredArea.contains(candidate.area());
+                && candidate.getArea() != null
+                && preferredArea.contains(candidate.getArea());
     }
 
     private DayContext findDayContext(GenerateWorkflowContext context, Integer day) {
         return context.getDayContexts().stream()
-                .filter(item -> item.day().equals(day))
+                .filter(item -> item.getDay().equals(day))
                 .findFirst()
                 .orElseThrow();
     }

@@ -12,15 +12,17 @@ public class RentalQuoteRequirementValidateNode {
         if (requirement == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车报价需求不能为空");
         }
-        if (requirement.days() == null || requirement.days() < 1 || requirement.days() > 7) {
+        if (requirement.getDays() == null
+                || requirement.getDays() < 1
+                || requirement.getDays() > 7) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车天数必须在 1 到 7 天之间");
         }
 
         String rentalCity =
-                "ROAD_TRIP".equals(requirement.routeMode())
-                        ? requirement.departure()
-                        : requirement.destination();
-        if (isBlank(rentalCity) && isBlank(requirement.departure())) {
+                "ROAD_TRIP".equals(requirement.getRouteMode())
+                        ? requirement.getDeparture()
+                        : requirement.getDestination();
+        if (isBlank(rentalCity) && isBlank(requirement.getDeparture())) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车城市不能为空");
         }
     }

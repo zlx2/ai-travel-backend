@@ -6,12 +6,9 @@ import lombok.Data;
 
 /**
  * 游记（攻略）实体类。
- * <p>
- * 对应数据库表 {@code note}，存储用户发布的旅行游记/攻略内容，包含标题、封面图片、
- * 目的地、摘要、Markdown 正文，以及浏览、点赞、收藏、评论等互动计数。
- * 游记分三种状态：草稿（未发布）、已发布、已删除。该表通过逻辑删除标记（deleted）
- * 实现软删除，删除时需同步将 status 置为 2。
- * </p>
+ *
+ * <p>对应数据库表 {@code note}，存储用户发布的旅行游记/攻略内容，包含标题、封面图片、 目的地、摘要、Markdown 正文，以及浏览、点赞、收藏、评论等互动计数。
+ * 游记分三种状态：草稿（未发布）、已发布、已删除。该表通过逻辑删除标记（deleted） 实现软删除，删除时需同步将 status 置为 2。
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -80,6 +77,5 @@ public class Note {
     private LocalDateTime updateTime;
 
     /** 删除游记时必须与 status=2 同步设置。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }

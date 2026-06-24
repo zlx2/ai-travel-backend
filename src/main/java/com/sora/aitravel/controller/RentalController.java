@@ -18,6 +18,7 @@ import com.sora.aitravel.workflow.rentalquote.RentalQuotePreviewWorkflow;
 import com.sora.aitravel.workflow.rentalquote.RentalQuotePreviewWorkflowContext;
 import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @SaCheckLogin
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/rental")
 public class RentalController {
     private final RentalOrderService rentalOrderService;
@@ -34,23 +36,12 @@ public class RentalController {
     private final RentalOrderCreateWorkflow rentalOrderCreateWorkflow;
     private final RentalPayWorkflow rentalPayWorkflow;
 
-    public RentalController(
-            RentalOrderService rentalOrderService,
-            RentalQuotePreviewWorkflow rentalQuotePreviewWorkflow,
-            RentalOrderCreateWorkflow rentalOrderCreateWorkflow,
-            RentalPayWorkflow rentalPayWorkflow) {
-        this.rentalOrderService = rentalOrderService;
-        this.rentalQuotePreviewWorkflow = rentalQuotePreviewWorkflow;
-        this.rentalOrderCreateWorkflow = rentalOrderCreateWorkflow;
-        this.rentalPayWorkflow = rentalPayWorkflow;
-    }
-
     @PostMapping("/quotes/preview")
     public R<RentalQuotePreviewResponse> preview(
             @Valid @RequestBody RentalQuotePreviewRequest request) {
         RentalQuotePreviewWorkflowContext context = new RentalQuotePreviewWorkflowContext();
         context.setUserId(LoginUserUtils.getUserId());
-        context.setRequirement(request.requirement());
+        context.setRequirement(request.getRequirement());
         return R.ok(rentalQuotePreviewWorkflow.execute(context).getResult());
     }
 

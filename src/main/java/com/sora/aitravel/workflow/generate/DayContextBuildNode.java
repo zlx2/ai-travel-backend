@@ -13,16 +13,16 @@ public class DayContextBuildNode {
     public void execute(GenerateWorkflowContext context) {
         List<DayContext> dayContexts = new ArrayList<>();
         List<String> usedPlaces = new ArrayList<>();
-        String hotelArea = context.getCityProfile().hotelCandidates().get(0).name();
+        String hotelArea = context.getCityProfile().hotelCandidates().get(0).getName();
 
         for (DaySkeleton skeleton : context.getDaySkeletons()) {
             dayContexts.add(
                     new DayContext(
-                            skeleton.day(),
+                            skeleton.getDay(),
                             skeleton,
                             List.copyOf(usedPlaces),
                             hotelArea,
-                            context.getRequirement().pace()));
+                            context.getRequirement().getPace()));
             usedPlaces.add(skeleton.targetArea());
         }
 

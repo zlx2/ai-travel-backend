@@ -10,10 +10,8 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * Redis 模板配置。
- * <p>
- * 自定义 RedisTemplate，Key 使用字符串序列化器，Value 使用 JSON 序列化器，
- * 确保存入 Redis 的数据以可读的 JSON 格式存储。
- * </p>
+ *
+ * <p>自定义 RedisTemplate，Key 使用字符串序列化器，Value 使用 JSON 序列化器， 确保存入 Redis 的数据以可读的 JSON 格式存储。
  */
 @Configuration
 public class RedisConfig {

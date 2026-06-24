@@ -44,72 +44,32 @@ class FoodRecommendServiceImplTest {
     @Test
     @DisplayName("城市附近美食应识别为城市关键词查询")
     void shouldTreatCityNearKeywordAsCityKeyword() {
-        checkIntent(
-                "重庆附近火锅",
-                FoodSearchIntentTypeEnum.CITY_KEYWORD,
-                "重庆",
-                null,
-                "火锅");
+        checkIntent("重庆附近火锅", FoodSearchIntentTypeEnum.CITY_KEYWORD, "重庆", null, "火锅");
     }
 
     /** 测试带城市前缀的具体地点查询，并确认城市名称会从 address 中移除。 */
     @Test
     @DisplayName("城市具体地点附近应识别为地点附近查询")
     void shouldTreatCityAddressNearKeywordAsNearAddress() {
-        checkIntent(
-                "重庆洪崖洞附近火锅",
-                FoodSearchIntentTypeEnum.NEAR_ADDRESS,
-                "重庆",
-                "洪崖洞",
-                "火锅");
+        checkIntent("重庆洪崖洞附近火锅", FoodSearchIntentTypeEnum.NEAR_ADDRESS, "重庆", "洪崖洞", "火锅");
     }
 
     /** 测试“附近、我附近、我身边、当前位置、就近”等当前位置附近表达。 */
     @Test
     @DisplayName("常见当前位置附近表达应正确识别")
     void shouldRecognizeCurrentLocationQueries() {
-        checkIntent(
-                "附近有什么好吃的",
-                FoodSearchIntentTypeEnum.NEAR_CURRENT,
-                null,
-                null,
-                "美食");
-        checkIntent(
-                "我附近小吃",
-                FoodSearchIntentTypeEnum.NEAR_CURRENT,
-                null,
-                null,
-                "小吃");
-        checkIntent(
-                "帮我找我身边的火锅",
-                FoodSearchIntentTypeEnum.NEAR_CURRENT,
-                null,
-                null,
-                "火锅");
-        checkIntent(
-                "当前位置附近餐厅",
-                FoodSearchIntentTypeEnum.NEAR_CURRENT,
-                null,
-                null,
-                "餐厅");
-        checkIntent(
-                "就近找个饭店",
-                FoodSearchIntentTypeEnum.NEAR_CURRENT,
-                null,
-                null,
-                "饭店");
+        checkIntent("附近有什么好吃的", FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, "美食");
+        checkIntent("我附近小吃", FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, "小吃");
+        checkIntent("帮我找我身边的火锅", FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, "火锅");
+        checkIntent("当前位置附近餐厅", FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, "餐厅");
+        checkIntent("就近找个饭店", FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, "饭店");
     }
 
     /** 测试关键词清理不能把“西餐厅”中的“餐厅”删除，避免最终只剩下“西”。 */
     @Test
     @DisplayName("关键词清理应保留西餐厅等有效词语")
     void shouldKeepRestaurantWordsWhenCleaningKeywords() {
-        checkIntent(
-                "西安西餐厅推荐",
-                FoodSearchIntentTypeEnum.CITY_KEYWORD,
-                "西安",
-                null,
-                "西餐厅");
+        checkIntent("西安西餐厅推荐", FoodSearchIntentTypeEnum.CITY_KEYWORD, "西安", null, "西餐厅");
     }
 
     /**

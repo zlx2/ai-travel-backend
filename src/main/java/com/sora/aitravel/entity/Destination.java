@@ -7,11 +7,9 @@ import lombok.Data;
 
 /**
  * 目的地实体类。
- * <p>
- * 对应数据库表 {@code destination}，存储旅行目的地的基础信息，包括名称、所属省市、
- * 经纬度坐标、封面图片、描述标签等。目的地是行程和游记的核心关联对象，支持按热度
+ *
+ * <p>对应数据库表 {@code destination}，存储旅行目的地的基础信息，包括名称、所属省市、 经纬度坐标、封面图片、描述标签等。目的地是行程和游记的核心关联对象，支持按热度
  * 排序和标签分类。该表通过逻辑删除标记（deleted）实现软删除。
- * </p>
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -76,6 +74,5 @@ public class Destination {
     private LocalDateTime updateTime;
 
     /** 逻辑删除标记：0=未删除，1=已删除。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }

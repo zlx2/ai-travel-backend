@@ -5,9 +5,8 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * 日期时间工具类。
- * <p>
- * 提供 LocalDateTime 与指定格式字符串之间的转换方法。
- * </p>
+ *
+ * <p>提供 LocalDateTime 与指定格式字符串之间的转换方法。
  */
 public final class DateTimeUtils {
     /** 默认日期时间格式：yyyy-MM-dd HH:mm:ss。 */

@@ -17,8 +17,8 @@ class ConnectionControllerTest {
                 controller.connect(new ConnectionCheckRequest("主页按钮联调"));
 
         assertThat(result.getCode()).isEqualTo(200);
-        assertThat(result.getData().message()).isEqualTo("后端已收到请求，前后端联通正常");
-        assertThat(result.getData().receivedAction()).isEqualTo("主页按钮联调");
-        assertThat(result.getData().receivedAt()).isNotNull();
+        assertThat(result.getData().getMessage()).isEqualTo("后端已收到请求，前后端联通正常");
+        assertThat(result.getData().getReceivedAction()).isEqualTo("主页按钮联调");
+        assertThat(result.getData().getReceivedAt()).isNotNull();
     }
 }

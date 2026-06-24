@@ -14,15 +14,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class TravelModeDecisionNode {
     public void execute(GenerateWorkflowContext context) {
-        TravelRequirementDTO requirement = context.getRequest().requirement();
+        TravelRequirementDTO requirement = context.getRequest().getRequirement();
         List<String> preferences =
-                requirement.preferences() == null ? List.of() : requirement.preferences();
+                requirement.getPreferences() == null ? List.of() : requirement.getPreferences();
 
         boolean selfDrive =
-                "ROAD_TRIP".equals(requirement.routeMode())
-                        || "LANDING_RENTAL_TRIP".equals(requirement.routeMode())
-                        || "RENTAL_CAR".equals(requirement.transportMode())
-                        || "SELF_DRIVE".equals(requirement.transportMode())
+                "ROAD_TRIP".equals(requirement.getRouteMode())
+                        || "LANDING_RENTAL_TRIP".equals(requirement.getRouteMode())
+                        || "RENTAL_CAR".equals(requirement.getTransportMode())
+                        || "SELF_DRIVE".equals(requirement.getTransportMode())
                         || preferences.stream()
                                 .anyMatch(
                                         item ->

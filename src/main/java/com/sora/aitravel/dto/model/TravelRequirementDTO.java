@@ -3,6 +3,9 @@ package com.sora.aitravel.dto.model;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 旅行需求 DTO（结构化用户旅行需求）。
@@ -20,21 +23,28 @@ import java.util.List;
  * @param avoidances 避雷/不喜欢的内容列表
  * @param travelDate 出行日期（格式：yyyy-MM-dd）
  */
-public record TravelRequirementDTO(
-        String departure,
-        String destination,
-        String routeMode,
-        String routeStructure,
-        String routeRegion,
-        List<String> routeCities,
-        String transportMode,
-        String rentalIntent,
-        RentalRequirementDTO rentalRequirement,
-        @Min(1) @Max(7) Integer days,
-        Integer budget,
-        String budgetType,
-        Integer peopleCount,
-        List<String> preferences,
-        String pace,
-        List<String> avoidances,
-        String travelDate) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TravelRequirementDTO {
+
+    private String departure;
+    private String destination;
+    private String routeMode;
+    private String routeStructure;
+    private String routeRegion;
+    private List<String> routeCities;
+    private String transportMode;
+    private String rentalIntent;
+    private RentalRequirementDTO rentalRequirement;
+
+    @Min(1) @Max(7) private Integer days;
+
+    private Integer budget;
+    private String budgetType;
+    private Integer peopleCount;
+    private List<String> preferences;
+    private String pace;
+    private List<String> avoidances;
+    private String travelDate;
+}

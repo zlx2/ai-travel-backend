@@ -6,12 +6,9 @@ import lombok.Data;
 
 /**
  * 文件资源实体类。
- * <p>
- * 对应数据库表 {@code file_resource}，存储用户上传的文件资源信息，包括文件所属
- * 用户、业务类型、文件名、对象存储 key、访问 URL、MIME 类型和文件大小等。
- * 一期只支持 avatar（头像）和 note_cover（游记封面）两种业务类型。
- * 该表通过逻辑删除标记（deleted）实现软删除。
- * </p>
+ *
+ * <p>对应数据库表 {@code file_resource}，存储用户上传的文件资源信息，包括文件所属 用户、业务类型、文件名、对象存储 key、访问 URL、MIME 类型和文件大小等。
+ * 一期只支持 avatar（头像）和 note_cover（游记封面）两种业务类型。 该表通过逻辑删除标记（deleted）实现软删除。
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -68,6 +65,5 @@ public class FileResource {
     private LocalDateTime updateTime;
 
     /** 逻辑删除标记：0=未删除，1=已删除。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }

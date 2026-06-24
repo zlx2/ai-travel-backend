@@ -1,6 +1,9 @@
 package com.sora.aitravel.dto.model;
 
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 交通方案上下文。
@@ -12,8 +15,13 @@ import java.util.List;
  * @param returnStore 推荐还车点，非自驾时可为空
  * @param tips 交通提示
  */
-public record TransportPlanDTO(
-        TravelModeDTO travelMode,
-        RentalStoreDTO pickupStore,
-        RentalStoreDTO returnStore,
-        List<String> tips) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TransportPlanDTO {
+
+    private TravelModeDTO travelMode;
+    private RentalStoreDTO pickupStore;
+    private RentalStoreDTO returnStore;
+    private List<String> tips;
+}

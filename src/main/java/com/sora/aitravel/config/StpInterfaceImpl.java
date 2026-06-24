@@ -10,10 +10,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Sa-Token 权限/角色接口实现。
- * <p>
- * 实现 {@link StpInterface} 接口，为 Sa-Token 提供当前登录用户的权限列表和角色列表。
- * 一期仅区分用户角色（普通用户 role=1，管理员 role=2），没有细粒度权限表。
- * </p>
+ *
+ * <p>实现 {@link StpInterface} 接口，为 Sa-Token 提供当前登录用户的权限列表和角色列表。 一期仅区分用户角色（普通用户 role=1，管理员
+ * role=2），没有细粒度权限表。
  */
 @Component
 @RequiredArgsConstructor

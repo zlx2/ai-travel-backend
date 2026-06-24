@@ -6,6 +6,9 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * AI 旅行计划生成请求 DTO。
@@ -17,9 +20,14 @@ import java.util.List;
  * @param requirement 结构化旅行需求（必填）
  * @param conflicts 检测到的冲突列表
  */
-public record TripGenerateRequest(
-        String conversationId,
-        Boolean confirmedConflict,
-        @NotNull @Valid TravelRequirementDTO requirement,
-        RentalQuoteOptionDTO selectedQuote,
-        List<ConflictDTO> conflicts) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TripGenerateRequest {
+
+    private String conversationId;
+    private Boolean confirmedConflict;
+    @NotNull @Valid private TravelRequirementDTO requirement;
+    private RentalQuoteOptionDTO selectedQuote;
+    private List<ConflictDTO> conflicts;
+}

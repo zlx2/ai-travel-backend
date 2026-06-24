@@ -17,8 +17,8 @@ public class DayDataFetchNode {
                 // TODO 按 query.type 调用 ScenicTool/FoodTool/HotelTool/路线工具，并转换为统一候选 DTO。
                 log.info(
                         "节点[day-data-fetch]：TODO 调用工具，第 {} 天，type={}, keyword={}, around={}, from={}, to={}",
-                        plan.day(),
-                        query.type(),
+                        plan.getDay(),
+                        query.getType(),
                         query.keyword(),
                         query.around(),
                         query.from(),
@@ -27,7 +27,7 @@ public class DayDataFetchNode {
 
             packages.add(
                     new DayDataPackage(
-                            plan.day(),
+                            plan.getDay(),
                             context.getCityProfile().scenicCandidates(),
                             context.getCityProfile().foodCandidates(),
                             context.getCityProfile().hotelCandidates(),
@@ -38,7 +38,7 @@ public class DayDataFetchNode {
 
     private List<TransportRoute> simulatedRoutes(DayQueryPlan plan) {
         return plan.queries().stream()
-                .filter(query -> "TRANSPORT".equals(query.type()))
+                .filter(query -> "TRANSPORT".equals(query.getType()))
                 .map(
                         query ->
                                 new TransportRoute(

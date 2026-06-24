@@ -20,13 +20,13 @@ public class InputPreprocessNode {
         }
 
         StringJoiner input = new StringJoiner("；");
-        append(input, request.userInput());
-        appendRequirement(input, request.formInput());
-        appendRequirement(input, request.requirement());
-        if (request.extraAnswers() != null && !request.extraAnswers().isEmpty()) {
-            append(input, "补充回答：" + String.join("；", request.extraAnswers()));
+        append(input, request.getUserInput());
+        appendRequirement(input, request.getFormInput());
+        appendRequirement(input, request.getRequirement());
+        if (request.getExtraAnswers() != null && !request.getExtraAnswers().isEmpty()) {
+            append(input, "补充回答：" + String.join("；", request.getExtraAnswers()));
         }
-        append(input, prefix("用户已选择目的地", request.selectedDestination()));
+        append(input, prefix("用户已选择目的地", request.getSelectedDestination()));
 
         String cleanInput = input.toString().replaceAll("\\s+", " ").trim();
         if (cleanInput.isBlank()) {
@@ -41,22 +41,24 @@ public class InputPreprocessNode {
         if (requirement == null) {
             return;
         }
-        append(input, prefix("表单出发地", requirement.departure()));
-        append(input, prefix("表单目的地", requirement.destination()));
-        append(input, prefix("表单路线区域", requirement.routeRegion()));
-        if (requirement.routeCities() != null && !requirement.routeCities().isEmpty()) {
-            append(input, "表单途经城市：" + String.join("、", requirement.routeCities()));
+        append(input, prefix("表单出发地", requirement.getDeparture()));
+        append(input, prefix("表单目的地", requirement.getDestination()));
+        append(input, prefix("表单路线区域", requirement.getRouteRegion()));
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            append(input, "表单途经城市：" + String.join("、", requirement.getRouteCities()));
         }
-        append(input, requirement.days() == null ? null : "表单天数：" + requirement.days());
-        append(input, requirement.budget() == null ? null : "表单预算：" + requirement.budget());
+        append(input, requirement.getDays() == null ? null : "表单天数：" + requirement.getDays());
+        append(input, requirement.getBudget() == null ? null : "表单预算：" + requirement.getBudget());
         append(
                 input,
-                requirement.peopleCount() == null ? null : "表单人数：" + requirement.peopleCount());
-        if (requirement.preferences() != null && !requirement.preferences().isEmpty()) {
-            append(input, "表单偏好：" + String.join("、", requirement.preferences()));
+                requirement.getPeopleCount() == null
+                        ? null
+                        : "表单人数：" + requirement.getPeopleCount());
+        if (requirement.getPreferences() != null && !requirement.getPreferences().isEmpty()) {
+            append(input, "表单偏好：" + String.join("、", requirement.getPreferences()));
         }
-        append(input, prefix("表单节奏", requirement.pace()));
-        append(input, prefix("表单出行日期", requirement.travelDate()));
+        append(input, prefix("表单节奏", requirement.getPace()));
+        append(input, prefix("表单出行日期", requirement.getTravelDate()));
     }
 
     private void append(StringJoiner input, String value) {

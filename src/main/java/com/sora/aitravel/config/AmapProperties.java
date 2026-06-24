@@ -8,8 +8,7 @@ import org.springframework.stereotype.Component;
 /**
  * 高德开放平台配置属性。
  *
- * <p>统一从 app.amap.* 读取高德相关配置，避免在不同业务 Client 中硬编码网关地址、超时时间或密钥。
- * 后续酒店、景点、租车、地址解析等能力都应复用该配置。
+ * <p>统一从 app.amap.* 读取高德相关配置，避免在不同业务 Client 中硬编码网关地址、超时时间或密钥。 后续酒店、景点、租车、地址解析等能力都应复用该配置。
  */
 @Data
 @Component

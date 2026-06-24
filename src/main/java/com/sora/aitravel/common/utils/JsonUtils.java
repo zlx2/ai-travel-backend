@@ -9,10 +9,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * JSON 序列化/反序列化工具类。
- * <p>
- * 封装 Jackson 的 ObjectMapper，提供将对象转为 JSON 字符串以及将 JSON 字符串转为对象的便捷方法。
- * 转换失败时抛出 {@link BusinessException} 而非原始受检异常。
- * </p>
+ *
+ * <p>封装 Jackson 的 ObjectMapper，提供将对象转为 JSON 字符串以及将 JSON 字符串转为对象的便捷方法。 转换失败时抛出 {@link
+ * BusinessException} 而非原始受检异常。
  */
 @Component
 @RequiredArgsConstructor
@@ -39,7 +38,7 @@ public class JsonUtils {
      *
      * @param json JSON 字符串
      * @param type 目标类型
-     * @param <T>  目标类型泛型
+     * @param <T> 目标类型泛型
      * @return 反序列化后的对象
      * @throws BusinessException 如果反序列化失败
      */

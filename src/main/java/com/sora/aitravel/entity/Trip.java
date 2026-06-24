@@ -6,13 +6,10 @@ import lombok.Data;
 
 /**
  * 行程实体类。
- * <p>
- * 对应数据库表 {@code trip}，存储用户创建的旅行行程信息。行程可以是 AI 智能生成、
- * 用户手动创建或从模板复制而来。每个行程关联一个用户（userId）和一次 AI 对话
- * （conversationId），并包含出发地、目的地、天数、预算等关键参数，以及 AI 分析后
- * 的旅行需求和完整行程计划（均以 JSON 格式存储）。
+ *
+ * <p>对应数据库表 {@code trip}，存储用户创建的旅行行程信息。行程可以是 AI 智能生成、 用户手动创建或从模板复制而来。每个行程关联一个用户（userId）和一次 AI 对话
+ * （conversationId），并包含出发地、目的地、天数、预算等关键参数，以及 AI 分析后 的旅行需求和完整行程计划（均以 JSON 格式存储）。
  * 该表通过逻辑删除标记（deleted）实现软删除。
- * </p>
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -93,6 +90,5 @@ public class Trip {
     private LocalDateTime updateTime;
 
     /** 删除行程时必须与 status=2 同步设置。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }

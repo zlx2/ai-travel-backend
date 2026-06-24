@@ -5,9 +5,8 @@ import java.util.List;
 
 /**
  * 标签服务接口。
- * <p>
- * 提供游记标签的查询功能，支持按类型筛选标签。
- * </p>
+ *
+ * <p>提供游记标签的查询功能，支持按类型筛选标签。
  */
 public interface TagService {
     /**

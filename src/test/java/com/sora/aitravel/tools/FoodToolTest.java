@@ -9,14 +9,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 /**
  * 美食推荐工具手动测试类。
  *
- * <p>这个测试类不是为了看 FoodTool 能不能真实调用高德并返回数据。
- * 运行前需要本机已经配置 AMAP_API_KEY。
+ * <p>这个测试类不是为了看 FoodTool 能不能真实调用高德并返回数据。 运行前需要本机已经配置 AMAP_API_KEY。
  */
 @SpringBootTest
 class FoodToolTest {
 
-    @Autowired
-    private FoodTool foodTool;
+    @Autowired private FoodTool foodTool;
 
     /**
      * 测试地点附近搜索。
@@ -25,8 +23,7 @@ class FoodToolTest {
      */
     @Test
     void testNearAddressFood() {
-        FoodRecommendResponse response =
-                foodTool.recommendFood("洪崖洞附近火锅", "", 1500, 10, 1);
+        FoodRecommendResponse response = foodTool.recommendFood("洪崖洞附近火锅", "", 1500, 10, 1);
 
         printResponse("地点附近搜索：洪崖洞附近火锅", response);
     }
@@ -38,8 +35,7 @@ class FoodToolTest {
      */
     @Test
     void testCityKeywordFood() {
-        FoodRecommendResponse response =
-                foodTool.recommendFood("重庆火锅推荐", "", 1500, 10, 1);
+        FoodRecommendResponse response = foodTool.recommendFood("重庆火锅推荐", "", 1500, 10, 1);
 
         printResponse("城市关键词搜索：重庆火锅推荐", response);
     }
@@ -64,8 +60,7 @@ class FoodToolTest {
      */
     @Test
     void testNearCurrentFoodWithoutLocation() {
-        FoodRecommendResponse response =
-                foodTool.recommendFood("附近有什么好吃的", "", 1500, 10, 1);
+        FoodRecommendResponse response = foodTool.recommendFood("附近有什么好吃的", "", 1500, 10, 1);
 
         printResponse("失败场景：附近搜索但不传定位", response);
     }

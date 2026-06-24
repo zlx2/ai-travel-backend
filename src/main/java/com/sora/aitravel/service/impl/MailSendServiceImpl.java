@@ -26,7 +26,7 @@ public class MailSendServiceImpl implements MailSendService {
         message.setTo(email);
         message.setSubject("PlanGo 邮箱验证码");
         message.setText("您的注册验证码是：" + code + "。验证码 5 分钟内有效，请勿泄露给他人。");
-        log.info("验证码是:{}",code);
+        log.info("验证码是:{}", code);
         mailSender.send(message);
     }
 }

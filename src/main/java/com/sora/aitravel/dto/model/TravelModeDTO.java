@@ -1,6 +1,9 @@
 package com.sora.aitravel.dto.model;
 
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 旅行交通方式建议。
@@ -12,4 +15,13 @@ import java.util.List;
  * @param reason 推荐原因
  * @param tips 交通相关提示
  */
-public record TravelModeDTO(String mode, Boolean recommended, String reason, List<String> tips) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class TravelModeDTO {
+
+    private String mode;
+    private Boolean recommended;
+    private String reason;
+    private List<String> tips;
+}

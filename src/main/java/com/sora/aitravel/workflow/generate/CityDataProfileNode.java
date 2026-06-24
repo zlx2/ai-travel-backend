@@ -17,7 +17,8 @@ public class CityDataProfileNode {
         // TODO 接入 AmapPoiClient：查询景区、公园、博物馆、商圈、酒店、餐饮、地铁站、火车站、机场。
         log.info("节点[city-data-profile]：TODO 调用工具查询 {} 城市基础 POI 数据，当前使用模拟数据。", destination);
 
-        List<String> popularAreas = List.of(destination + "核心商圈", destination + "老城区域", destination + "休闲街区");
+        List<String> popularAreas =
+                List.of(destination + "核心商圈", destination + "老城区域", destination + "休闲街区");
         CityProfile profile =
                 new CityProfile(
                         destination,
@@ -65,12 +66,12 @@ public class CityDataProfileNode {
     }
 
     private String displayDestination(TravelRequirementDTO requirement) {
-        if (requirement.destination() != null && !requirement.destination().isBlank()) {
-            return requirement.destination();
+        if (requirement.getDestination() != null && !requirement.getDestination().isBlank()) {
+            return requirement.getDestination();
         }
-        if (requirement.routeRegion() != null && !requirement.routeRegion().isBlank()) {
-            return requirement.routeRegion();
+        if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
+            return requirement.getRouteRegion();
         }
-        return String.join("-", requirement.routeCities());
+        return String.join("-", requirement.getRouteCities());
     }
 }

@@ -1,5 +1,9 @@
 package com.sora.aitravel.dto.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * 景点推荐候选。
  *
@@ -11,9 +15,14 @@ package com.sora.aitravel.dto.model;
  * @param suggestedDuration 建议游玩时长
  * @param suitableForSelfDrive 是否适合自驾串联
  */
-public record ScenicSpotDTO(
-        String name,
-        String area,
-        String reason,
-        String suggestedDuration,
-        Boolean suitableForSelfDrive) {}
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ScenicSpotDTO {
+
+    private String name;
+    private String area;
+    private String reason;
+    private String suggestedDuration;
+    private Boolean suitableForSelfDrive;
+}

@@ -29,7 +29,8 @@ public enum RentalStoreUsageEnum {
         try {
             return RentalStoreUsageEnum.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "usage 只能是 PICKUP 或 RETURN：" + value);
+            throw new BusinessException(
+                    ErrorCode.PARAM_ERROR, "usage 只能是 PICKUP 或 RETURN：" + value);
         }
     }
 }

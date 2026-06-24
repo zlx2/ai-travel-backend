@@ -6,16 +6,15 @@ import java.util.List;
 
 /**
  * 目的地服务接口。
- * <p>
- * 提供旅行目的地的搜索查询和热门目的地推荐功能。
- * </p>
+ *
+ * <p>提供旅行目的地的搜索查询和热门目的地推荐功能。
  */
 public interface DestinationService {
     /**
      * 分页搜索目的地列表。
      *
-     * @param keyword  搜索关键词，可为 null 或空字符串表示查询全部
-     * @param pageNum  页码（从 1 开始）
+     * @param keyword 搜索关键词，可为 null 或空字符串表示查询全部
+     * @param pageNum 页码（从 1 开始）
      * @param pageSize 每页条数
      * @return 目的地分页结果
      */

@@ -6,20 +6,19 @@ import com.sora.aitravel.dto.response.*;
 
 /**
  * 游记服务接口。
- * <p>
- * 提供游记的完整 CRUD 功能，包括分页列表查询、创建、详情查看、更新和删除。
- * </p>
+ *
+ * <p>提供游记的完整 CRUD 功能，包括分页列表查询、创建、详情查看、更新和删除。
  */
 public interface NoteService {
     /**
      * 分页查询游记列表。
      *
-     * @param pageNum     页码（从 1 开始）
-     * @param pageSize    每页条数
-     * @param keyword     搜索关键词（标题/内容）
+     * @param pageNum 页码（从 1 开始）
+     * @param pageSize 每页条数
+     * @param keyword 搜索关键词（标题/内容）
      * @param destination 目的地筛选
-     * @param tagId       标签筛选
-     * @param sort        排序方式，如 "latest"（最新）、"hot"（热门）
+     * @param tagId 标签筛选
+     * @param sort 排序方式，如 "latest"（最新）、"hot"（热门）
      * @return 游记分页结果
      */
     PageResult<NoteListItemResponse> list(
@@ -49,7 +48,7 @@ public interface NoteService {
     /**
      * 更新游记。
      *
-     * @param id      游记 ID
+     * @param id 游记 ID
      * @param request 更新游记请求
      */
     void update(Long id, UpdateNoteRequest request);

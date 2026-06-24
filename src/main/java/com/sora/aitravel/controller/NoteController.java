@@ -9,9 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 游记控制器。
- * <p>接口前缀：/api/notes</p>
- * <p>请求方式：RESTful</p>
- * <p>权限要求：公开接口（列表查询、查看详情）无需登录；创建、更新、删除需登录（@SaCheckLogin）</p>
+ *
+ * <p>接口前缀：/api/notes
+ *
+ * <p>请求方式：RESTful
+ *
+ * <p>权限要求：公开接口（列表查询、查看详情）无需登录；创建、更新、删除需登录（@SaCheckLogin）
  */
 @RestController
 @RequestMapping("/api/notes")
@@ -19,12 +22,12 @@ public class NoteController {
     /**
      * 分页查询游记列表（公开接口）。
      *
-     * @param pageNum     页码，默认 1
-     * @param pageSize    每页条数，默认 10
-     * @param keyword     搜索关键字（可选，模糊匹配标题/摘要）
+     * @param pageNum 页码，默认 1
+     * @param pageSize 每页条数，默认 10
+     * @param keyword 搜索关键字（可选，模糊匹配标题/摘要）
      * @param destination 目的地筛选（可选）
-     * @param tagId       标签 ID 筛选（可选）
-     * @param sort        排序方式，默认 "latest"（最新），可选 "hot"（最热）
+     * @param tagId 标签 ID 筛选（可选）
+     * @param sort 排序方式，默认 "latest"（最新），可选 "hot"（最热）
      * @return 分页的游记列表（NoteListItemResponse）
      */
     @GetMapping
@@ -64,7 +67,7 @@ public class NoteController {
     /**
      * 更新指定游记（需登录，仅作者可操作）。
      *
-     * @param id      游记 ID
+     * @param id 游记 ID
      * @param request 包含待更新字段的请求体
      * @return 无返回内容，更新成功即返回成功响应
      */

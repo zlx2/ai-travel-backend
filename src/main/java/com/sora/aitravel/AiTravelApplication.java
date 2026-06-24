@@ -7,13 +7,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * PlanGo 后端启动入口。
  *
  * <p>Spring Boot 3.5.15 主启动类，负责：
+ *
  * <ul>
- *   <li>自动装配所有 Spring Bean（Controller / Service / Mapper / Config）</li>
- *   <li>初始化 MyBatis-Plus、Sa-Token、RabbitMQ、Redis 等基础设施</li>
- *   <li>加载 application.yml 配置和环境变量</li>
+ *   <li>自动装配所有 Spring Bean（Controller / Service / Mapper / Config）
+ *   <li>初始化 MyBatis-Plus、Sa-Token、RabbitMQ、Redis 等基础设施
+ *   <li>加载 application.yml 配置和环境变量
  * </ul>
  *
  * <p>启动方式：
+ *
  * <pre>
  * cd ai-travel-backend
  * source .env &amp;&amp; mvn spring-boot:run

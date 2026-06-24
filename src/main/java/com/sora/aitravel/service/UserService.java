@@ -5,9 +5,8 @@ import com.sora.aitravel.dto.response.UserInfoResponse;
 
 /**
  * 用户服务接口。
- * <p>
- * 提供当前登录用户的基本信息查询和个人资料更新功能。
- * </p>
+ *
+ * <p>提供当前登录用户的基本信息查询和个人资料更新功能。
  */
 public interface UserService {
     /**

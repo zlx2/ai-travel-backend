@@ -9,6 +9,7 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -17,17 +18,13 @@ import org.springframework.stereotype.Component;
 /** Analyze 工作流里的真实 LLM 调用封装。 */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AnalyzeLlmClient {
 
     private static final Set<String> PACES = Set.of("LIGHT", "NORMAL", "TIGHT");
 
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper;
-
-    public AnalyzeLlmClient(ChatModel chatModel, ObjectMapper objectMapper) {
-        this.chatModel = chatModel;
-        this.objectMapper = objectMapper;
-    }
 
     public TravelRequirementDTO extractRequirement(String cleanInput, String selectedDestination) {
         String json =

@@ -16,12 +16,13 @@ public class DayPlanValidateNode {
     public void execute(GenerateWorkflowContext context) {
         List<DayPlanValidationReport> reports = new ArrayList<>();
         for (TripPlanDTO.DailyPlan dailyPlan : context.getLockedDailyPlans()) {
-            DayDataPackage dataPackage = findDataPackage(context, dailyPlan.day());
+            DayDataPackage dataPackage = findDataPackage(context, dailyPlan.getDay());
             List<String> warnings = validateDay(context, dailyPlan, dataPackage);
-            reports.add(new DayPlanValidationReport(dailyPlan.day(), warnings.isEmpty(), warnings));
+            reports.add(
+                    new DayPlanValidationReport(dailyPlan.getDay(), warnings.isEmpty(), warnings));
             log.info(
                     "节点[day-plan-validate]：第 {} 天校验完成，passed={}, warnings={}",
-                    dailyPlan.day(),
+                    dailyPlan.getDay(),
                     warnings.isEmpty(),
                     warnings);
         }
@@ -29,18 +30,20 @@ public class DayPlanValidateNode {
     }
 
     private List<String> validateDay(
-            GenerateWorkflowContext context, TripPlanDTO.DailyPlan dailyPlan, DayDataPackage dataPackage) {
+            GenerateWorkflowContext context,
+            TripPlanDTO.DailyPlan dailyPlan,
+            DayDataPackage dataPackage) {
         List<String> warnings = new ArrayList<>();
         Set<String> allowedPlaces = new HashSet<>();
-        dataPackage.scenicCandidates().forEach(item -> allowedPlaces.add(item.name()));
-        dataPackage.foodCandidates().forEach(item -> allowedPlaces.add(item.name()));
+        dataPackage.scenicCandidates().forEach(item -> allowedPlaces.add(item.getName()));
+        dataPackage.foodCandidates().forEach(item -> allowedPlaces.add(item.getName()));
 
-        for (TripPlanDTO.PlanItem item : dailyPlan.items()) {
-            if (!allowedPlaces.contains(item.place())) {
-                warnings.add("地点不在工具候选中：" + item.place());
+        for (TripPlanDTO.PlanItem item : dailyPlan.getItems()) {
+            if (!allowedPlaces.contains(item.getPlace())) {
+                warnings.add("地点不在工具候选中：" + item.getPlace());
             }
         }
-        if ("LIGHT".equals(context.getRequirement().pace()) && dailyPlan.items().size() > 4) {
+        if ("LIGHT".equals(context.getRequirement().getPace()) && dailyPlan.getItems().size() > 4) {
             warnings.add("轻松节奏下当天安排偏多。");
         }
         if (dataPackage.transportRoutes().isEmpty()) {
@@ -51,7 +54,7 @@ public class DayPlanValidateNode {
 
     private DayDataPackage findDataPackage(GenerateWorkflowContext context, Integer day) {
         return context.getRankedDayDataPackages().stream()
-                .filter(item -> item.day().equals(day))
+                .filter(item -> item.getDay().equals(day))
                 .findFirst()
                 .orElseThrow();
     }

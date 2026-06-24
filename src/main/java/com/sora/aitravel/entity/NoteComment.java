@@ -6,11 +6,9 @@ import lombok.Data;
 
 /**
  * 游记评论实体类。
- * <p>
- * 对应数据库表 {@code note_comment}，存储用户对游记的评论内容。
- * 每条评论关联一篇游记（noteId）和一个用户（userId），包含评论文本。
+ *
+ * <p>对应数据库表 {@code note_comment}，存储用户对游记的评论内容。 每条评论关联一篇游记（noteId）和一个用户（userId），包含评论文本。
  * 评论支持软删除，删除时需同步将 status 置为 2。
- * </p>
  *
  * <table border="1">
  *   <caption>字段与数据库列映射</caption>
@@ -51,6 +49,5 @@ public class NoteComment {
     private LocalDateTime updateTime;
 
     /** 删除评论时必须与 status=2 同步设置。 */
-    @TableLogic
-    private Integer deleted;
+    @TableLogic private Integer deleted;
 }
