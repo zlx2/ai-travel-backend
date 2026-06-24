@@ -2,6 +2,40 @@
 
 一期 Spring Boot 后端骨架，基础包名为 `com.sora.aitravel`，接口前缀为 `/api`。
 
+## 今日任务（6月24日）
+
+| 任务 | 状态 |
+|------|------|
+| 修复美食模块自定义规则 bug（意图识别不准确） | 待做 |
+| 把美食推荐接入 travel generate 工作流（替换 MockFoodRecommendNode） | 待做 |
+| 景点工具接入工作流（替换 MockScenicSpotRecommendNode） | 待做 |
+| 联调测试：food 工具测试 + 工作流测试 | 待做 |
+
+<details>
+<summary>昨日完成 & 遇到的问题</summary>
+
+### 昨日完成（6月23日）
+
+| 事项 | 说明 |
+|------|------|
+| 美食推荐模块 | 接入高德餐饮 POI，支持附近美食/地点附近/城市特色美食 |
+| 查询意图识别 | 自定义规则 + LLM 兜底，识别 NEAR_CURRENT / NEAR_ADDRESS / CITY_KEYWORD |
+| 推荐理由生成 | LLM 优先，失败模板兜底，只拼高德真实字段 |
+| 景点工具注册 | ScenicTool 基于高德 POI 返回景点名称列表 |
+| 测试 | FoodToolTest 5 个用例覆盖三种查询场景 + 异常场景 |
+
+### 昨日遇到的问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 用户输入口语化，全靠 LLM → 慢+贵 | 自定义规则优先，匹配不到才走 LLM |
+| 高德 business 字段不统一 | valueFromBusinessOrPoi 双层取值 + isValidFoodPoi 过滤 |
+| Open-Meteo gzip 压缩 Hutool 解压失败 | Accept-Encoding: identity 禁用压缩 |
+| DeepSeek 日期认知偏差（以为 2025） | 系统提示词注入 LocalDate.now() |
+| 数据库字段初期遗漏（城市/订单等） | 后续补充，租车模块 5 张表已覆盖 |
+
+</details>
+
 ## 当前范围
 
 - 已生成 Maven、通用响应、全局异常、配置层。
