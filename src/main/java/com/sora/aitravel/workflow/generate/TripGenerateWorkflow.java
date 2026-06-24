@@ -23,6 +23,7 @@ public class TripGenerateWorkflow {
             DayStateInitNode dayStateInitNode,
             DayContextBuildNode dayContextBuildNode,
             DayQueryPlanNode dayQueryPlanNode,
+            FoodRecommendNode foodRecommendNode,
             DayDataFetchNode dayDataFetchNode,
             DayDataRankNode dayDataRankNode,
             DayPlanGenerateNode dayPlanGenerateNode,
@@ -53,6 +54,8 @@ public class TripGenerateWorkflow {
                                         "day-context-build", dayContextBuildNode::execute),
                                 AlibabaGraphWorkflow.step(
                                         "day-query-plan", dayQueryPlanNode::execute),
+                                AlibabaGraphWorkflow.step(
+                                        "food-recommend", foodRecommendNode::execute),
                                 AlibabaGraphWorkflow.step(
                                         "day-data-fetch", dayDataFetchNode::execute),
                                 AlibabaGraphWorkflow.step(
