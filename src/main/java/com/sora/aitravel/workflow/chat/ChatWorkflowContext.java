@@ -6,19 +6,16 @@ import lombok.Data;
 
 /**
  * 聊天工作流上下文。
- * <p>
- * 贯穿整个 {@link AiChatWorkflow} 的数据容器，保存 AI 聊天流程中
- * 各节点所需的输入数据以及产生的中间/最终结果。
- * <p>
- * 在整个工作流中的位置：{@link AiChatWorkflow} 的输入和输出载体。
- * 工作流入口接收此上下文，依次传递给各 WorkflowNode，每个节点从中读取输入并写入产出。
- * <p>
- * 一期只支持 TRIP 模式：基于当前用户已保存的行程计划进行 AI 问答。
- * <p>
- * 输入：{@link #userId}（用户ID）、{@link #request}（聊天请求 DTO）。
- * 中间产物：{@link #tripPlanJson}（行程计划 JSON）、{@link #prompt}（构建的提示词）、
- *          {@link #rawModelResponse}（模型原始响应）。
- * 输出：{@link #result}（聊天响应结果 DTO）。
+ *
+ * <p>贯穿整个 {@link AiChatWorkflow} 的数据容器，保存 AI 聊天流程中 各节点所需的输入数据以及产生的中间/最终结果。
+ *
+ * <p>在整个工作流中的位置：{@link AiChatWorkflow} 的输入和输出载体。 工作流入口接收此上下文，依次传递给各 Spring AI Alibaba Graph
+ * node，每个节点从中读取输入并写入产出。
+ *
+ * <p>一期只支持 TRIP 模式：基于当前用户已保存的行程计划进行 AI 问答。
+ *
+ * <p>输入：{@link #userId}（用户ID）、{@link #request}（聊天请求 DTO）。 中间产物：{@link #tripPlanJson}（行程计划
+ * JSON）、{@link #prompt}（构建的提示词）、 {@link #rawModelResponse}（模型原始响应）。 输出：{@link #result}（聊天响应结果 DTO）。
  */
 @Data
 public class ChatWorkflowContext {

@@ -1,25 +1,22 @@
 package com.sora.aitravel.workflow.generate;
 
-import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
+import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import lombok.Data;
 
 /**
  * 生成工作流上下文。
- * <p>
- * 贯穿整个 {@link TripGenerateWorkflow} 的数据容器，保存行程生成流程中
- * 各节点所需的输入数据以及产生的中间/最终结果。
- * <p>
- * 在整个工作流中的位置：{@link TripGenerateWorkflow} 的输入和输出载体。
- * 工作流入口接收此上下文，依次传递给各 WorkflowNode，每个节点从中读取输入并写入产出。
- * <p>
- * 注意：Generate 工作流不负责自动保存行程，持久化必须由用户随后调用 Trip 接口触发。
- * <p>
- * 输入：{@link #userId}（用户ID）、{@link #request}（生成请求 DTO）。
- * 中间产物：{@link #rawModelResponse}（模型原始响应）。
- * 输出：{@link #result}（生成结果 DTO）。
- * 标记：{@link #repairAttempted}（是否已执行过一次 JSON 修复）。
+ *
+ * <p>贯穿整个 {@link TripGenerateWorkflow} 的数据容器，保存行程生成流程中 各节点所需的输入数据以及产生的中间/最终结果。
+ *
+ * <p>在整个工作流中的位置：{@link TripGenerateWorkflow} 的输入和输出载体。 工作流入口接收此上下文，依次传递给各 Spring AI Alibaba Graph
+ * node，每个节点从中读取输入并写入产出。
+ *
+ * <p>注意：Generate 工作流不负责自动保存行程，持久化必须由用户随后调用 Trip 接口触发。
+ *
+ * <p>输入：{@link #userId}（用户ID）、{@link #request}（生成请求 DTO）。 中间产物：{@link #rawModelResponse}（模型原始响应）。
+ * 输出：{@link #result}（生成结果 DTO）。 标记：{@link #repairAttempted}（是否已执行过一次 JSON 修复）。
  */
 @Data
 public class GenerateWorkflowContext {

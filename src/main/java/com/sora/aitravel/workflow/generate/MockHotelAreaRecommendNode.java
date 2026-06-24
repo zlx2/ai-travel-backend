@@ -2,7 +2,6 @@ package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.HotelAreaDTO;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -12,9 +11,7 @@ import org.springframework.stereotype.Component;
  * <p>当前只推荐住宿区域和预算范围，不做酒店库存、房价和预订。后续可替换为高德酒店 POI 与业务评分逻辑。
  */
 @Component
-public class MockHotelAreaRecommendNode implements WorkflowNode<GenerateWorkflowContext> {
-
-    @Override
+public class MockHotelAreaRecommendNode {
     public void execute(GenerateWorkflowContext context) {
         String destination = displayDestination(context.getRequest().requirement());
         RecommendationContextDTO current = context.getRecommendationContext();

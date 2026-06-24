@@ -10,7 +10,6 @@ import com.sora.aitravel.dto.model.ScenicSpotDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -18,8 +17,8 @@ import org.springframework.stereotype.Component;
 /**
  * 生成结果合并节点。
  *
- * <p>实现 {@link WorkflowNode} 接口，是 {@link TripGenerateWorkflow} 工作流的第五个（最后）步骤。 负责将从 AI 模型获取的原始 JSON
- * 行程数据（经校验/修复后）转换为标准化的 {@link com.sora.aitravel.dto.response.TripGenerateResponse} 结构，
+ * <p>实现 Spring AI Alibaba Graph node 接口，是 {@link TripGenerateWorkflow} 工作流的第五个（最后）步骤。 负责将从 AI
+ * 模型获取的原始 JSON 行程数据（经校验/修复后）转换为标准化的 {@link com.sora.aitravel.dto.response.TripGenerateResponse} 结构，
  * 包括构建每日活动列表、景点详情等，供 Controller 层返回给前端。
  *
  * <p>在整个工作流中的位置：生成流程第 5 步（最后执行）。
@@ -28,7 +27,7 @@ import org.springframework.stereotype.Component;
  * GenerateWorkflowContext#result}。
  */
 @Component
-public class GenerateResultMergeNode implements WorkflowNode<GenerateWorkflowContext> {
+public class GenerateResultMergeNode {
 
     /**
      * 执行结果合并逻辑——将模型输出转换为标准响应结构。

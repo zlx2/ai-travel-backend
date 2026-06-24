@@ -1,26 +1,31 @@
 package com.sora.aitravel.workflow.rentalorder;
 
+import com.alibaba.cloud.ai.graph.CompiledGraph;
+import com.sora.aitravel.workflow.AlibabaGraphWorkflow;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RentalOrderCreateWorkflow {
-    private final RentalOrderRequestValidateNode validateNode;
-    private final RentalOrderQuoteRecalculateNode quoteRecalculateNode;
-    private final RentalOrderPersistNode persistNode;
+
+    private final CompiledGraph graph;
 
     public RentalOrderCreateWorkflow(
             RentalOrderRequestValidateNode validateNode,
             RentalOrderQuoteRecalculateNode quoteRecalculateNode,
             RentalOrderPersistNode persistNode) {
-        this.validateNode = validateNode;
-        this.quoteRecalculateNode = quoteRecalculateNode;
-        this.persistNode = persistNode;
+        this.graph =
+                AlibabaGraphWorkflow.compile(
+                        "rental-order-create-workflow",
+                        List.of(
+                                AlibabaGraphWorkflow.step(
+                                        "request-validate", validateNode::execute),
+                                AlibabaGraphWorkflow.step(
+                                        "quote-recalculate", quoteRecalculateNode::execute),
+                                AlibabaGraphWorkflow.step("persist", persistNode::execute)));
     }
 
     public RentalOrderCreateWorkflowContext execute(RentalOrderCreateWorkflowContext context) {
-        validateNode.execute(context);
-        quoteRecalculateNode.execute(context);
-        persistNode.execute(context);
-        return context;
+        return AlibabaGraphWorkflow.invoke(graph, context);
     }
 }

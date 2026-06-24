@@ -1,23 +1,20 @@
 package com.sora.aitravel.workflow.analyze;
 
-import com.sora.aitravel.dto.request.TripAnalyzeRequest;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.request.TripAnalyzeRequest;
 import com.sora.aitravel.dto.response.TripAnalyzeResponse;
 import lombok.Data;
 
 /**
  * 分析工作流上下文。
- * <p>
- * 贯穿整个 {@link TripAnalyzeWorkflow} 的数据容器，保存行程需求分析流程中
- * 各节点所需的输入数据以及产生的中间/最终结果。
- * <p>
- * 在整个工作流中的位置：{@link TripAnalyzeWorkflow} 的输入和输出载体。
- * 工作流入口接收此上下文，依次传递给各 WorkflowNode，每个节点从中读取输入并写入产出。
- * <p>
- * 输入：{@link #userId}（用户ID）、{@link #request}（分析请求 DTO）。
- * 中间产物：{@link #rawModelResponse}（模型原始响应）。
- * 输出：{@link #result}（分析结果 DTO）。
- * 标记：{@link #repairAttempted}（是否已执行过一次 JSON 修复）。
+ *
+ * <p>贯穿整个 {@link TripAnalyzeWorkflow} 的数据容器，保存行程需求分析流程中 各节点所需的输入数据以及产生的中间/最终结果。
+ *
+ * <p>在整个工作流中的位置：{@link TripAnalyzeWorkflow} 的输入和输出载体。 工作流入口接收此上下文，依次传递给各 Spring AI Alibaba Graph
+ * node，每个节点从中读取输入并写入产出。
+ *
+ * <p>输入：{@link #userId}（用户ID）、{@link #request}（分析请求 DTO）。 中间产物：{@link #rawModelResponse}（模型原始响应）。
+ * 输出：{@link #result}（分析结果 DTO）。 标记：{@link #repairAttempted}（是否已执行过一次 JSON 修复）。
  */
 @Data
 public class AnalyzeWorkflowContext {

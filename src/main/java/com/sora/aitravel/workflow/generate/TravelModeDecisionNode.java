@@ -2,7 +2,6 @@ package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.TravelModeDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -13,9 +12,7 @@ import org.springframework.stereotype.Component;
  * <p>当前使用轻量规则判断是否偏自驾，后续可替换为“规则 + 高德路线 + AI 评估”的正式实现。
  */
 @Component
-public class TravelModeDecisionNode implements WorkflowNode<GenerateWorkflowContext> {
-
-    @Override
+public class TravelModeDecisionNode {
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequest().requirement();
         List<String> preferences =

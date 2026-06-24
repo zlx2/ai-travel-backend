@@ -2,18 +2,16 @@ package com.sora.aitravel.workflow.rentalorder;
 
 import com.sora.aitravel.dto.request.RentalOrderCreateRequest;
 import com.sora.aitravel.service.RentalOrderService;
-import com.sora.aitravel.workflow.WorkflowNode;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RentalOrderPersistNode implements WorkflowNode<RentalOrderCreateWorkflowContext> {
+public class RentalOrderPersistNode {
     private final RentalOrderService rentalOrderService;
 
     public RentalOrderPersistNode(RentalOrderService rentalOrderService) {
         this.rentalOrderService = rentalOrderService;
     }
 
-    @Override
     public void execute(RentalOrderCreateWorkflowContext context) {
         RentalOrderCreateRequest request = context.getRequest();
         if (context.getRecalculatedQuote() != null) {

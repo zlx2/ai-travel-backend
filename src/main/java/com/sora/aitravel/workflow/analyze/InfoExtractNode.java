@@ -2,7 +2,6 @@ package com.sora.aitravel.workflow.analyze;
 
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,7 +13,7 @@ import org.springframework.stereotype.Component;
 /**
  * 信息提取节点。
  *
- * <p>实现 {@link WorkflowNode} 接口，是 {@link TripAnalyzeWorkflow} 工作流的第二个步骤。 负责调用 AI 大模型（如
+ * <p>实现 Spring AI Alibaba Graph node 接口，是 {@link TripAnalyzeWorkflow} 工作流的第二个步骤。 负责调用 AI 大模型（如
  * DeepSeek）从用户标准化的自然语言输入中提取关键行程字段， 包括出发地、目的地、出行天数、出行时间、偏好等结构化信息。
  *
  * <p>在整个工作流中的位置：流程第 2 步（在输入预处理之后，完整性检查之前）。
@@ -23,7 +22,7 @@ import org.springframework.stereotype.Component;
  * AnalyzeWorkflowContext#rawModelResponse}。
  */
 @Component
-public class InfoExtractNode implements WorkflowNode<AnalyzeWorkflowContext> {
+public class InfoExtractNode {
 
     private static final List<String> KNOWN_DESTINATIONS =
             List.of(

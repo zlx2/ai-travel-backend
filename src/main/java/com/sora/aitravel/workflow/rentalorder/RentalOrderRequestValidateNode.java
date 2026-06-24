@@ -3,12 +3,10 @@ package com.sora.aitravel.workflow.rentalorder;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.request.RentalOrderCreateRequest;
-import com.sora.aitravel.workflow.WorkflowNode;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RentalOrderRequestValidateNode implements WorkflowNode<RentalOrderCreateWorkflowContext> {
-    @Override
+public class RentalOrderRequestValidateNode {
     public void execute(RentalOrderCreateWorkflowContext context) {
         if (context.getUserId() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);

@@ -2,7 +2,6 @@ package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.FoodSpotDTO;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -12,9 +11,7 @@ import org.springframework.stereotype.Component;
  * <p>当前生成假数据以跑通正式流程；后续可替换为高德餐饮 POI、城市特色菜库和用户口味偏好判断。
  */
 @Component
-public class MockFoodRecommendNode implements WorkflowNode<GenerateWorkflowContext> {
-
-    @Override
+public class MockFoodRecommendNode {
     public void execute(GenerateWorkflowContext context) {
         String destination = displayDestination(context.getRequest().requirement());
         RecommendationContextDTO current = context.getRecommendationContext();

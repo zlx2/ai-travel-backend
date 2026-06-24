@@ -2,7 +2,6 @@ package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.ScenicSpotDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -12,9 +11,7 @@ import org.springframework.stereotype.Component;
  * <p>当前生成假数据以跑通正式流程；后续由景点推荐同学替换为数据库、高德 POI 和 AI 评估逻辑。
  */
 @Component
-public class MockScenicSpotRecommendNode implements WorkflowNode<GenerateWorkflowContext> {
-
-    @Override
+public class MockScenicSpotRecommendNode {
     public void execute(GenerateWorkflowContext context) {
         String destination = displayDestination(context.getRequest().requirement());
         RecommendationContextDTO current = context.getRecommendationContext();

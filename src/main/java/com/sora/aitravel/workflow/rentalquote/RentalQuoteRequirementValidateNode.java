@@ -4,13 +4,10 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RentalQuoteRequirementValidateNode
-        implements WorkflowNode<RentalQuotePreviewWorkflowContext> {
-    @Override
+public class RentalQuoteRequirementValidateNode {
     public void execute(RentalQuotePreviewWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
         if (requirement == null) {

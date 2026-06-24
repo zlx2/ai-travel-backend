@@ -1,13 +1,12 @@
 package com.sora.aitravel.workflow.analyze;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.workflow.WorkflowNode;
 import org.springframework.stereotype.Component;
 
 /**
  * 完整性检查节点。
  *
- * <p>实现 {@link WorkflowNode} 接口，是 {@link TripAnalyzeWorkflow} 工作流的第三个步骤。
+ * <p>实现 Spring AI Alibaba Graph node 接口，是 {@link TripAnalyzeWorkflow} 工作流的第三个步骤。
  * 负责检查信息提取后的行程数据是否包含所有必要字段，例如出发地（departure）、 目的地（destination）、出行天数（days）等。如果关键字段缺失，
  * 则设置对应的错误状态或触发补充询问。
  *
@@ -17,7 +16,7 @@ import org.springframework.stereotype.Component;
  * AnalyzeWorkflowContext#result} 或上下文中的状态字段。
  */
 @Component
-public class CompletenessCheckNode implements WorkflowNode<AnalyzeWorkflowContext> {
+public class CompletenessCheckNode {
 
     /**
      * 执行完整性检查——确认出行必要字段是否齐全。

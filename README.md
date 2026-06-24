@@ -7,7 +7,7 @@
 - 已生成 Maven、通用响应、全局异常、配置层。
 - 已生成 13 张表的 Entity、Mapper、SQL。
 - 已生成一期 DTO、Controller 路由和 Service 契约。
-- 已生成 Analyze、Generate、TRIP Chat 顺序 Workflow 及 Prompt。
+- 已将 Analyze、Generate、TRIP Chat 工作流接入 Spring AI Alibaba Graph Workflow，并保留对应 Prompt。
 - 已按最终版需求实现邮箱验证码、注册、登录、退出、当前用户及资料修改。
 - 已接入 Spring AI 1.1.8、Spring AI Alibaba 1.1.2.3 Agent Framework、DeepSeek 与 DashScope Embedding。
 - 已生成 Dockerfile 与 Docker Compose。
