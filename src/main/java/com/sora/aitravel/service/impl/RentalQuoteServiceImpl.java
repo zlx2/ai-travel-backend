@@ -111,6 +111,8 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 rental != null && Boolean.TRUE.equals(rental.needRental())
                         || "ROAD_TRIP".equals(requirement.routeMode())
                         || "LANDING_RENTAL_TRIP".equals(requirement.routeMode())
+                        || "RENTAL_CAR".equals(requirement.transportMode())
+                        || "SELF_DRIVE".equals(requirement.transportMode())
                         || "USER_REQUIRED".equals(requirement.rentalIntent());
         if (!needRental) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "当前需求未选择租车");
