@@ -80,6 +80,7 @@ public class TestAi {
         }
 
         System.out.println("景点列表：" + nameList);
+        System.out.println(nameList.toString()+"111111111111");
 
         // 3️⃣ ⭐把列表发给AI
         String input = String.join("、", nameList);
