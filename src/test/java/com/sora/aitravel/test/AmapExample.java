@@ -1,22 +1,23 @@
 package com.sora.aitravel.test;
 
-import com.sora.aitravel.utils.AmapResponse;
-import com.sora.aitravel.utils.AmapService;
+import com.sora.aitravel.dto.model.AmapApiResp;
 import com.sora.aitravel.dto.model.geo.GeoCode;
 import com.sora.aitravel.dto.model.geo.RegeoCode;
 import com.sora.aitravel.dto.model.poi.Poi;
 import com.sora.aitravel.dto.model.route.Route;
+import com.sora.aitravel.service.AmapApiService;
+import com.sora.aitravel.service.impl.AmapApiServiceImpl;
 
 import java.util.List;
 
 public class AmapExample {
 
     public static void main(String[] args) {
-        AmapService amapService = new AmapService();
+        AmapApiService amapService = new AmapApiServiceImpl();
 
         // 1. POI文本搜索
         System.out.println("=== POI文本搜索 ===");
-        AmapResponse<List<Poi>> poiResult = amapService.searchPoiText("北京大学", "141201", "北京市", true);
+        AmapApiResp<List<Poi>> poiResult = amapService.searchPoiText("北京大学", "141201", "北京市", true);
         if (poiResult.isSuccess()) {
             for (Poi poi : poiResult.getData()) {
                 System.out.println(poi);
@@ -29,7 +30,7 @@ public class AmapExample {
 
         // 2. POI周边搜索
         System.out.println("\n=== POI周边搜索 ===");
-        AmapResponse<List<Poi>> aroundResult = amapService.searchPoiAround("116.473168,39.993015", 5000);
+        AmapApiResp<List<Poi>> aroundResult = amapService.searchPoiAround("116.473168,39.993015", 5000);
         if (aroundResult.isSuccess()) {
             for (Poi poi : aroundResult.getData()) {
                 System.out.println(poi);
@@ -40,7 +41,7 @@ public class AmapExample {
 
         // 3. 地名转经纬度
         System.out.println("\n=== 地名转经纬度 ===");
-        AmapResponse<List<GeoCode>> geoResult = amapService.geoCode("北京市朝阳区阜通东大街6号", "北京");
+        AmapApiResp<List<GeoCode>> geoResult = amapService.geoCode("北京市朝阳区阜通东大街6号", "北京");
         if (geoResult.isSuccess()) {
             for (GeoCode geo : geoResult.getData()) {
                 System.out.println(geo);
@@ -51,7 +52,7 @@ public class AmapExample {
 
         // 4. 经纬度转地名
         System.out.println("\n=== 经纬度转地名 ===");
-        AmapResponse<RegeoCode> regeoResult = amapService.reGeoCode("116.481488,39.990464", 1000, "all");
+        AmapApiResp<RegeoCode> regeoResult = amapService.reGeoCode("116.481488,39.990464", 1000, "all");
         if (regeoResult.isSuccess()) {
             RegeoCode regeo = regeoResult.getData();
             System.out.println("格式化地址: " + regeo.getFormattedAddress());
@@ -63,7 +64,7 @@ public class AmapExample {
 
         // 5. 驾车路径规划
         System.out.println("\n=== 驾车路径规划 ===");
-        AmapResponse<Route> drivingResult = amapService.drivingRoute("116.481028,39.989643", "116.434446,39.90816");
+        AmapApiResp<Route> drivingResult = amapService.drivingRoute("116.481028,39.989643", "116.434446,39.90816");
         if (drivingResult.isSuccess()) {
             Route route = drivingResult.getData();
             System.out.printf("起点: %s, 终点: %s, 预计打车费: %s元%n",
@@ -78,7 +79,7 @@ public class AmapExample {
 
         // 6. 公交路径规划
         System.out.println("\n=== 公交路径规划 ===");
-        AmapResponse<Route> transitResult = amapService.transitRoute(
+        AmapApiResp<Route> transitResult = amapService.transitRoute(
                 "116.481028,39.989643", "116.434446,39.90816",
                 "010", "010", 0, 5, 0);
         if (transitResult.isSuccess()) {

@@ -1,4 +1,4 @@
-package com.sora.aitravel.dto.response;
+package com.sora.aitravel.dto.model;
 
 import lombok.Data;
 
@@ -6,7 +6,7 @@ import lombok.Data;
  * 高德API通用响应
  */
 @Data
-public class AmapApiResponse<T> {
+public class AmapApiResp<T> {
     /**
      * 状态码：1成功，0失败
      */

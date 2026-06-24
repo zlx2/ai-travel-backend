@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 /**
  * 静态地图响应
  */
-public class StaticMapResponse {
+public class StaticMapResp {
 
     /**
      * 图片二进制字节数组
