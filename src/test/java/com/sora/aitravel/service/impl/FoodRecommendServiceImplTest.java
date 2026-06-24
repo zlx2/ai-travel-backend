@@ -135,12 +135,8 @@ class FoodRecommendServiceImplTest {
                 ReflectionTestUtils.invokeMethod(
                         service,
                         "buildResponse",
-                        "重庆火锅推荐",
                         intent,
-                        "TEXT",
-                        null,
-                        "搜索地点",
-                        amapResponse);
+                        createSearchResult("TEXT", null, "搜索地点", amapResponse));
 
         if (response == null) {
             throw new IllegalStateException("空结果测试失败：buildResponse 返回了 null");
@@ -171,7 +167,7 @@ class FoodRecommendServiceImplTest {
         item.setDistanceText("距当前位置约300米");
         item.setFoodType("火锅店");
 
-        String reason = ReflectionTestUtils.invokeMethod(service, "templateReason", item);
+        String reason = ReflectionTestUtils.invokeMethod(service, "buildTemplateReason", item);
 
         String expected = "距当前位置约300米，主打火锅店，可作为本次美食查询的候选。";
 
@@ -189,6 +185,27 @@ class FoodRecommendServiceImplTest {
             throw new IllegalStateException("意图解析失败：输入“" + query + "”后没有得到解析结果");
         }
         return intent;
+    }
+
+    /** 创建实现类内部使用的 SearchResult，只用于测试 buildResponse。 */
+    private Object createSearchResult(
+            String queryType,
+            String centerLocation,
+            String distanceTargetText,
+            JSONObject amapResponse) {
+        try {
+            Class<?> searchResultClass =
+                    Class.forName(
+                            "com.sora.aitravel.service.impl.FoodRecommendServiceImpl$SearchResult");
+            var constructor =
+                    searchResultClass.getDeclaredConstructor(
+                            String.class, String.class, String.class, JSONObject.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(
+                    queryType, centerLocation, distanceTargetText, amapResponse);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("测试准备失败：无法创建 SearchResult", exception);
+        }
     }
 
     /** 打印并检查一条用户输入的意图类型、城市、地点和关键词。 */
