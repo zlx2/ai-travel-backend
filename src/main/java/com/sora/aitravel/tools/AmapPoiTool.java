@@ -34,7 +34,7 @@ public class AmapPoiTool {
      */
     @Tool(description = "高德POI周边搜索，传入中心点经纬度，搜索指定半径范围内的酒店、餐厅、景点等地点")
     public AmapApiResp<List<Poi>> searchPoiAround(
-            @ToolParam(description = "中心点经纬度，格式：经度,纬度 例如 120.15,30.28", required = true) String location,
+            @ToolParam(description = "中心点经纬度，格式：经度,纬度 例如 120.15,30.28") String location,
             @ToolParam(description = "搜索关键词，可选，缩小搜索范围", required = false) String keywords,
             @ToolParam(description = "POI分类编码，多个用|分隔", required = false) String types,
             @ToolParam(description = "搜索半径，单位米，最大5000米", required = false) Integer radius

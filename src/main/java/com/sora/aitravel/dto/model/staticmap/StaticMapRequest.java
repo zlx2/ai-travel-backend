@@ -1,6 +1,7 @@
 package com.sora.aitravel.dto.model.staticmap;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -10,6 +11,7 @@ import java.util.List;
  * 静态地图请求参数
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 /**

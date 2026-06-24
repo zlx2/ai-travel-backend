@@ -6,15 +6,20 @@ import com.sora.aitravel.dto.model.geo.RegeoCode;
 import com.sora.aitravel.dto.model.poi.Poi;
 import com.sora.aitravel.dto.model.route.Route;
 import com.sora.aitravel.service.AmapApiService;
-import com.sora.aitravel.service.impl.AmapApiServiceImpl;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
+@SpringBootTest
 public class AmapExample {
+    // 初始化服务
+    @Autowired
+    AmapApiService amapService;
 
-    public static void main(String[] args) {
-        AmapApiService amapService = new AmapApiServiceImpl();
-
+    @Test
+    void test() {
         // 1. POI文本搜索
         System.out.println("=== POI文本搜索 ===");
         AmapApiResp<List<Poi>> poiResult = amapService.searchPoiText("北京大学", "141201", "北京市", true);
