@@ -5,8 +5,10 @@ import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
+import com.sora.aitravel.dto.response.FoodRecommendResponse;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 
 /**
@@ -54,6 +56,9 @@ public class GenerateWorkflowContext {
 
     /** 每天需要调用工具查询的数据计划。 */
     private List<DayQueryPlan> dayQueryPlans;
+
+    /** 按天保存的美食推荐结果，真实查询失败时由美食节点写入 mock 兜底响应。 */
+    private Map<Integer, FoodRecommendResponse> foodRecommendationsByDay;
 
     /** 每天通过工具查询并经后端清洗后的候选数据。 */
     private List<DayDataPackage> rankedDayDataPackages;
