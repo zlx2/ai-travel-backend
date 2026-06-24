@@ -4,8 +4,6 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.FoodSearchIntentTypeEnum;
 import com.sora.aitravel.config.AmapProperties;
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
@@ -16,11 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -33,7 +28,7 @@ import org.springframework.util.StringUtils;
  *   <li>解析用户 query，判断查当前位置附近、地点附近，还是城市关键词；
  *   <li>根据意图调用高德 Web Service；
  *   <li>把高德 POI 字段转换成 FoodRestaurantItemDTO；
- *   <li>基于真实字段生成推荐理由，LLM 失败时用模板兜底。
+ *   <li>基于高德真实字段生成模板推荐理由。
  * </ol>
  */
 @Slf4j
@@ -56,13 +51,10 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /** 高德 page_size 最大限制为 25，这里做一层保护。 */
     private static final int MAX_PAGE_SIZE = 25;
 
-    /** 出现这些词时，优先理解为“查当前位置附近”。 */
-    private static final List<String> NEAR_WORDS = List.of("附近", "周边", "我身边", "当前位置", "就近");
-
     /** 出现这些词且前面有地点时，理解为“查某个地点附近”。 */
     private static final List<String> ADDRESS_NEAR_WORDS = List.of("附近", "周边", "旁边");
 
-    /** 规则能直接识别的常见城市。不在列表里的城市，会交给 LLM 尝试解析。 */
+    /** 规则能直接识别的常见城市。 */
     private static final List<String> KNOWN_CITIES =
             List.of(
                     "北京", "上海", "广州", "深圳", "重庆", "成都", "西安", "杭州", "武汉", "南京",
@@ -70,12 +62,6 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
     /** 高德配置，读取 app.amap.api-key/base-url/timeout。 */
     private final AmapProperties amapProperties;
-
-    /** 用于把 LLM 返回的 JSON 字符串转成 Java 对象。 */
-    private final ObjectMapper objectMapper;
-
-    /** 用于兜底解析 query 和生成推荐理由。 */
-    private final ChatModel chatModel;
 
     @Override
     public FoodRecommendResponse recommend(
@@ -174,11 +160,21 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             }
         }
 
-        List<String> reasons = generateReasons(query, items);
+        if (items.isEmpty()) {
+            return new FoodRecommendResponse(
+                    true,
+                    "未找到符合条件的餐饮饭店",
+                    "AMAP",
+                    queryType,
+                    intent.getIntentType(),
+                    centerLocation,
+                    0,
+                    List.of());
+        }
+
         List<FoodRestaurantItemDTO> withReasons = new ArrayList<>();
-        for (int i = 0; i < items.size(); i++) {
-            String reason = i < reasons.size() ? reasons.get(i) : templateReason(items.get(i));
-            withReasons.add(withReason(items.get(i), reason));
+        for (FoodRestaurantItemDTO item : items) {
+            withReasons.add(withReason(item, templateReason(item)));
         }
 
         return new FoodRecommendResponse(
@@ -195,11 +191,10 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /**
      * 解析用户查询意图。
      *
-     * <p>先走规则，因为规则更稳定、速度更快；规则判断不出来时，再交给 LLM 兜底。
+     * <p>第一版只使用规则解析，保证结果稳定且不依赖 LLM。
      */
     private FoodSearchIntent resolveIntent(String query) {
-        FoodSearchIntent ruleIntent = parseIntentByRule(query);
-        return ruleIntent != null ? ruleIntent : parseIntentByLlm(query);
+        return parseIntentByRule(query);
     }
 
     /** 用规则解析常见表达。 */
@@ -230,14 +225,33 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
     /** 解析“附近有什么好吃的”“我身边火锅”这类当前位置附近查询。 */
     private FoodSearchIntent parseNearCurrent(String query) {
-        for (String word : NEAR_WORDS) {
-            if (query.startsWith(word) || query.contains("我" + word)) {
-                String keywords = cleanupKeywords(query.replace(word, ""));
-                return new FoodSearchIntent(
-                        FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, defaultKeyword(keywords));
-            }
+        if (!isNearCurrentQuery(query)) {
+            return null;
         }
-        return null;
+
+        String keywords = query;
+        keywords = keywords.replace("当前位置", "");
+        keywords = keywords.replace("我附近", "");
+        keywords = keywords.replace("我身边", "");
+        keywords = keywords.replace("附近", "");
+        keywords = keywords.replace("周边", "");
+        keywords = keywords.replace("身边", "");
+        keywords = keywords.replace("就近", "");
+        keywords = cleanupKeywords(keywords);
+
+        return new FoodSearchIntent(
+                FoodSearchIntentTypeEnum.NEAR_CURRENT, null, null, defaultKeyword(keywords));
+    }
+
+    /** 判断 query 是否明确表示查询用户当前位置附近。 */
+    private boolean isNearCurrentQuery(String query) {
+        return query.startsWith("附近")
+                || query.startsWith("周边")
+                || query.startsWith("当前位置")
+                || query.startsWith("就近")
+                || query.contains("我附近")
+                || query.contains("我身边")
+                || query.contains("当前位置");
     }
 
     /** 解析“洪崖洞附近火锅”“解放碑周边小吃”这类地点附近查询。 */
@@ -255,8 +269,15 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
             String city = extractCity(query);
             String keywords = cleanupKeywords(query.substring(index + word.length()));
-            if (StringUtils.hasText(city)) {
-                address = address.replace(city, "");
+            if (StringUtils.hasText(city) && address.equals(city)) {
+                return new FoodSearchIntent(
+                        FoodSearchIntentTypeEnum.CITY_KEYWORD,
+                        city,
+                        null,
+                        defaultKeyword(keywords));
+            }
+            if (StringUtils.hasText(city) && address.startsWith(city)) {
+                address = address.substring(city.length());
             }
 
             return new FoodSearchIntent(
@@ -274,32 +295,6 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
         String keywords = cleanupKeywords(query.replaceFirst(city, ""));
         return new FoodSearchIntent(FoodSearchIntentTypeEnum.CITY_KEYWORD, city, null, defaultKeyword(keywords));
-    }
-
-    /** 规则解析失败时，让 LLM 尝试抽取 intentType/city/address/keywords。 */
-    private FoodSearchIntent parseIntentByLlm(String query) {
-        try {
-            String content =
-                    ChatClient.builder(chatModel)
-                            .build()
-                            .prompt()
-                            .system(
-                                    """
-                                    你负责把用户美食查询解析成 JSON。
-                                    intentType 只能是 NEAR_CURRENT、NEAR_ADDRESS、CITY_KEYWORD。
-                                    只返回 JSON，不要 Markdown。
-                                    字段：intentType, city, address, keywords。
-                                    """)
-                            .user("用户输入：" + query)
-                            .call()
-                            .content();
-            LlmIntentResult result = objectMapper.readValue(content, LlmIntentResult.class);
-            FoodSearchIntentTypeEnum type = FoodSearchIntentTypeEnum.valueOf(result.getIntentType());
-            return new FoodSearchIntent(type, result.getCity(), result.getAddress(), defaultKeyword(result.getKeywords()));
-        } catch (IllegalArgumentException | JsonProcessingException exception) {
-            log.warn("Food intent LLM parse failed, query={}", query, exception);
-            return null;
-        }
     }
 
     /** 高德 POI 转成饭店推荐 DTO。 */
@@ -394,105 +389,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 item.getNavigationUrl());
     }
 
-    /**
-     * 生成推荐理由。
-     *
-     * <p>优先使用 LLM，让文案更自然；如果 LLM 调用失败或返回数量不对，就使用模板理由兜底。
-     */
-    private List<String> generateReasons(String query, List<FoodRestaurantItemDTO> items) {
-        if (items.isEmpty()) {
-            return List.of();
-        }
-        try {
-            List<String> llmReasons = generateReasonsByLlm(query, items);
-            if (llmReasons.size() == items.size()) {
-                return llmReasons;
-            }
-        } catch (RuntimeException exception) {
-            log.warn("Food reason LLM generation failed, fallback to template", exception);
-        }
-        return items.stream().map(this::templateReason).toList();
-    }
-
-    /** 调用 LLM 批量生成推荐理由。 */
-    private List<String> generateReasonsByLlm(String query, List<FoodRestaurantItemDTO> items) {
-        String reply =
-                ChatClient.builder(chatModel)
-                        .build()
-                        .prompt()
-                        .system(
-                                """
-                                你是旅游美食推荐助手。请只基于用户 query 和高德 POI 真实字段生成推荐理由。
-                                禁止编造评分、人均、排队时间、评论、营业时间、招牌菜排名。
-                                每家店输出一行，格式为：序号. 推荐理由
-                                每条 50 字以内，语气自然，适合前端卡片展示。
-                                """)
-                        .user(buildReasonPrompt(query, items))
-                        .call()
-                        .content();
-        return parseNumberedLines(reply, items.size());
-    }
-
-    /** 组装给 LLM 的饭店字段，只放高德真实返回字段。 */
-    private String buildReasonPrompt(String query, List<FoodRestaurantItemDTO> items) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("用户 query：").append(query).append("\n\n");
-        for (int i = 0; i < items.size(); i++) {
-            FoodRestaurantItemDTO item = items.get(i);
-            builder.append(i + 1)
-                    .append(". name=")
-                    .append(item.getName())
-                    .append(", address=")
-                    .append(item.getAddress())
-                    .append(", type=")
-                    .append(item.getType())
-                    .append(", distance=")
-                    .append(item.getDistanceText())
-                    .append(", rating=")
-                    .append(item.getRating())
-                    .append(", avgCost=")
-                    .append(item.getAvgCost())
-                    .append(", tag=")
-                    .append(item.getTag())
-                    .append(", keyTag=")
-                    .append(item.getKeyTag())
-                    .append(", recTag=")
-                    .append(item.getRecTag())
-                    .append(", openTime=")
-                    .append(item.getOpenTime())
-                    .append("\n");
-        }
-        return builder.toString();
-    }
-
-    /** 从 LLM 返回的“1. xxx”这种多行文本中提取推荐理由。 */
-    private List<String> parseNumberedLines(String reply, int expectedSize) {
-        List<String> reasons = new ArrayList<>();
-        if (!StringUtils.hasText(reply)) {
-            return reasons;
-        }
-        for (String line : reply.split("\\R")) {
-            /*
-             * 正则说明：
-             * ^\\s*       匹配行首可能存在的空格。
-             * \\d+        匹配序号数字，例如 1、2、10。
-             * [\\.、)]    匹配序号后面的分隔符，例如 "."、"、"、")"。
-             * \\s*        匹配分隔符后可能存在的空格。
-             *
-             * 作用：把 "1. 推荐理由" 清理成 "推荐理由"。
-             */
-            String cleaned = line.replaceFirst("^\\s*\\d+[\\.、)]\\s*", "").trim();
-            if (StringUtils.hasText(cleaned)) {
-                reasons.add(cleaned);
-            }
-            if (reasons.size() == expectedSize) {
-                break;
-            }
-        }
-        return reasons;
-    }
-
-    /** LLM 不可用时的模板理由，只拼接高德真实字段。 */
+    /** 使用模板生成推荐理由，只拼接高德真实字段。 */
     private String templateReason(FoodRestaurantItemDTO item) {
         List<String> parts = new ArrayList<>();
         if (StringUtils.hasText(item.getDistanceText())) {
@@ -504,15 +401,15 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             parts.add("属于" + item.getType());
         }
         if (StringUtils.hasText(item.getRating())) {
-            parts.add("高德返回评分" + item.getRating());
+            parts.add("高德评分" + item.getRating());
         }
         if (StringUtils.hasText(item.getAvgCost())) {
             parts.add("人均约" + item.getAvgCost() + "元");
         }
         if (parts.isEmpty()) {
-            return "这家店有高德 POI 数据返回，可作为本次美食查询的候选饭店。";
+            return "高德地图返回的餐饮地点，可作为本次美食查询的候选。";
         }
-        return String.join("，", parts) + "，适合作为本次美食查询的候选。";
+        return String.join("，", parts) + "，可作为本次美食查询的候选。";
     }
 
     /** 调用高德地理编码，把文字地点转成经纬度。 */
@@ -643,18 +540,24 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
 
     /** 清理 query 中无实际搜索意义的口语词，只留下真正要搜的美食关键词。 */
     private String cleanupKeywords(String value) {
-        if (value == null) {
-            return null;
+        if (!StringUtils.hasText(value)) {
+            return "";
         }
 
-        /*
-         * 正则说明：
-         * (A|B|C) 表示匹配 A、B、C 中任意一个词。
-         * 这里把“推荐、有什么、好吃的、饭店、餐厅”等口语词替换为空，
-         * 例如“重庆火锅推荐”会变成“重庆火锅”，“附近有什么好吃的”会尽量变成空，后面再默认成“美食”。
-         */
-        String cleaned =
-                value.replaceAll("(推荐|有什么|好吃的|吃的|饭店|餐厅|美食|地方|帮我|给我|找|查|的)", "");
+        String cleaned = value.trim();
+        cleaned = cleaned.replace("帮我找", "");
+        cleaned = cleaned.replace("给我找", "");
+        cleaned = cleaned.replace("帮我", "");
+        cleaned = cleaned.replace("给我", "");
+        cleaned = cleaned.replace("找一下", "");
+        cleaned = cleaned.replace("找个", "");
+        cleaned = cleaned.replace("查一下", "");
+        cleaned = cleaned.replace("推荐一下", "");
+        cleaned = cleaned.replace("有什么好吃的", "");
+        cleaned = cleaned.replace("有什么吃的", "");
+        cleaned = cleaned.replace("有什么", "");
+        cleaned = cleaned.replace("推荐", "");
+        cleaned = cleaned.replaceFirst("^(找|查|的)+", "");
         return cleaned.trim();
     }
 
@@ -752,13 +655,4 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         private String keywords;
     }
 
-    /** LLM 兜底解析 query 时接收 JSON 的对象，Jackson 需要无参构造。 */
-    @Data
-    @NoArgsConstructor
-    private static class LlmIntentResult {
-        private String intentType;
-        private String city;
-        private String address;
-        private String keywords;
-    }
 }
