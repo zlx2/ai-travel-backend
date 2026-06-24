@@ -25,6 +25,12 @@ public class Route {
     private String taxiCost;
 
     /**
+     * 方案所需时间及费用成本
+     * 公交规划中使用
+     */
+    private Cost cost;
+
+    /**
      * 路线方案列表
      */
     private List<Path> paths;
@@ -33,5 +39,7 @@ public class Route {
      * 公交方案列表
      */
     private List<Transit> transits;
+
+
 }
 

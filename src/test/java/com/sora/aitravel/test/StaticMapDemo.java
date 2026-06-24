@@ -22,7 +22,7 @@ public class StaticMapDemo {
 
     @Test
     void test() {
-        StaticMapRequest request = new StaticMapRequest(null, "115.397128,40.916527", 12, "800*800", 2,
+        StaticMapRequest request = new StaticMapRequest(null, "116.397128,39.916527", 12, "800*800", 2,
                 List.of(new Marker("mid", "0xFF0000", "A", null, List.of("116.397128,39.916527"))),
                 null, null, 1);
 

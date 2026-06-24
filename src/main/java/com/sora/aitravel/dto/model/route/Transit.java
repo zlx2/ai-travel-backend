@@ -28,5 +28,10 @@ public class Transit {
      * 路线分段
      */
     private List<TransitSegment> segments;
+
+    /**
+     * 方案所需时间及费用成本
+     */
+    private Cost cost;
 }
 

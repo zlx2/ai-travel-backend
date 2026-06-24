@@ -400,6 +400,7 @@ public class AmapApiServiceImpl implements AmapApiService {
         params.put("key", getApiKey());
         params.put("origin", origin);
         params.put("destination", destination);
+        params.put("show_fields", "cost,polyline");
         return params;
     }
 
@@ -411,7 +412,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             // 使用Hutool的HttpRequest
             HttpRequest request = HttpUtil.createGet(url)
                     .timeout(getTimeout().toMillisPart())
-                    .form(MapUtil.toCamelCaseMap(params));
+                    .form(params);
 
             try (HttpResponse response = request.execute()) {
                 String body = response.body();

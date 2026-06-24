@@ -67,6 +67,23 @@ public class AmapExample {
             }
         }
 
+        // 6. 公交路径规划
+        System.out.println("\n=== 公交路径规划 ===");
+        AmapApiResp<Route> transitResult = amapService.transitRoute(
+                "116.481028,39.989643", "116.434446,39.90816",
+                "010", "010", 0, 5, 0);
+        if (transitResult.isSuccess()) {
+            Route route = transitResult.getData();
+            System.out.printf("起点: %s, 终点: %s%n", route.getOrigin(), route.getDestination());
+            if (route.getTransits() != null) {
+                route.getTransits().forEach(transit ->
+                        System.out.printf(transit.toString()));
+            }
+        }
+    }
+
+    @Test
+    void test02() {
         // 5. 驾车路径规划
         System.out.println("\n=== 驾车路径规划 ===");
         AmapApiResp<Route> drivingResult = amapService.drivingRoute("116.481028,39.989643", "116.434446,39.90816");
@@ -79,20 +96,6 @@ public class AmapExample {
                 System.out.println(path);
                 System.out.printf("方案距离: %s米, 预计时间: %s秒%n",
                         path.getDistance(), path.getDuration());
-            }
-        }
-
-        // 6. 公交路径规划
-        System.out.println("\n=== 公交路径规划 ===");
-        AmapApiResp<Route> transitResult = amapService.transitRoute(
-                "116.481028,39.989643", "116.434446,39.90816",
-                "010", "010", 0, 5, 0);
-        if (transitResult.isSuccess()) {
-            Route route = transitResult.getData();
-            System.out.printf("起点: %s, 终点: %s%n", route.getOrigin(), route.getDestination());
-            if (route.getTransits() != null) {
-                route.getTransits().forEach(transit ->
-                        System.out.printf(transit.toString()));
             }
         }
     }
