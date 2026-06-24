@@ -24,9 +24,9 @@ CREATE TABLE IF NOT EXISTS ai_call_log (
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS trip (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT NOT NULL, conversation_id VARCHAR(64), title VARCHAR(128),
-  departure VARCHAR(128) NOT NULL, destination VARCHAR(128) NOT NULL, days TINYINT NOT NULL, budget INT,
-  preferences_json JSON, requirement_json JSON NOT NULL, trip_plan_json JSON NOT NULL, summary VARCHAR(1000), cover_url VARCHAR(512),
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT NOT NULL, conversation_id VARCHAR(64), title VARCHAR(100) NOT NULL,
+  departure VARCHAR(100), destination VARCHAR(100) NOT NULL, days TINYINT NOT NULL, budget INT,
+  preferences_json JSON, requirement_json JSON NOT NULL, trip_plan_json JSON NOT NULL, summary VARCHAR(500), cover_url VARCHAR(500),
   source TINYINT NOT NULL DEFAULT 1, status TINYINT NOT NULL DEFAULT 1,
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted TINYINT NOT NULL DEFAULT 0, KEY idx_trip_user_time (user_id, create_time), KEY idx_trip_destination (destination)

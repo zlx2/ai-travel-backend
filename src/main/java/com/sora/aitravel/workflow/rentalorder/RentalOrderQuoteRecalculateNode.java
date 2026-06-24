@@ -18,9 +18,27 @@ public class RentalOrderQuoteRecalculateNode {
         RentalQuoteOptionDTO selectedQuote = context.getRequest().selectedQuote();
         RentalQuoteOptionDTO recalculatedQuote =
                 rentalQuoteService.recalculate(context.getRequest().requirement(), selectedQuote);
-        if (!selectedQuote.vehicleGroupId().equals(recalculatedQuote.vehicleGroupId())) {
+        if (!sameQuote(selectedQuote, recalculatedQuote)) {
             throw new BusinessException(ErrorCode.CONFLICT, "所选车型报价已变化，请重新选择报价");
         }
         context.setRecalculatedQuote(recalculatedQuote);
+    }
+
+    private boolean sameQuote(
+            RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
+        return equalsValue(selectedQuote.vehicleGroupId(), recalculatedQuote.vehicleGroupId())
+                && equalsValue(selectedQuote.priceTemplateId(), recalculatedQuote.priceTemplateId())
+                && equalsValue(selectedQuote.pickupPoiId(), recalculatedQuote.pickupPoiId())
+                && equalsValue(selectedQuote.returnPoiId(), recalculatedQuote.returnPoiId())
+                && equalsValue(selectedQuote.rentalDays(), recalculatedQuote.rentalDays())
+                && equalsValue(totalPrice(selectedQuote), totalPrice(recalculatedQuote));
+    }
+
+    private Integer totalPrice(RentalQuoteOptionDTO quote) {
+        return quote.feeBreakdown() == null ? null : quote.feeBreakdown().totalPriceCent();
+    }
+
+    private boolean equalsValue(Object left, Object right) {
+        return left == null ? right == null : left.equals(right);
     }
 }

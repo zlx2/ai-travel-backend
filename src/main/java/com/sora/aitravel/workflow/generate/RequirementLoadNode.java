@@ -1,7 +1,7 @@
 package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.workflow.rentalquote.MockRentalQuoteFactory;
+import com.sora.aitravel.service.RentalQuoteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class RequirementLoadNode {
 
-    private final MockRentalQuoteFactory mockRentalQuoteFactory;
+    private final RentalQuoteService rentalQuoteService;
 
-    public RequirementLoadNode(MockRentalQuoteFactory mockRentalQuoteFactory) {
-        this.mockRentalQuoteFactory = mockRentalQuoteFactory;
+    public RequirementLoadNode(RentalQuoteService rentalQuoteService) {
+        this.rentalQuoteService = rentalQuoteService;
     }
 
     public void execute(GenerateWorkflowContext context) {
@@ -21,9 +21,8 @@ public class RequirementLoadNode {
         context.setRequirement(requirement);
         context.setSelectedQuote(context.getRequest().selectedQuote());
         if (context.getSelectedQuote() == null && isRentalTrip(requirement)) {
-            // TODO 租车业务接入后改为要求前端传 selectedQuote，或调用真实报价服务自动补齐。
-            context.setSelectedQuote(mockRentalQuoteFactory.defaultQuote(requirement));
-            log.info("节点[requirement-load]：租车报价未传入，已补充模拟 selectedQuote。");
+            context.setSelectedQuote(rentalQuoteService.preview(requirement).quoteOptions().get(0));
+            log.info("节点[requirement-load]：租车报价未传入，已通过租车报价服务补充默认 selectedQuote。");
         }
         log.info(
                 "节点[requirement-load]：读取已确认需求，departure={}, destination={}, days={}, peopleCount={}, preferences={}",

@@ -52,6 +52,9 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     public Long create(Long userId, RentalOrderCreateRequest request) {
         RentalQuoteOptionDTO quote =
                 rentalQuoteService.recalculate(request.requirement(), request.selectedQuote());
+        if (!sameQuote(request.selectedQuote(), quote)) {
+            throw new BusinessException(ErrorCode.CONFLICT, "所选车型报价已变化，请重新选择报价");
+        }
         Trip trip = buildTrip(userId, request, quote);
         tripMapper.insert(trip);
 
@@ -64,7 +67,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     public void pay(Long userId, Long id, RentalOrderPayRequest request) {
         RentalOrder order = mustGetOwnedOrder(userId, id);
         if (!"pending".equals(order.getOrderStatus())) {
-            throw new BusinessException(ErrorCode.CONFLICT, "只有待确认订单可以支付");
+            throw new BusinessException(ErrorCode.CONFLICT, "只有待支付订单可以支付");
         }
         boolean success =
                 request == null
@@ -113,8 +116,9 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         Trip trip = new Trip();
         trip.setUserId(userId);
         trip.setConversationId(request.conversationId());
-        trip.setTitle(tripPlan.title());
-        trip.setDeparture(requirement.departure());
+        trip.setTitle(
+                notBlank(tripPlan.title()) ? tripPlan.title() : tripDestination(requirement, tripPlan) + "行程");
+        trip.setDeparture(tripDeparture(requirement, quote));
         trip.setDestination(tripDestination(requirement, tripPlan));
         trip.setDays(requirement.days());
         trip.setBudget(requirement.budget());
@@ -254,6 +258,16 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return tripPlan.destination();
     }
 
+    private String tripDeparture(TravelRequirementDTO requirement, RentalQuoteOptionDTO quote) {
+        if (notBlank(requirement.departure())) {
+            return requirement.departure();
+        }
+        if (notBlank(quote.rentalCity())) {
+            return quote.rentalCity();
+        }
+        return "未知出发地";
+    }
+
     private LocalDate parseDate(String value) {
         try {
             return value == null || value.isBlank()
@@ -289,5 +303,22 @@ public class RentalOrderServiceImpl implements RentalOrderService {
 
     private boolean notBlank(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean sameQuote(RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
+        return equalsValue(selectedQuote.vehicleGroupId(), recalculatedQuote.vehicleGroupId())
+                && equalsValue(selectedQuote.priceTemplateId(), recalculatedQuote.priceTemplateId())
+                && equalsValue(selectedQuote.pickupPoiId(), recalculatedQuote.pickupPoiId())
+                && equalsValue(selectedQuote.returnPoiId(), recalculatedQuote.returnPoiId())
+                && equalsValue(selectedQuote.rentalDays(), recalculatedQuote.rentalDays())
+                && equalsValue(totalPrice(selectedQuote), totalPrice(recalculatedQuote));
+    }
+
+    private Integer totalPrice(RentalQuoteOptionDTO quote) {
+        return quote.feeBreakdown() == null ? null : quote.feeBreakdown().totalPriceCent();
+    }
+
+    private boolean equalsValue(Object left, Object right) {
+        return left == null ? right == null : left.equals(right);
     }
 }
