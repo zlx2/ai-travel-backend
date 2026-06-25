@@ -7,6 +7,7 @@ import cn.hutool.json.JSONUtil;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
  * <p>高德开放平台：https://lbs.amap.com/ POI 搜索文档：https://lbs.amap.com/api/webservice/guide/api/search
  * 酒店类型编码：100100（宾馆酒店）
  */
+@Slf4j
 @Component
 public class HotelTool {
 
@@ -103,78 +105,77 @@ public class HotelTool {
 
             JSONObject searchJson = JSONUtil.parseObj(searchResponse);
             if (!"1".equals(searchJson.getStr("status"))) {
-                return "高德 API 调用失败：" + searchJson.getStr("info");
+                JSONObject error = new JSONObject();
+                error.set("city", city);
+                error.set("error", "高德 API 调用失败：" + searchJson.getStr("info"));
+                return error.toString();
             }
 
             JSONArray pois = searchJson.getJSONArray("pois");
             if (pois == null || pois.isEmpty()) {
-                return "未找到 " + city + " 的酒店信息，建议尝试其他城市名称。";
+                JSONObject error = new JSONObject();
+                error.set("city", city);
+                error.set("error", "未找到酒店信息，建议尝试其他城市名称");
+                return error.toString();
             }
 
-            // 第二步：获取酒店详情并估算价格
-            StringBuilder sb = new StringBuilder();
-            sb.append("【")
-                    .append(city)
-                    .append(" 酒店推荐】")
-                    .append("（入住：")
-                    .append(checkInDate)
-                    .append("，离店：")
-                    .append(checkOutDate)
-                    .append("，共")
-                    .append(nights)
-                    .append("晚）\n\n");
+            // 构建 JSON 结果
+            JSONObject result = new JSONObject();
+            result.set("city", city);
+            result.set("checkIn", checkInDate);
+            result.set("checkOut", checkOutDate);
+            result.set("nights", nights);
+            result.set("source", "高德地图");
 
+            JSONArray hotels = new JSONArray();
             int count = Math.min(pois.size(), 6);
             for (int i = 0; i < count; i++) {
                 JSONObject poi = pois.getJSONObject(i);
-                // 从POI数据中提取酒店基本信息字段
-                String poiId = poi.getStr("id"); // 酒店POI唯一标识符，用于后续获取详情
-                String name = poi.getStr("name"); // 酒店名称
-                String address = poi.getStr("address"); // 酒店详细地址
-                String tel = poi.getStr("tel"); // 酒店联系电话
-                String rating = poi.getStr("biz_ext_rating"); // 酒店评分（扩展信息字段）
+                String poiId = poi.getStr("id");
+                String name = poi.getStr("name");
+                String address = poi.getStr("address");
+                String tel = poi.getStr("tel");
+                String rating = poi.getStr("biz_ext_rating");
 
-                // 获取酒店详情
                 JSONObject detail = fetchHotelDetail(poiId);
                 String type = detail != null ? detail.getStr("type") : poi.getStr("type");
 
-                // 基于品牌 + 类型估算价格
                 String priceInfo = estimatePrice(name, type, city);
+                int[] prices = parsePriceRange(priceInfo);
 
-                sb.append(i + 1).append(". ").append(name).append("\n");
+                JSONObject hotel = new JSONObject();
+                hotel.set("name", name);
                 if (address != null && !address.isEmpty()) {
-                    sb.append("   地址：").append(address).append("\n");
+                    hotel.set("address", address);
                 }
                 if (tel != null && !tel.isEmpty()) {
-                    sb.append("   电话：").append(tel).append("\n");
+                    hotel.set("tel", tel);
                 }
                 if (rating != null && !rating.isEmpty()) {
-                    sb.append("   评分：").append(rating).append("/5.0\n");
+                    hotel.set("rating", Double.parseDouble(rating));
                 }
                 if (type != null && !type.isEmpty()) {
-                    sb.append("   类型：").append(type).append("\n");
+                    hotel.set("type", type);
                 }
-                sb.append("   价格：").append(priceInfo).append("\n");
-
-                int[] prices = parsePriceRange(priceInfo);
+                hotel.set("pricePerNight", priceInfo);
                 if (prices != null) {
-                    int minTotal = prices[0] * (int) nights;
-                    int maxTotal = prices[1] * (int) nights;
-                    sb.append("   预估总价：¥")
-                            .append(minTotal)
-                            .append(" ~ ¥")
-                            .append(maxTotal)
-                            .append("（")
-                            .append(nights)
-                            .append("晚）\n");
+                    hotel.set("priceMin", prices[0]);
+                    hotel.set("priceMax", prices[1]);
+                    hotel.set("totalMin", prices[0] * (int) nights);
+                    hotel.set("totalMax", prices[1] * (int) nights);
                 }
-                sb.append("\n");
+                hotels.add(hotel);
             }
+            result.set("hotels", hotels);
+            result.set("disclaimer", "价格为参考区间，实际价格以携程/美团等预订平台为准");
 
-            sb.append("数据来源：高德地图。价格为参考区间，实际价格以携程/美团等预订平台为准。");
-            return sb.toString();
+            return result.toString();
         } catch (Exception e) {
-            return "查询 " + city + " 酒店失败：" + e.getMessage();
+            log.error("酒店查询失败，城市：{}", city, e);
+            JSONObject error = new JSONObject();
+            error.set("city", city);
+            error.set("error", "查询酒店失败：" + e.getMessage());
+            return error.toString();
         }
     }
 

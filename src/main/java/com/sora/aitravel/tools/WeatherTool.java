@@ -6,6 +6,7 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import java.util.HashMap;
 import java.util.Map;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -69,7 +70,10 @@ public class WeatherTool {
             double[] coords = geocode(city);
             if (coords == null) {
                 log.warn("未找到城市经纬度：{}", city);
-                return "未找到城市：" + city + "，请检查城市名称。";
+                JSONObject error = new JSONObject();
+                error.set("city", city);
+                error.set("error", "未找到城市，请检查城市名称");
+                return error.toString();
             }
 
             log.info("城市 {} 经纬度：{}, {}", city, coords[0], coords[1]);
@@ -99,7 +103,10 @@ public class WeatherTool {
             return parseForecast(city, response);
         } catch (Exception e) {
             log.error("天气查询失败，城市：{}", city, e);
-            return "查询 " + city + " 天气失败：" + e.getMessage();
+            JSONObject error = new JSONObject();
+            error.set("city", city);
+            error.set("error", "查询天气失败：" + e.getMessage());
+            return error.toString();
         }
     }
 
@@ -133,50 +140,43 @@ public class WeatherTool {
         return null;
     }
 
-    /** 解析 Open-Meteo 预报响应，将json数据转换成可读的文本。 */
+    /** 解析 Open-Meteo 预报响应，将数据转换成 JSON 格式返回。 */
     private String parseForecast(String city, String jsonResponse) {
         try {
             JSONObject json = JSONUtil.parseObj(jsonResponse);
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("【").append(city).append(" 天气】\n\n");
+            JSONObject result = new JSONObject();
+            result.set("city", city);
+            result.set("source", "Open-Meteo");
 
             // 当前天气
             JSONObject current = json.getJSONObject("current");
             if (current != null) {
-                double temp = current.getDouble("temperature_2m"); // 当前实际温度（2米高度，单位：°C）
-                double feelsLike =
-                        current.getDouble("apparent_temperature"); // 体感温度（考虑湿度、风速等因素，单位：°C）
-                int humidity = current.getInt("relative_humidity_2m"); // 相对湿度（2米高度，单位：%）
-                int weatherCode = current.getInt("weather_code"); // WMO天气代码（用于查询天气描述）
-                double windSpeed = current.getDouble("wind_speed_10m"); // 风速（10米高度，单位：km/h）
-                String weatherDesc =
-                        WMO_CODES.getOrDefault(weatherCode, "未知"); // 根据WMO代码获取天气描述，默认为"未知"
+                double temp = current.getDouble("temperature_2m");
+                double feelsLike = current.getDouble("apparent_temperature");
+                int humidity = current.getInt("relative_humidity_2m");
+                int weatherCode = current.getInt("weather_code");
+                double windSpeed = current.getDouble("wind_speed_10m");
+                String weatherDesc = WMO_CODES.getOrDefault(weatherCode, "未知");
 
-                sb.append("当前实况：\n");
-                sb.append("   天气：").append(weatherDesc).append("\n");
-                sb.append("   温度：")
-                        .append(String.format("%.0f", temp))
-                        .append("°C（体感 ")
-                        .append(String.format("%.0f", feelsLike))
-                        .append("°C）\n");
-                sb.append("   湿度：").append(humidity).append("%\n");
-                sb.append("   风速：").append(String.format("%.0f", windSpeed)).append(" km/h\n");
-                sb.append("\n");
+                JSONObject currentJson = new JSONObject();
+                currentJson.set("weather", weatherDesc);
+                currentJson.set("temperature", Math.round(temp));
+                currentJson.set("feelsLike", Math.round(feelsLike));
+                currentJson.set("humidity", humidity);
+                currentJson.set("windSpeed", Math.round(windSpeed));
+                result.set("current", currentJson);
             }
 
             // 7 天预报
             JSONObject daily = json.getJSONObject("daily");
             if (daily != null) {
-                // 从 daily 对象中提取各预报字段的数组
-                JSONArray timeArr =
-                        daily.getJSONArray("time"); // 日期数组，如 ["2026-06-23", "2026-06-24", ...]
-                JSONArray maxTempArr = daily.getJSONArray("temperature_2m_max"); // 每日最高温度数组（单位：°C）
-                JSONArray minTempArr = daily.getJSONArray("temperature_2m_min"); // 每日最低温度数组（单位：°C）
-                JSONArray weatherCodeArr = daily.getJSONArray("weather_code"); // 每日天气代码数组（WMO标准代码）
-                JSONArray precipArr = daily.getJSONArray("precipitation_sum"); // 每日降水量数组（单位：mm）
+                JSONArray timeArr = daily.getJSONArray("time");
+                JSONArray maxTempArr = daily.getJSONArray("temperature_2m_max");
+                JSONArray minTempArr = daily.getJSONArray("temperature_2m_min");
+                JSONArray weatherCodeArr = daily.getJSONArray("weather_code");
+                JSONArray precipArr = daily.getJSONArray("precipitation_sum");
 
-                sb.append("未来").append(timeArr.size()).append("天预报：\n\n");
+                JSONArray forecastArr = new JSONArray();
                 for (int i = 0; i < timeArr.size(); i++) {
                     String date = timeArr.getStr(i);
                     double maxTemp = maxTempArr.getDouble(i);
@@ -185,8 +185,7 @@ public class WeatherTool {
                     double precip = precipArr.getDouble(i);
                     String weatherDesc = WMO_CODES.getOrDefault(weatherCode, "未知");
 
-                    String dateLabel; // 日期标签变量，用于显示友好的日期名称（今天/明天/后天）或具体日期
-
+                    String dateLabel;
                     if (i == 0) {
                         dateLabel = "今天";
                     } else if (i == 1) {
@@ -197,26 +196,27 @@ public class WeatherTool {
                         dateLabel = date;
                     }
 
-                    sb.append("   ").append(dateLabel).append("（").append(date).append("）\n");
-                    sb.append("      天气：").append(weatherDesc).append("\n");
-                    sb.append("      温度：")
-                            .append(String.format("%.0f", minTemp))
-                            .append("°C ~ ")
-                            .append(String.format("%.0f", maxTemp))
-                            .append("°C\n");
+                    JSONObject dayForecast = new JSONObject();
+                    dayForecast.set("date", date);
+                    dayForecast.set("label", dateLabel);
+                    dayForecast.set("weather", weatherDesc);
+                    dayForecast.set("tempMin", Math.round(minTemp));
+                    dayForecast.set("tempMax", Math.round(maxTemp));
                     if (precip > 0) {
-                        sb.append("      降水：")
-                                .append(String.format("%.1f", precip))
-                                .append(" mm\n");
+                        dayForecast.set("precipitation", Double.parseDouble(String.format("%.1f", precip)));
                     }
-                    sb.append("\n");
+                    forecastArr.add(dayForecast);
                 }
+                result.set("forecastDays", timeArr.size());
+                result.set("forecast", forecastArr);
             }
 
-            sb.append("数据来源：Open-Meteo（开源天气 API）。");
-            return sb.toString();
+            return result.toString();
         } catch (Exception e) {
-            return city + " 天气数据解析失败：" + e.getMessage();
+            JSONObject error = new JSONObject();
+            error.set("city", city);
+            error.set("error", "天气数据解析失败：" + e.getMessage());
+            return error.toString();
         }
     }
 }

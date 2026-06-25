@@ -1,5 +1,6 @@
 package com.sora.aitravel.controller;
 
+import cn.hutool.json.JSONUtil;
 import com.sora.aitravel.common.result.R;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -39,6 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 @RequestMapping("/api/ai/demo")
+@RequiredArgsConstructor
 public class AiToolDemoController {
 
     private final ChatModel chatModel;
@@ -47,17 +50,6 @@ public class AiToolDemoController {
     private final TripGenerateWorkflow tripGenerateWorkflow;
     private ChatClient chatClient;
     private ToolCallback[] toolCallbacks;
-
-    public AiToolDemoController(
-            ChatModel chatModel,
-            WeatherTool weatherTool,
-            HotelTool hotelTool,
-            TripGenerateWorkflow tripGenerateWorkflow) {
-        this.chatModel = chatModel;
-        this.weatherTool = weatherTool;
-        this.hotelTool = hotelTool;
-        this.tripGenerateWorkflow = tripGenerateWorkflow;
-    }
 
     // 初始化回调，生命周期管理，一次性执行，不会重复调用 ， 方法必须是void 返回类型
     @PostConstruct
@@ -79,7 +71,6 @@ public class AiToolDemoController {
         // 注册工具实例
         this.toolCallbacks = ToolCallbacks.from(weatherTool, hotelTool);
 
-        log.info("AI Tool Calling Demo 初始化完成，已注册工具：WeatherTool, HotelTool");
     }
 
     /**
@@ -93,8 +84,6 @@ public class AiToolDemoController {
     @GetMapping("/tool")
     public R<String> toolCallingDemo(@RequestParam String message) {
         try {
-            log.info("收到 Tool Calling 演示请求：{}", message);
-
             // 核心调用：AI 会自动判断并调用合适的工具
             String reply =
                     chatClient.prompt().user(message).toolCallbacks(toolCallbacks).call().content();
@@ -157,10 +146,18 @@ public class AiToolDemoController {
             // 执行工作流
             GenerateWorkflowContext result = tripGenerateWorkflow.execute(context);
 
+            // 解析 JSON 字符串为对象，避免双重序列化
+            Object weatherData = result.getWeatherForecast() != null && JSONUtil.isTypeJSON(result.getWeatherForecast())
+                    ? JSONUtil.parse(result.getWeatherForecast())
+                    : result.getWeatherForecast() != null ? result.getWeatherForecast() : "未获取到天气数据";
+            Object hotelData = result.getHotelSearchResult() != null && JSONUtil.isTypeJSON(result.getHotelSearchResult())
+                    ? JSONUtil.parse(result.getHotelSearchResult())
+                    : result.getHotelSearchResult() != null ? result.getHotelSearchResult() : "未获取到酒店数据";
+
             // 返回关键数据
             return R.ok(Map.of(
-                    "weatherForecast", result.getWeatherForecast() != null ? result.getWeatherForecast() : "未获取到天气数据",
-                    "hotelSearchResult", result.getHotelSearchResult() != null ? result.getHotelSearchResult() : "未获取到酒店数据",
+                    "weatherForecast", weatherData,
+                    "hotelSearchResult", hotelData,
                     "destination", destination,
                     "days", days,
                     "travelDate", LocalDate.now().plusDays(startDays).toString()));
