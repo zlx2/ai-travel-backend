@@ -39,7 +39,5 @@ public class Route {
      * 公交方案列表
      */
     private List<Transit> transits;
-
-
 }
 
