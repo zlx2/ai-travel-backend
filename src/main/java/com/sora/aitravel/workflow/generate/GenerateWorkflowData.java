@@ -140,6 +140,15 @@ class PoiCandidate {
     private String sourcePoiId;
     private String reason;
     private Integer distanceMeters;
+    private String typeCode;
+    private String parentPoiId;
+    private String openingHours;
+    private String rating;
+    private Integer averageCost;
+    private String businessArea;
+    private List<String> businessTags;
+    private String entranceLocation;
+    private List<String> imageUrls;
 
     String name() {
         return name;

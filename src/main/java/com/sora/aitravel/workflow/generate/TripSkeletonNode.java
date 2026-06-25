@@ -28,21 +28,25 @@ public class TripSkeletonNode {
         String destination = displayDestination(requirement);
         boolean light = "LIGHT".equals(requirement.getPace());
         if (day == 1) {
-            return new DaySkeleton(day, "抵达适应 + 城市初印象", destination + "核心商圈", "LOW");
+            return new DaySkeleton(day, "抵达适应 + 城市初印象", destination + "核心商圈", "LIGHT");
         }
         if (day == requirement.getDays()) {
-            return new DaySkeleton(day, "城市慢生活 + 返程预留", destination + "休闲街区", "LOW");
+            return new DaySkeleton(day, "城市慢生活 + 返程预留", destination + "休闲街区", "LIGHT");
+        }
+        if (day == 2 && (hasPreference(requirement, "夜景") || hasPreference(requirement, "夜市"))) {
+            return new DaySkeleton(
+                    day, "城市文化 + 夜市夜景", destination + "夜间活跃区域", light ? "LIGHT" : "NORMAL");
         }
         if (hasPreference(requirement, "自然")) {
             return new DaySkeleton(
-                    day, "自然风光 + 轻户外体验", destination + "自然景区周边", light ? "LOW" : "MEDIUM");
+                    day, "自然风光 + 轻户外体验", destination + "自然景区周边", light ? "LIGHT" : "NORMAL");
         }
         if (hasPreference(requirement, "美食")) {
             return new DaySkeleton(
-                    day, "城市文化 + 美食探索", destination + "老城与美食街区", light ? "LOW" : "MEDIUM");
+                    day, "城市文化 + 美食探索", destination + "老城与美食街区", light ? "LIGHT" : "NORMAL");
         }
         return new DaySkeleton(
-                day, "经典景点 + 顺路美食", destination + "热门游览区域", light ? "LOW" : "MEDIUM");
+                day, "经典景点 + 顺路美食", destination + "热门游览区域", light ? "LIGHT" : "NORMAL");
     }
 
     private boolean hasPreference(TravelRequirementDTO requirement, String keyword) {

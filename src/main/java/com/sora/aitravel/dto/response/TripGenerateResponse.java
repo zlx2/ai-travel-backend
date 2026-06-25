@@ -21,6 +21,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TripGenerateResponse {
 
+    private String schemaVersion;
     private String conversationId;
     private TravelRequirementDTO requirement;
     private RentalQuoteOptionDTO selectedQuote;

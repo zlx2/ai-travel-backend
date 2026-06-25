@@ -1,5 +1,6 @@
 package com.sora.aitravel.dto.model.poi;
 
+import java.util.List;
 import lombok.Data;
 
 /** POI信息 */
@@ -46,4 +47,13 @@ public class Poi {
 
     /** POI所属城市编码 */
     private String citycode;
+
+    /** 营业时间、评分、人均消费等扩展信息。 */
+    private PoiBusiness business;
+
+    /** 入口、出口和导航点信息。 */
+    private PoiNavi navi;
+
+    /** POI 图片。 */
+    private List<PoiPhoto> photos;
 }

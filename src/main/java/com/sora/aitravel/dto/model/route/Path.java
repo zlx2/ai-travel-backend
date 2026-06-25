@@ -12,6 +12,9 @@ public class Path {
     /** 预计时间，单位：秒 */
     private String duration;
 
+    /** 高德 2.0 返回的耗时、收费、红绿灯等成本信息。 */
+    private Cost cost;
+
     /** 限行标识：0可规避，1无法规避 */
     private String restriction;
 

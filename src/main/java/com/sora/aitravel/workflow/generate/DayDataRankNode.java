@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class DayDataRankNode {
 
+    private static final int MAX_RANKED_CANDIDATES = 40;
+
     public void execute(GenerateWorkflowContext context) {
         List<DayDataPackage> rankedPackages = new ArrayList<>();
         for (DayDataPackage dataPackage : context.getRankedDayDataPackages()) {
@@ -40,7 +42,7 @@ public class DayDataRankNode {
                 .sorted(
                         Comparator.comparing(
                                 candidate -> !containsPreferredArea(candidate, preferredArea)))
-                .limit(5)
+                .limit(MAX_RANKED_CANDIDATES)
                 .toList();
     }
 

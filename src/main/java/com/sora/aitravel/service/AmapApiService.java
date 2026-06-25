@@ -23,6 +23,15 @@ public interface AmapApiService {
     AmapApiResp<List<Poi>> searchPoiText(
             String keywords, String types, String region, Boolean cityLimit);
 
+    AmapApiResp<List<Poi>> searchPoiText(
+            String keywords,
+            String types,
+            String region,
+            Boolean cityLimit,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields);
+
     /** POI文本搜索（简化版） */
     AmapApiResp<List<Poi>> searchPoiText(String keywords);
 
@@ -37,6 +46,15 @@ public interface AmapApiService {
      */
     AmapApiResp<List<Poi>> searchPoiAround(
             String location, String keywords, String types, Integer radius);
+
+    AmapApiResp<List<Poi>> searchPoiAround(
+            String location,
+            String keywords,
+            String types,
+            Integer radius,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields);
 
     /** POI周边搜索（简化版） */
     AmapApiResp<List<Poi>> searchPoiAround(String location, Integer radius);

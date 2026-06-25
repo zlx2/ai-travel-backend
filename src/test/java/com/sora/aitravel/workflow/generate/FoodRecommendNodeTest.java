@@ -140,7 +140,16 @@ class FoodRecommendNodeTest {
                                         "SIMULATED_AMAP",
                                         "MOCK_FOOD_1",
                                         "选择多，适合午餐或下午茶。",
-                                        null)),
+                                        null,
+                                        "050000",
+                                        null,
+                                        "10:00-22:00",
+                                        "4.5",
+                                        80,
+                                        "核心商圈",
+                                        List.of("本地小吃"),
+                                        null,
+                                        List.of())),
                         List.of()));
 
         List<DayQueryPlan> plans = new ArrayList<>();

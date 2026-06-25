@@ -4,201 +4,120 @@ import com.sora.aitravel.dto.model.FoodSpotDTO;
 import com.sora.aitravel.dto.model.HotelAreaDTO;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.ScenicSpotDTO;
-import com.sora.aitravel.dto.model.TransportPlanDTO;
-import com.sora.aitravel.dto.model.TravelModeDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/** 将 Generate 各节点产物组装为前端可用响应。 */
+/** 将 Generate 各节点产物组装为前端 AI 行程页合同。 */
 @Slf4j
 @Component
 public class GenerateResultMergeNode {
 
+    private static final String SCHEMA_VERSION = "trip-plan-v1";
+
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
-        RecommendationContextDTO recommendationContext =
-                normalizeRecommendationContext(context.getRecommendationContext());
-        context.setRecommendationContext(recommendationContext);
         TripPlanDTO tripPlan = buildTripPlan(context, requirement);
         context.setResult(
                 new TripGenerateResponse(
+                        SCHEMA_VERSION,
                         context.getRequest().getConversationId(),
                         requirement,
                         context.getSelectedQuote(),
-                        recommendationContext,
+                        context.getRecommendationContext(),
                         tripPlan));
-        log.info("节点[result-merge]：Generate 响应已组装，dailyPlans={}", tripPlan.getDailyPlans().size());
-    }
-
-    private RecommendationContextDTO normalizeRecommendationContext(
-            RecommendationContextDTO recommendationContext) {
-        if (recommendationContext == null) {
-            return null;
-        }
-        return new RecommendationContextDTO(
-                normalizeScenicSpots(recommendationContext.getScenicSpots()),
-                normalizeFoodSpots(recommendationContext.getFoodSpots()),
-                normalizeHotelAreas(recommendationContext.getHotelAreas()),
-                normalizeTransportPlan(recommendationContext.getTransportPlan()));
-    }
-
-    private List<ScenicSpotDTO> normalizeScenicSpots(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
-        }
-        return list.stream().map(this::toScenicSpot).toList();
-    }
-
-    private ScenicSpotDTO toScenicSpot(Object value) {
-        if (value instanceof ScenicSpotDTO dto) {
-            return dto;
-        }
-        Map<?, ?> map = asMap(value);
-        return new ScenicSpotDTO(
-                text(map, "name"),
-                text(map, "area"),
-                text(map, "reason"),
-                text(map, "suggestedDuration"),
-                bool(map, "suitableForSelfDrive"));
-    }
-
-    private List<FoodSpotDTO> normalizeFoodSpots(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
-        }
-        return list.stream().map(this::toFoodSpot).toList();
-    }
-
-    private FoodSpotDTO toFoodSpot(Object value) {
-        if (value instanceof FoodSpotDTO dto) {
-            return dto;
-        }
-        Map<?, ?> map = asMap(value);
-        return new FoodSpotDTO(
-                text(map, "name"), text(map, "area"), text(map, "specialty"), text(map, "reason"));
-    }
-
-    private List<HotelAreaDTO> normalizeHotelAreas(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
-        }
-        return list.stream().map(this::toHotelArea).toList();
-    }
-
-    private HotelAreaDTO toHotelArea(Object value) {
-        if (value instanceof HotelAreaDTO dto) {
-            return dto;
-        }
-        Map<?, ?> map = asMap(value);
-        return new HotelAreaDTO(text(map, "area"), text(map, "reason"), text(map, "priceRange"));
-    }
-
-    private TransportPlanDTO normalizeTransportPlan(Object value) {
-        if (value instanceof TransportPlanDTO dto) {
-            return dto;
-        }
-        Map<?, ?> map = asMap(value);
-        Object travelModeValue = map.get("travelMode");
-        TravelModeDTO travelMode =
-                travelModeValue instanceof TravelModeDTO dto
-                        ? dto
-                        : toTravelMode(asMap(travelModeValue));
-        List<String> tips = stringList(map.get("tips"));
-        return new TransportPlanDTO(travelMode, null, null, tips);
-    }
-
-    private TravelModeDTO toTravelMode(Map<?, ?> map) {
-        return new TravelModeDTO(
-                text(map, "mode"),
-                bool(map, "recommended"),
-                text(map, "reason"),
-                stringList(map.get("tips")));
+        log.info("节点[result-merge]：Generate 响应已组装，schema={}, dailyPlans={}", SCHEMA_VERSION, tripPlan.getDailyPlans().size());
     }
 
     private TripPlanDTO buildTripPlan(
             GenerateWorkflowContext context, TravelRequirementDTO requirement) {
-        List<String> tips = new ArrayList<>();
-        tips.add("本版 Generate 已按“先查数据、再生成、再校验”的流程跑通。");
-        tips.add("工具查询暂未真实接入，当前地点来源标记为 SIMULATED_AMAP。");
-        if (context.getSelectedQuote() != null
-                && context.getSelectedQuote().getPriceSnapshot() != null
-                && Boolean.TRUE.equals(context.getSelectedQuote().getPriceSnapshot().get("mock"))) {
-            tips.add("租车报价为模拟数据，仅用于前后端联调。");
-        }
-        for (DayPlanValidationReport report : context.getDayValidationReports()) {
-            if (!Boolean.TRUE.equals(report.passed())) {
-                tips.add(
-                        "第 " + report.getDay() + " 天存在校验提示：" + String.join("；", report.warnings()));
-            }
-        }
-
-        int foodCost = 180 * safePeopleCount(requirement) * requirement.getDays();
-        int transportCost =
-                context.getSelectedQuote() == null
-                        ? 80 * safePeopleCount(requirement) * requirement.getDays()
-                        : context.getSelectedQuote().getFeeBreakdown().getTotalPriceCent() / 100;
-        int hotelCost = 300 * Math.max(requirement.getDays() - 1, 1);
-
+        List<TripPlanDTO.DailyPlan> dailyPlans =
+                context.getLockedDailyPlans() == null ? List.of() : context.getLockedDailyPlans();
+        TripPlanDTO.BudgetSummary budgetSummary = budgetSummary(dailyPlans, requirement);
+        List<String> tips = buildTips(context);
         return new TripPlanDTO(
                 displayDestination(requirement) + requirement.getDays() + "日旅行方案",
                 displayDestination(requirement),
                 requirement.getDays(),
-                "基于逐日骨架、模拟工具候选数据和后端校验结果组装的 Generate V1 行程。",
-                context.getLockedDailyPlans(),
-                new TripPlanDTO.BudgetSummary(
-                        foodCost + transportCost + hotelCost,
-                        transportCost,
-                        foodCost,
-                        null,
-                        hotelCost,
-                        "门票、人均、酒店价格不由 AI 编造；工具没有返回时保持为空或提示确认。"),
-                buildAccommodationSuggestion(context),
-                tips);
+                "基于高德 POI 候选、逐日强度和后端校验生成的结构化行程。",
+                accommodationSuggestion(context),
+                dailyPlans,
+                budgetSummary,
+                tips,
+                dataQuality(context));
     }
 
-    private TripPlanDTO.AccommodationSuggestion buildAccommodationSuggestion(
+    private TripPlanDTO.AccommodationSuggestion accommodationSuggestion(
             GenerateWorkflowContext context) {
-        if (context.getRecommendationContext() == null
-                || context.getRecommendationContext().getHotelAreas().isEmpty()) {
-            return new TripPlanDTO.AccommodationSuggestion("待确认住宿区域", "后续接入酒店/住宿区域工具。", null);
+        PoiCandidate hotel = null;
+        if (context.getCityProfile() != null
+                && context.getCityProfile().hotelCandidates() != null
+                && !context.getCityProfile().hotelCandidates().isEmpty()) {
+            hotel = context.getCityProfile().hotelCandidates().get(0);
         }
-        var hotelArea = context.getRecommendationContext().getHotelAreas().get(0);
+        if (hotel == null) {
+            return new TripPlanDTO.AccommodationSuggestion("待确认住宿区域", "后端未获取到可用住宿候选。", null);
+        }
         return new TripPlanDTO.AccommodationSuggestion(
-                hotelArea.getArea(), hotelArea.getReason(), hotelArea.getPriceRange());
+                firstNonBlank(hotel.getArea(), hotel.getName()),
+                hotel.getReason(),
+                "价格以实际预订平台为准");
     }
 
-    private int safePeopleCount(TravelRequirementDTO requirement) {
-        return requirement.getPeopleCount() == null ? 1 : requirement.getPeopleCount();
-    }
-
-    private Map<?, ?> asMap(Object value) {
-        return value instanceof Map<?, ?> map ? map : Map.of();
-    }
-
-    private String text(Map<?, ?> map, String key) {
-        Object value = map.get(key);
-        return value == null ? null : String.valueOf(value);
-    }
-
-    private Boolean bool(Map<?, ?> map, String key) {
-        Object value = map.get(key);
-        if (value instanceof Boolean bool) {
-            return bool;
+    private TripPlanDTO.BudgetSummary budgetSummary(
+            List<TripPlanDTO.DailyPlan> dailyPlans, TravelRequirementDTO requirement) {
+        int tickets = 0;
+        int food = 0;
+        int transport = 0;
+        for (TripPlanDTO.DailyPlan day : dailyPlans) {
+            if (day.getEstimatedCost() == null) {
+                continue;
+            }
+            tickets += value(day.getEstimatedCost().getTickets());
+            food += value(day.getEstimatedCost().getFood());
+            transport += value(day.getEstimatedCost().getTransport());
         }
-        return value == null ? null : Boolean.valueOf(String.valueOf(value));
+        TripPlanDTO.BudgetSummary result = new TripPlanDTO.BudgetSummary();
+        result.setTransportCost(transport);
+        result.setFoodCost(food);
+        result.setTicketCost(tickets);
+        result.setHotelCost(null);
+        result.setTotalEstimatedCost(transport + food + tickets);
+        result.setTicketSource("UNAVAILABLE");
+        result.setHotelSource("UNAVAILABLE");
+        result.setExcludesUnknownItems(true);
+        return result;
     }
 
-    private List<String> stringList(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
+    private List<String> buildTips(GenerateWorkflowContext context) {
+        List<String> tips = new ArrayList<>();
+        if (context.getDayValidationReports() != null) {
+            for (DayPlanValidationReport report : context.getDayValidationReports()) {
+                if (!Boolean.TRUE.equals(report.passed())) {
+                    tips.add("第 " + report.getDay() + " 天校验提示：" + String.join("；", report.getWarnings()));
+                }
+            }
         }
-        return list.stream().map(String::valueOf).toList();
+        if (tips.isEmpty()) {
+            tips.add("路线里程和实时耗时由前端高德地图计算。");
+        }
+        return tips;
+    }
+
+    private TripPlanDTO.DataQuality dataQuality(GenerateWorkflowContext context) {
+        boolean hasMockPoi =
+                context.getRankedDayDataPackages() != null
+                        && context.getRankedDayDataPackages().stream()
+                                .flatMap(pkg -> pkg.scenicCandidates().stream())
+                                .anyMatch(candidate -> !"AMAP".equals(candidate.getSource()));
+        return new TripPlanDTO.DataQuality(
+                hasMockPoi ? "MIXED" : "AMAP",
+                "AMAP",
+                "AMAP_AVERAGE_COST_AND_ROUTE;TICKET_HOTEL_UNAVAILABLE");
     }
 
     private String displayDestination(TravelRequirementDTO requirement) {
@@ -209,5 +128,34 @@ public class GenerateResultMergeNode {
             return requirement.getRouteRegion();
         }
         return String.join("-", requirement.getRouteCities());
+    }
+
+    private int value(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
+    }
+
+    @SuppressWarnings("unused")
+    private List<ScenicSpotDTO> scenicRecommendationSnapshot(CityProfile profile) {
+        return profile.scenicCandidates().stream()
+                .map(candidate -> new ScenicSpotDTO(candidate.getName(), candidate.getArea(), candidate.getReason(), "约2小时", false))
+                .toList();
+    }
+
+    @SuppressWarnings("unused")
+    private List<FoodSpotDTO> foodRecommendationSnapshot(CityProfile profile) {
+        return profile.foodCandidates().stream()
+                .map(candidate -> new FoodSpotDTO(candidate.getName(), candidate.getArea(), "本地美食", candidate.getReason()))
+                .toList();
+    }
+
+    @SuppressWarnings("unused")
+    private List<HotelAreaDTO> hotelRecommendationSnapshot(CityProfile profile) {
+        return profile.hotelCandidates().stream()
+                .map(candidate -> new HotelAreaDTO(candidate.getName(), candidate.getReason(), "价格以实际预订平台为准"))
+                .toList();
     }
 }

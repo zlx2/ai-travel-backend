@@ -114,6 +114,17 @@ public class AmapApiServiceImpl implements AmapApiService {
      */
     public AmapApiResp<List<Poi>> searchPoiText(String keywords, String types,
                                                 String region, Boolean cityLimit) {
+        return searchPoiText(keywords, types, region, cityLimit, null, null, null);
+    }
+
+    public AmapApiResp<List<Poi>> searchPoiText(
+            String keywords,
+            String types,
+            String region,
+            Boolean cityLimit,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields) {
         Map<String, Object> params = new HashMap<>();
         params.put("key", getApiKey());
 
@@ -128,6 +139,15 @@ public class AmapApiServiceImpl implements AmapApiService {
         }
         if (cityLimit != null) {
             params.put("city_limit", cityLimit);
+        }
+        if (pageSize != null) {
+            params.put("page_size", Math.max(1, Math.min(pageSize, 25)));
+        }
+        if (pageNum != null) {
+            params.put("page_num", Math.max(1, pageNum));
+        }
+        if (StrUtil.isNotBlank(showFields)) {
+            params.put("show_fields", showFields);
         }
 
         // 验证：keywords和types至少有一个
@@ -157,6 +177,17 @@ public class AmapApiServiceImpl implements AmapApiService {
      */
     public AmapApiResp<List<Poi>> searchPoiAround(String location, String keywords,
                                                   String types, Integer radius) {
+        return searchPoiAround(location, keywords, types, radius, null, null, null);
+    }
+
+    public AmapApiResp<List<Poi>> searchPoiAround(
+            String location,
+            String keywords,
+            String types,
+            Integer radius,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields) {
         Map<String, Object> params = new HashMap<>();
         params.put("key", getApiKey());
         params.put("location", location);
@@ -169,6 +200,15 @@ public class AmapApiServiceImpl implements AmapApiService {
         }
         if (radius != null && radius > 0) {
             params.put("radius", radius);
+        }
+        if (pageSize != null) {
+            params.put("page_size", Math.max(1, Math.min(pageSize, 25)));
+        }
+        if (pageNum != null) {
+            params.put("page_num", Math.max(1, pageNum));
+        }
+        if (StrUtil.isNotBlank(showFields)) {
+            params.put("show_fields", showFields);
         }
 
         String response = executeGet(getPoiAroundUrl(), params);
@@ -447,6 +487,45 @@ public class AmapApiServiceImpl implements AmapApiService {
                     for (Object poiObj : poisArray) {
                         JSONObject poiJson = (JSONObject) poiObj;
                         Poi poi = JSONUtil.toBean(poiJson, Poi.class);
+                        JSONObject business = poiJson.getJSONObject("business");
+                        if (business != null) {
+                            var value = new com.sora.aitravel.dto.model.poi.PoiBusiness();
+                            value.setBusinessArea(business.getStr("business_area"));
+                            value.setOpentimeToday(business.getStr("opentime_today"));
+                            value.setOpentimeWeek(business.getStr("opentime_week"));
+                            value.setTel(business.getStr("tel"));
+                            value.setTag(business.getStr("tag"));
+                            value.setRating(business.getStr("rating"));
+                            value.setCost(business.getStr("cost"));
+                            value.setAlias(business.getStr("alias"));
+                            value.setKeytag(business.getStr("keytag"));
+                            value.setRectag(business.getStr("rectag"));
+                            poi.setBusiness(value);
+                        }
+                        JSONObject navi = poiJson.getJSONObject("navi");
+                        if (navi != null) {
+                            var value = new com.sora.aitravel.dto.model.poi.PoiNavi();
+                            value.setNaviPoiid(navi.getStr("navi_poiid"));
+                            value.setEntrLocation(navi.getStr("entr_location"));
+                            value.setExitLocation(navi.getStr("exit_location"));
+                            value.setGridcode(navi.getStr("gridcode"));
+                            poi.setNavi(value);
+                        }
+                        JSONArray photos = poiJson.getJSONArray("photos");
+                        if (photos != null) {
+                            poi.setPhotos(
+                                    photos.stream()
+                                            .map(JSONObject.class::cast)
+                                            .map(
+                                                    photo -> {
+                                                        var value =
+                                                                new com.sora.aitravel.dto.model.poi.PoiPhoto();
+                                                        value.setTitle(photo.getStr("title"));
+                                                        value.setUrl(photo.getStr("url"));
+                                                        return value;
+                                                    })
+                                            .toList());
+                        }
                         pois.add(poi);
                     }
                     result.setData(pois);

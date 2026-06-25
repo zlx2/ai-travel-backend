@@ -10,7 +10,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/** 所有天数生成后，组装行程总览所需上下文。 */
+/** 汇总候选数据，形成生成响应中的 recommendationContext。 */
 @Slf4j
 @Component
 public class TripSummaryNode {
@@ -19,26 +19,25 @@ public class TripSummaryNode {
         CityProfile profile = context.getCityProfile();
         TravelModeDTO travelMode =
                 new TravelModeDTO(
-                        "TAXI",
-                        false,
-                        "Generate V1 先按城市内短途交通模拟；后续接入高德路线工具后再精确判断。",
-                        List.of("当前交通时间为模拟估算，真实接入后以路线工具为准。"));
-
+                        "FRONTEND_AMAP",
+                        true,
+                        "路线里程、耗时、附近搜索和导航由前端调用高德地图完成。",
+                        List.of("后端只负责给出景点顺序和推荐交通方式。"));
         context.setRecommendationContext(
                 new RecommendationContextDTO(
                         profile.scenicCandidates().stream().map(this::toScenicSpot).toList(),
                         profile.foodCandidates().stream().map(this::toFoodSpot).toList(),
                         profile.hotelCandidates().stream().map(this::toHotelArea).toList(),
                         new TransportPlanDTO(travelMode, null, null, travelMode.getTips())));
-        context.setRecommendationPromptContext("SIMULATED_TOOL_DATA_BASED_GENERATION");
+        context.setRecommendationPromptContext("POI_BASED_STRUCTURED_GENERATION");
         log.info(
-                "节点[trip-summary]：已生成完整行程总览上下文，lockedDays={}",
+                "节点[trip-summary]：已生成候选数据摘要，lockedDays={}",
                 context.getLockedDailyPlans().size());
     }
 
     private ScenicSpotDTO toScenicSpot(PoiCandidate candidate) {
         return new ScenicSpotDTO(
-                candidate.getName(), candidate.getArea(), candidate.getReason(), "2小时", false);
+                candidate.getName(), candidate.getArea(), candidate.getReason(), "约2小时", false);
     }
 
     private FoodSpotDTO toFoodSpot(PoiCandidate candidate) {
