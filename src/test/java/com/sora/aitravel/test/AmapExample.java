@@ -88,15 +88,16 @@ public class AmapExample {
         System.out.println("\n=== 驾车路径规划 ===");
         AmapApiResp<Route> drivingResult = amapService.drivingRoute("116.481028,39.989643", "116.434446,39.90816");
         if (drivingResult.isSuccess()) {
-            Route route = drivingResult.getData();
-            System.out.printf("起点: %s, 终点: %s, 预计打车费: %s元%n",
-                    route.getOrigin(), route.getDestination(), route.getTaxiCost());
-            if (route.getPaths() != null && !route.getPaths().isEmpty()) {
-                var path = route.getPaths().get(0);
-                System.out.println(path);
-                System.out.printf("方案距离: %s米, 预计时间: %s秒%n",
-                        path.getDistance(), path.getDuration());
-            }
+            System.out.println(drivingResult);
+//            Route route = drivingResult.getData();
+//            System.out.printf("起点: %s, 终点: %s, 预计打车费: %s元%n",
+//                    route.getOrigin(), route.getDestination(), route.getTaxiCost());
+//            if (route.getPaths() != null && !route.getPaths().isEmpty()) {
+//                var path = route.getPaths().get(0);
+//                System.out.println(path);
+//                System.out.printf("方案距离: %s米, 预计时间: %s秒%n",
+//                        path.getDistance(), path.getDuration());
+//            }
         }
     }
 }
