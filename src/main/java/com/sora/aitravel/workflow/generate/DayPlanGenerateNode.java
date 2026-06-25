@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,17 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DayPlanGenerateNode {
 
+    private static final String INTENSITY_LIGHT = "LIGHT";
+    private static final String MODE_WALK = "WALK";
+    private static final String MODE_TAXI = "TAXI";
+    private static final String SOURCE_AMAP = "AMAP";
+    private static final String SOURCE_ESTIMATED = "ESTIMATED";
+    private static final double WALKING_ROUTE_MAX_KM = 2.0;
+    private static final int ACTUAL_ROUTE_POOL_LIMIT = 24;
+    private static final RoutePolicy LIGHT_ROUTE_POLICY = new RoutePolicy(8.0, 14.0, 24.0, 16.0);
+    private static final RoutePolicy DEFAULT_ROUTE_POLICY =
+            new RoutePolicy(14.0, 24.0, 38.0, 26.0);
+
     private final AmapApiService amapApiService;
 
     public void execute(GenerateWorkflowContext context) {
@@ -31,7 +43,6 @@ public class DayPlanGenerateNode {
             dailyPlans.add(buildDailyPlan(context, dayContext, dataPackage, usedPoiKeys));
         }
         context.setLockedDailyPlans(dailyPlans);
-        context.setRawModelResponse("STRUCTURED_POI_BASED_DAY_PLANS");
         log.info("节点[day-plan-generate]：已生成逐日结构化行程，days={}", dailyPlans.size());
     }
 
@@ -50,6 +61,9 @@ public class DayPlanGenerateNode {
                         spotCount,
                         usedPoiKeys,
                         wantsNightExperience(requirement, dayContext));
+        selected = supplementMinimumSpots(context, selected, dayContext, usedPoiKeys);
+        selected = optimizeOrder(selected);
+        selected = preferActualCompactRoute(context, dataPackage, selected, dayContext, usedPoiKeys, spotCount);
         selected = optimizeOrder(selected);
         selected.forEach(candidate -> usedPoiKeys.add(dedupKey(candidate)));
         List<TripPlanDTO.Spot> spots = new ArrayList<>();
@@ -59,8 +73,7 @@ public class DayPlanGenerateNode {
 
         PoiCandidate food = first(dataPackage.foodCandidates());
         List<TripPlanDTO.RouteLeg> routeLegs = routeLegs(spots);
-        TripPlanDTO.EstimatedCost estimatedCost =
-                estimateCost(requirement, spots, routeLegs, food);
+        TripPlanDTO.EstimatedCost estimatedCost = estimateCost(requirement, spots, routeLegs, food);
         return new TripPlanDTO.DailyPlan(
                 dayContext.getDay(),
                 dayContext.skeleton().getTheme(),
@@ -77,7 +90,10 @@ public class DayPlanGenerateNode {
     }
 
     private TripPlanDTO.Spot toSpot(
-            PoiCandidate candidate, int order, DayContext dayContext, TravelRequirementDTO requirement) {
+            PoiCandidate candidate,
+            int order,
+            DayContext dayContext,
+            TravelRequirementDTO requirement) {
         BigDecimal[] lngLat = parseLocation(candidate.getLocation());
         BigDecimal[] entranceLngLat = parseLocation(candidate.getEntranceLocation());
         int duration = durationMinutes(candidate, dayContext.skeleton().getIntensity());
@@ -95,11 +111,11 @@ public class DayPlanGenerateNode {
         spot.setStartTime(startTime(candidate, order));
         spot.setSuggestedDurationMinutes(duration);
         spot.setSuggestedDurationText(durationText(duration));
-        spot.setSuggestedDurationSource("RULE_ESTIMATED");
+        spot.setSuggestedDurationSource("CURATED");
         spot.setReason(recommendationReason(candidate, dayContext, requirement, duration));
-        spot.setTips("开放时间来自高德时仍建议出行前复核；预约和门票以景区官方信息为准。");
+        spot.setTips("开放时间与预约信息建议出行前再确认。");
         spot.setTicketCost(null);
-        spot.setTicketCostText("门票待确认");
+        spot.setTicketCostText("门票以现场为准");
         spot.setTicketCostEstimated(false);
         spot.setTicketCostSource("UNAVAILABLE");
         spot.setOpeningHours(candidate.getOpeningHours());
@@ -113,7 +129,7 @@ public class DayPlanGenerateNode {
         spot.setTags(spotTags(candidate, dayContext));
         spot.setSource(candidate.getSource());
         spot.setConfidence(
-                "AMAP".equals(candidate.getSource())
+                SOURCE_AMAP.equals(candidate.getSource())
                         ? new BigDecimal("0.90")
                         : new BigDecimal("0.40"));
         return spot;
@@ -128,18 +144,13 @@ public class DayPlanGenerateNode {
             TripPlanDTO.RouteLeg leg = new TripPlanDTO.RouteLeg();
             leg.setFromOrder(from.getOrder());
             leg.setToOrder(to.getOrder());
-            leg.setMode(metric.mode());
+            leg.setMode(metric.getMode());
             leg.setSuggestion(
-                    "从"
-                            + from.getName()
-                            + "前往"
-                            + to.getName()
-                            + "，"
-                            + metric.description());
-            leg.setDistanceMeters(metric.distanceMeters());
-            leg.setDurationMinutes(metric.durationMinutes());
-            leg.setEstimatedCost(metric.estimatedCost());
-            leg.setSource(metric.source());
+                    "从" + from.getName() + "前往" + to.getName() + "，" + metric.getDescription());
+            leg.setDistanceMeters(metric.getDistanceMeters());
+            leg.setDurationMinutes(metric.getDurationMinutes());
+            leg.setEstimatedCost(metric.getEstimatedCost());
+            leg.setSource(metric.getSource());
             legs.add(leg);
         }
         return legs;
@@ -163,9 +174,10 @@ public class DayPlanGenerateNode {
 
     private List<String> dayTips(DayContext dayContext, DayDataPackage dataPackage) {
         List<String> tips = new ArrayList<>();
-        tips.add("当天强度：" + intensityLabel(dayContext.skeleton().getIntensity()));
-        if (dataPackage.scenicCandidates().stream().anyMatch(item -> !"AMAP".equals(item.getSource()))) {
-            tips.add("部分景点为兜底数据，后续应替换为高德真实 POI。");
+        tips.add("今日节奏：" + intensityLabel(dayContext.skeleton().getIntensity()));
+        if (dataPackage.scenicCandidates().stream()
+                .anyMatch(item -> !SOURCE_AMAP.equals(item.getSource()))) {
+            tips.add("部分地点建议出行前再确认开放信息。");
         }
         return tips;
     }
@@ -176,7 +188,12 @@ public class DayPlanGenerateNode {
             List<TripPlanDTO.RouteLeg> routeLegs,
             PoiCandidate foodCandidate) {
         int people = requirement.getPeopleCount() == null ? 1 : requirement.getPeopleCount();
-        int tickets = spots.stream().map(TripPlanDTO.Spot::getTicketCost).filter(v -> v != null).reduce(0, Integer::sum) * people;
+        int tickets =
+                spots.stream()
+                                .map(TripPlanDTO.Spot::getTicketCost)
+                                .filter(v -> v != null)
+                                .reduce(0, Integer::sum)
+                        * people;
         int foodPerPerson =
                 foodCandidate != null && foodCandidate.getAverageCost() != null
                         ? foodCandidate.getAverageCost()
@@ -198,8 +215,8 @@ public class DayPlanGenerateNode {
                         ? "AMAP_AVERAGE_COST"
                         : "RULE_ESTIMATED");
         result.setTransportSource(
-                routeLegs.stream().allMatch(leg -> "AMAP".equals(leg.getSource()))
-                        ? "AMAP"
+                routeLegs.stream().allMatch(leg -> SOURCE_AMAP.equals(leg.getSource()))
+                        ? SOURCE_AMAP
                         : "MIXED");
         result.setExcludesUnknownItems(true);
         return result;
@@ -217,8 +234,7 @@ public class DayPlanGenerateNode {
                         .min(
                                 Comparator.comparingInt(this::closingMinute)
                                         .thenComparing(
-                                                candidate ->
-                                                        parseRating(candidate.getRating()),
+                                                candidate -> parseRating(candidate.getRating()),
                                                 Comparator.reverseOrder()))
                         .orElse(remaining.get(0));
         ordered.add(current);
@@ -230,8 +246,7 @@ public class DayPlanGenerateNode {
                             .min(
                                     Comparator.comparing(this::isNightCandidate)
                                             .thenComparingInt(
-                                                    candidate ->
-                                                            routeDistance(from, candidate)))
+                                                    candidate -> routeDistance(from, candidate)))
                             .orElseThrow();
             ordered.add(next);
             remaining.remove(next);
@@ -242,9 +257,7 @@ public class DayPlanGenerateNode {
 
     private int routeDistance(PoiCandidate from, PoiCandidate to) {
         return (int)
-                Math.round(
-                        coordinateDistanceKm(routeLocation(from), routeLocation(to))
-                                * 1000);
+                Math.round(coordinateDistanceKm(routeLocation(from), routeLocation(to)) * 1000);
     }
 
     private RouteMetric fetchRouteMetric(String origin, String destination) {
@@ -254,20 +267,21 @@ public class DayPlanGenerateNode {
                     null,
                     null,
                     "UNKNOWN",
-                    "坐标不足，路线待前端计算。",
-                    "UNAVAILABLE");
+                    "建议按当天实际位置灵活选择步行或打车。",
+                    SOURCE_ESTIMATED);
         }
         double directKm = coordinateDistanceKm(origin, destination);
         try {
-            if (directKm <= 2.0) {
+            if (directKm <= WALKING_ROUTE_MAX_KM) {
                 var response = amapApiService.walkingRoute(origin, destination);
-                RouteMetric metric = routeMetric(response == null ? null : response.getData(), "WALK");
+                RouteMetric metric =
+                        routeMetric(response == null ? null : response.getData(), MODE_WALK);
                 if (metric != null) {
                     return metric;
                 }
             }
             var response = amapApiService.drivingRoute(origin, destination);
-            RouteMetric metric = routeMetric(response == null ? null : response.getData(), "TAXI");
+            RouteMetric metric = routeMetric(response == null ? null : response.getData(), MODE_TAXI);
             if (metric != null) {
                 return metric;
             }
@@ -279,9 +293,11 @@ public class DayPlanGenerateNode {
                 fallbackDistance,
                 null,
                 null,
-                "TAXI",
-                "高德路线暂不可用，前端将重新计算。",
-                "FALLBACK_DISTANCE");
+                MODE_TAXI,
+                directKm <= WALKING_ROUTE_MAX_KM
+                        ? "距离较近，建议步行或短途打车。"
+                        : "建议打车衔接，出发前按实时路况调整。",
+                SOURCE_ESTIMATED);
     }
 
     private RouteMetric routeMetric(Route route, String mode) {
@@ -295,20 +311,19 @@ public class DayPlanGenerateNode {
         Integer durationSeconds = parseInteger(durationText);
         Integer durationMinutes =
                 durationSeconds == null ? null : (int) Math.ceil(durationSeconds / 60.0);
-        Integer cost =
-                "WALK".equals(mode) ? 0 : parseDecimalInteger(route.getTaxiCost());
+        Integer cost = MODE_WALK.equals(mode) ? 0 : parseDecimalInteger(route.getTaxiCost());
         String description =
                 (distance == null ? "距离待确认" : formatDistance(distance))
                         + "，"
                         + (durationMinutes == null ? "耗时待确认" : "约 " + durationMinutes + " 分钟")
-                        + ("TAXI".equals(mode) && cost != null ? "，打车约 ¥" + cost : "");
+                        + (MODE_TAXI.equals(mode) && cost != null ? "，打车约 ¥" + cost : "");
         return new RouteMetric(
                 distance == null ? Integer.MAX_VALUE / 4 : distance,
                 durationMinutes,
                 cost,
                 mode,
                 description,
-                "AMAP");
+                SOURCE_AMAP);
     }
 
     private String routeLocation(PoiCandidate candidate) {
@@ -336,8 +351,7 @@ public class DayPlanGenerateNode {
             return isNightCandidate(candidate) ? 24 * 60 : 20 * 60;
         }
         java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("(\\d{1,2}):(\\d{2})\\s*$")
-                        .matcher(openingHours);
+                java.util.regex.Pattern.compile("(\\d{1,2}):(\\d{2})\\s*$").matcher(openingHours);
         if (!matcher.find()) {
             return isNightCandidate(candidate) ? 24 * 60 : 20 * 60;
         }
@@ -371,12 +385,16 @@ public class DayPlanGenerateNode {
         return meters < 1000
                 ? meters + " 米"
                 : new BigDecimal(meters)
-                        .divide(new BigDecimal("1000"), 1, java.math.RoundingMode.HALF_UP)
+                                .divide(new BigDecimal("1000"), 1, java.math.RoundingMode.HALF_UP)
                         + " 公里";
     }
 
-    private int spotCount(DayContext dayContext, int candidateCount, TravelRequirementDTO requirement) {
-        int max = "LIGHT".equals(dayContext.skeleton().getIntensity()) || parentFriendly(requirement) ? 3 : 4;
+    private int spotCount(
+            DayContext dayContext, int candidateCount, TravelRequirementDTO requirement) {
+        int max =
+                INTENSITY_LIGHT.equals(dayContext.skeleton().getIntensity()) || parentFriendly(requirement)
+                        ? 3
+                        : 4;
         return Math.max(1, Math.min(max, candidateCount));
     }
 
@@ -397,11 +415,9 @@ public class DayPlanGenerateNode {
         if (pool.isEmpty()) {
             return List.of();
         }
-        List<PoiCandidate> sorted =
-                pool.stream()
-                        .sorted(candidateComparator(dayContext))
-                        .toList();
+        List<PoiCandidate> sorted = pool.stream().sorted(candidateComparator(dayContext)).toList();
         List<PoiCandidate> result = selectDiverse(sorted, limit, includeNight, dayContext);
+        result = preferCompactRoute(sorted, result, limit, dayContext);
         if (result.size() < limit) {
             for (PoiCandidate candidate : sorted) {
                 if (result.size() >= limit) break;
@@ -418,11 +434,79 @@ public class DayPlanGenerateNode {
         return result;
     }
 
-    private List<PoiCandidate> selectDiverse(
+    private List<PoiCandidate> preferCompactRoute(
             List<PoiCandidate> candidates,
+            List<PoiCandidate> selected,
             int limit,
-            boolean includeNight,
             DayContext dayContext) {
+        if (selected.size() < 2 || totalDirectRouteKm(selected) <= maxDailyDirectKm(dayContext)) {
+            return selected;
+        }
+        List<PoiCandidate> compact = bestCluster(candidates, limit, maxDistanceKm(dayContext));
+        return compact.size() >= 2 && totalDirectRouteKm(compact) < totalDirectRouteKm(selected)
+                ? compact
+                : selected;
+    }
+
+    private double totalDirectRouteKm(List<PoiCandidate> candidates) {
+        double total = 0;
+        for (int index = 0; index < candidates.size() - 1; index++) {
+            total +=
+                    coordinateDistanceKm(
+                            routeLocation(candidates.get(index)),
+                            routeLocation(candidates.get(index + 1)));
+        }
+        return total;
+    }
+
+    private List<PoiCandidate> supplementMinimumSpots(
+            GenerateWorkflowContext context,
+            List<PoiCandidate> selected,
+            DayContext dayContext,
+            Set<String> usedPoiKeys) {
+        int minimum =
+                Math.min(
+                        2,
+                        spotCount(
+                                dayContext,
+                                cityScenicCandidates(context).size(),
+                                context.getRequirement()));
+        if (selected.size() >= minimum) {
+            return selected;
+        }
+        List<PoiCandidate> result = new ArrayList<>(selected);
+        for (PoiCandidate candidate :
+                cityScenicCandidates(context).stream()
+                        .filter(candidate -> !usedPoiKeys.contains(dedupKey(candidate)))
+                        .filter(
+                                candidate ->
+                                        result.stream()
+                                                .noneMatch(
+                                                        item ->
+                                                                dedupKey(item)
+                                                                        .equals(
+                                                                                dedupKey(
+                                                                                        candidate))))
+                        .sorted(candidateComparator(dayContext))
+                        .toList()) {
+            if (result.size() >= minimum) {
+                break;
+            }
+            result.add(candidate);
+        }
+        return result;
+    }
+
+    private List<PoiCandidate> cityScenicCandidates(GenerateWorkflowContext context) {
+        if (context.getCityProfile() == null
+                || context.getCityProfile().scenicCandidates() == null) {
+            return List.of();
+        }
+        return context.getCityProfile().scenicCandidates();
+    }
+
+    private List<PoiCandidate> selectDiverse(
+            List<PoiCandidate> candidates, int limit, boolean includeNight, DayContext dayContext) {
         List<PoiCandidate> result = new ArrayList<>();
         Set<String> types = new HashSet<>();
         PoiCandidate selectedNight =
@@ -465,14 +549,15 @@ public class DayPlanGenerateNode {
         if (selectedNight != null && fitsNightRoute(result, selectedNight)) {
             result.add(selectedNight);
         }
-        ensureMinimumDaytimeSpots(result, candidates, includeNight ? 2 : Math.min(2, limit));
+        ensureMinimumDaytimeSpots(result, candidates, includeNight ? 2 : Math.min(2, limit), dayContext);
         return result;
     }
 
     private void ensureMinimumDaytimeSpots(
             List<PoiCandidate> result,
             List<PoiCandidate> candidates,
-            int minimumDaytimeSpots) {
+            int minimumDaytimeSpots,
+            DayContext dayContext) {
         while (result.stream().filter(candidate -> !isNightCandidate(candidate)).count()
                 < minimumDaytimeSpots) {
             PoiCandidate anchor =
@@ -492,7 +577,7 @@ public class DayPlanGenerateNode {
                                                             .filter(item -> !isNightCandidate(item))
                                                             .toList(),
                                                     candidate,
-                                                    18.0))
+                                                    maxDistanceKm(dayContext)))
                             .min(
                                     Comparator.comparingInt(
                                             candidate ->
@@ -520,14 +605,11 @@ public class DayPlanGenerateNode {
         return selected.stream()
                 .allMatch(
                         item ->
-                                coordinateDistanceKm(
-                                                routeLocation(item),
-                                                routeLocation(candidate))
+                                coordinateDistanceKm(routeLocation(item), routeLocation(candidate))
                                         <= maxKm);
     }
 
-    private boolean fitsNightRoute(
-            List<PoiCandidate> daytimeSpots, PoiCandidate nightCandidate) {
+    private boolean fitsNightRoute(List<PoiCandidate> daytimeSpots, PoiCandidate nightCandidate) {
         if (daytimeSpots.isEmpty()) {
             return true;
         }
@@ -535,17 +617,13 @@ public class DayPlanGenerateNode {
                 .allMatch(
                         spot ->
                                 coordinateDistanceKm(
-                                                routeLocation(spot),
-                                                routeLocation(nightCandidate))
+                                                routeLocation(spot), routeLocation(nightCandidate))
                                         <= 12.0);
     }
 
-    private boolean fitsNightAnchor(
-            PoiCandidate candidate, PoiCandidate selectedNight) {
+    private boolean fitsNightAnchor(PoiCandidate candidate, PoiCandidate selectedNight) {
         return selectedNight == null
-                || coordinateDistanceKm(
-                                routeLocation(candidate),
-                                routeLocation(selectedNight))
+                || coordinateDistanceKm(routeLocation(candidate), routeLocation(selectedNight))
                         <= 12.0;
     }
 
@@ -555,32 +633,30 @@ public class DayPlanGenerateNode {
             return true;
         }
         java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("-(\\d{1,2}):(\\d{2})")
-                        .matcher(hours);
+                java.util.regex.Pattern.compile("-(\\d{1,2}):(\\d{2})").matcher(hours);
         int latestClose = 0;
         while (matcher.find()) {
             int hour = Integer.parseInt(matcher.group(1));
             if (hour < 6) {
                 hour += 24;
             }
-            latestClose = Math.max(
-                    latestClose,
-                    hour * 60 + Integer.parseInt(matcher.group(2)));
+            latestClose = Math.max(latestClose, hour * 60 + Integer.parseInt(matcher.group(2)));
         }
         return latestClose == 0 || latestClose >= 20 * 60;
     }
 
     private long typeCount(List<PoiCandidate> candidates, String type) {
-        return candidates.stream()
-                .filter(candidate -> type.equals(spotType(candidate)))
-                .count();
+        return candidates.stream().filter(candidate -> type.equals(spotType(candidate))).count();
     }
 
     private Comparator<PoiCandidate> candidateComparator(DayContext dayContext) {
         String targetArea = dayContext.skeleton().targetArea();
-        return Comparator
-                .comparing((PoiCandidate candidate) -> !matchesArea(candidate, targetArea))
-                .thenComparing(candidate -> candidate.getDistanceMeters() == null ? Integer.MAX_VALUE : candidate.getDistanceMeters())
+        return Comparator.comparing((PoiCandidate candidate) -> !matchesArea(candidate, targetArea))
+                .thenComparing(
+                        candidate ->
+                                candidate.getDistanceMeters() == null
+                                        ? Integer.MAX_VALUE
+                                        : candidate.getDistanceMeters())
                 .thenComparing(PoiCandidate::getName);
     }
 
@@ -597,7 +673,8 @@ public class DayPlanGenerateNode {
                 if (location[0] == null || location[1] == null) {
                     continue;
                 }
-                if (distanceKm(anchorLocation[0], anchorLocation[1], location[0], location[1]) <= maxKm) {
+                if (distanceKm(anchorLocation[0], anchorLocation[1], location[0], location[1])
+                        <= maxKm) {
                     cluster.add(candidate);
                 }
                 if (cluster.size() >= limit) {
@@ -614,21 +691,144 @@ public class DayPlanGenerateNode {
         return best;
     }
 
+    private List<PoiCandidate> preferActualCompactRoute(
+            GenerateWorkflowContext context,
+            DayDataPackage dataPackage,
+            List<PoiCandidate> selected,
+            DayContext dayContext,
+            Set<String> usedPoiKeys,
+            int limit) {
+        if (selected.size() < 2 || actualRouteKm(selected) <= maxActualDailyKm(dayContext)) {
+            return selected;
+        }
+        List<PoiCandidate> pool =
+                mergeCandidates(dataPackage.scenicCandidates(), cityScenicCandidates(context))
+                        .stream()
+                        .filter(candidate -> !usedPoiKeys.contains(dedupKey(candidate)))
+                        .sorted(candidateComparator(dayContext))
+                        .limit(ACTUAL_ROUTE_POOL_LIMIT)
+                        .toList();
+        List<PoiCandidate> compact =
+                bestActualRouteCluster(pool, Math.min(limit, selected.size()), dayContext);
+        if (compact.size() >= 2 && actualRouteKm(compact) < actualRouteKm(selected)) {
+            log.info(
+                    "节点[day-plan-generate]：第 {} 天路线过长，已替换为紧凑路线，before={}km, after={}km",
+                    dayContext.getDay(),
+                    String.format("%.1f", actualRouteKm(selected)),
+                    String.format("%.1f", actualRouteKm(compact)));
+            return compact;
+        }
+        return selected;
+    }
+
+    private List<PoiCandidate> mergeCandidates(
+            List<PoiCandidate> primary, List<PoiCandidate> fallback) {
+        LinkedHashMap<String, PoiCandidate> merged = new LinkedHashMap<>();
+        if (primary != null) {
+            primary.forEach(candidate -> merged.putIfAbsent(dedupKey(candidate), candidate));
+        }
+        if (fallback != null) {
+            fallback.forEach(candidate -> merged.putIfAbsent(dedupKey(candidate), candidate));
+        }
+        return new ArrayList<>(merged.values());
+    }
+
+    private List<PoiCandidate> bestActualRouteCluster(
+            List<PoiCandidate> candidates, int limit, DayContext dayContext) {
+        List<PoiCandidate> best = List.of();
+        for (PoiCandidate anchor : candidates) {
+            List<PoiCandidate> cluster = new ArrayList<>();
+            cluster.add(anchor);
+            for (PoiCandidate candidate : candidates) {
+                if (cluster.size() >= limit) {
+                    break;
+                }
+                if (cluster.contains(candidate) || isNightCandidate(candidate)) {
+                    continue;
+                }
+                double legKm =
+                        cluster.stream()
+                                .mapToDouble(item -> actualSegmentKm(item, candidate))
+                                .min()
+                                .orElse(Double.MAX_VALUE);
+                List<PoiCandidate> nextCluster = new ArrayList<>(cluster);
+                nextCluster.add(candidate);
+                if (legKm <= maxActualLegKm(dayContext)
+                        && totalDirectRouteKm(nextCluster) <= maxDailyDirectKm(dayContext)
+                        && actualRouteKm(nextCluster) <= maxActualDailyKm(dayContext)) {
+                    cluster.add(candidate);
+                }
+            }
+            if (cluster.size() > best.size()
+                    || (cluster.size() == best.size()
+                            && actualRouteKm(cluster) < actualRouteKm(best))) {
+                best = cluster;
+            }
+        }
+        return best;
+    }
+
+    private double actualRouteKm(List<PoiCandidate> candidates) {
+        if (candidates.size() < 2) {
+            return 0;
+        }
+        double total = 0;
+        for (int index = 0; index < candidates.size() - 1; index++) {
+            total += actualSegmentKm(candidates.get(index), candidates.get(index + 1));
+        }
+        return total;
+    }
+
+    private double actualSegmentKm(PoiCandidate from, PoiCandidate to) {
+        RouteMetric metric = fetchRouteMetric(routeLocation(from), routeLocation(to));
+        if (metric.getDistanceMeters() == null || metric.getDistanceMeters() >= Integer.MAX_VALUE / 8) {
+            return coordinateDistanceKm(routeLocation(from), routeLocation(to));
+        }
+        return metric.getDistanceMeters() / 1000.0;
+    }
+
     private double maxDistanceKm(DayContext dayContext) {
-        return "LIGHT".equals(dayContext.skeleton().getIntensity()) ? 18.0 : 28.0;
+        return routePolicy(dayContext).getMaxClusterKm();
+    }
+
+    private double maxDailyDirectKm(DayContext dayContext) {
+        return routePolicy(dayContext).getMaxDirectDailyKm();
+    }
+
+    private double maxActualDailyKm(DayContext dayContext) {
+        return routePolicy(dayContext).getMaxActualDailyKm();
+    }
+
+    private double maxActualLegKm(DayContext dayContext) {
+        return routePolicy(dayContext).getMaxActualLegKm();
+    }
+
+    private RoutePolicy routePolicy(DayContext dayContext) {
+        return INTENSITY_LIGHT.equals(dayContext.skeleton().getIntensity())
+                ? LIGHT_ROUTE_POLICY
+                : DEFAULT_ROUTE_POLICY;
     }
 
     private boolean matchesArea(PoiCandidate candidate, String targetArea) {
         return targetArea != null
                 && candidate.getArea() != null
-                && (targetArea.contains(candidate.getArea()) || candidate.getArea().contains(targetArea));
+                && (targetArea.contains(candidate.getArea())
+                        || candidate.getArea().contains(targetArea));
     }
 
     private boolean parentFriendly(TravelRequirementDTO requirement) {
         String text =
-                String.join(" ", requirement.getPreferences() == null ? List.of() : requirement.getPreferences())
+                String.join(
+                                " ",
+                                requirement.getPreferences() == null
+                                        ? List.of()
+                                        : requirement.getPreferences())
                         + " "
-                        + String.join(" ", requirement.getAvoidances() == null ? List.of() : requirement.getAvoidances());
+                        + String.join(
+                                " ",
+                                requirement.getAvoidances() == null
+                                        ? List.of()
+                                        : requirement.getAvoidances());
         return text.contains("父母")
                 || text.contains("老人")
                 || text.contains("parent")
@@ -642,7 +842,9 @@ public class DayPlanGenerateNode {
         }
         String[] parts = location.split(",");
         try {
-            return new BigDecimal[] {new BigDecimal(parts[0].trim()), new BigDecimal(parts[1].trim())};
+            return new BigDecimal[] {
+                new BigDecimal(parts[0].trim()), new BigDecimal(parts[1].trim())
+            };
         } catch (RuntimeException exception) {
             return new BigDecimal[] {null, null};
         }
@@ -679,13 +881,11 @@ public class DayPlanGenerateNode {
                         : candidate.getArea();
         return "位于"
                 + area
-                + "，适合作为“"
+                + "，适合作为「"
                 + dayContext.skeleton().getTheme()
-                + "”中的"
+                + "」中的"
                 + experienceLabel(candidate)
-                + "；建议停留"
-                + durationText(duration)
-                + "，方便与当天其他景点顺路组合。";
+                + "，和当天路线衔接自然。";
     }
 
     private String experienceLabel(PoiCandidate candidate) {
@@ -712,8 +912,7 @@ public class DayPlanGenerateNode {
         };
     }
 
-    private boolean wantsNightExperience(
-            TravelRequirementDTO requirement, DayContext dayContext) {
+    private boolean wantsNightExperience(TravelRequirementDTO requirement, DayContext dayContext) {
         if (requirement.getPreferences() == null) return false;
         boolean wantsNight =
                 requirement.getPreferences().stream()
@@ -738,7 +937,8 @@ public class DayPlanGenerateNode {
                 || name.contains("纪念馆")
                 || name.contains("美术馆")) return "MUSEUM";
         if (name.contains("公园") || name.contains("湿地") || name.contains("植物园")) return "PARK";
-        if (name.contains("古镇") || name.contains("古街") || name.contains("街区")) return "HISTORIC_AREA";
+        if (name.contains("古镇") || name.contains("古街") || name.contains("街区"))
+            return "HISTORIC_AREA";
         if (name.contains("山") || name.contains("景区") || name.contains("风景区")) return "SCENIC";
         return "LANDMARK";
     }
@@ -761,13 +961,9 @@ public class DayPlanGenerateNode {
                 || name.contains("美术馆")
                 || name.contains("寺")) {
             minutes = 120;
-        } else if (name.contains("公园")
-                || name.contains("湿地")
-                || name.contains("植物园")) {
+        } else if (name.contains("公园") || name.contains("湿地") || name.contains("植物园")) {
             minutes = 120;
-        } else if (name.contains("街")
-                || name.contains("广场")
-                || name.contains("商圈")) {
+        } else if (name.contains("街") || name.contains("广场") || name.contains("商圈")) {
             minutes = 90;
         } else {
             minutes = 120;
@@ -838,8 +1034,7 @@ public class DayPlanGenerateNode {
     }
 
     private String normalizePoiName(String name) {
-        return name
-                .replaceAll("[（(].*?[）)]", "")
+        return name.replaceAll("[（(].*?[）)]", "")
                 .replaceAll("[-—·].*$", "")
                 .replace("景区", "")
                 .replace("风景区", "")
@@ -851,11 +1046,85 @@ public class DayPlanGenerateNode {
                 .trim();
     }
 
-    private record RouteMetric(
-            Integer distanceMeters,
-            Integer durationMinutes,
-            Integer estimatedCost,
-            String mode,
-            String description,
-            String source) {}
+    private static final class RouteMetric {
+        private final Integer distanceMeters;
+        private final Integer durationMinutes;
+        private final Integer estimatedCost;
+        private final String mode;
+        private final String description;
+        private final String source;
+
+        private RouteMetric(
+                Integer distanceMeters,
+                Integer durationMinutes,
+                Integer estimatedCost,
+                String mode,
+                String description,
+                String source) {
+            this.distanceMeters = distanceMeters;
+            this.durationMinutes = durationMinutes;
+            this.estimatedCost = estimatedCost;
+            this.mode = mode;
+            this.description = description;
+            this.source = source;
+        }
+
+        private Integer getDistanceMeters() {
+            return distanceMeters;
+        }
+
+        private Integer getDurationMinutes() {
+            return durationMinutes;
+        }
+
+        private Integer getEstimatedCost() {
+            return estimatedCost;
+        }
+
+        private String getMode() {
+            return mode;
+        }
+
+        private String getDescription() {
+            return description;
+        }
+
+        private String getSource() {
+            return source;
+        }
+    }
+
+    private static final class RoutePolicy {
+        private final double maxClusterKm;
+        private final double maxDirectDailyKm;
+        private final double maxActualDailyKm;
+        private final double maxActualLegKm;
+
+        private RoutePolicy(
+                double maxClusterKm,
+                double maxDirectDailyKm,
+                double maxActualDailyKm,
+                double maxActualLegKm) {
+            this.maxClusterKm = maxClusterKm;
+            this.maxDirectDailyKm = maxDirectDailyKm;
+            this.maxActualDailyKm = maxActualDailyKm;
+            this.maxActualLegKm = maxActualLegKm;
+        }
+
+        private double getMaxClusterKm() {
+            return maxClusterKm;
+        }
+
+        private double getMaxDirectDailyKm() {
+            return maxDirectDailyKm;
+        }
+
+        private double getMaxActualDailyKm() {
+            return maxActualDailyKm;
+        }
+
+        private double getMaxActualLegKm() {
+            return maxActualLegKm;
+        }
+    }
 }

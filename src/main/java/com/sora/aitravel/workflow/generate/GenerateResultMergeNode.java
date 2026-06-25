@@ -1,9 +1,5 @@
 package com.sora.aitravel.workflow.generate;
 
-import com.sora.aitravel.dto.model.FoodSpotDTO;
-import com.sora.aitravel.dto.model.HotelAreaDTO;
-import com.sora.aitravel.dto.model.RecommendationContextDTO;
-import com.sora.aitravel.dto.model.ScenicSpotDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
@@ -138,24 +134,4 @@ public class GenerateResultMergeNode {
         return first != null && !first.isBlank() ? first : second;
     }
 
-    @SuppressWarnings("unused")
-    private List<ScenicSpotDTO> scenicRecommendationSnapshot(CityProfile profile) {
-        return profile.scenicCandidates().stream()
-                .map(candidate -> new ScenicSpotDTO(candidate.getName(), candidate.getArea(), candidate.getReason(), "约2小时", false))
-                .toList();
-    }
-
-    @SuppressWarnings("unused")
-    private List<FoodSpotDTO> foodRecommendationSnapshot(CityProfile profile) {
-        return profile.foodCandidates().stream()
-                .map(candidate -> new FoodSpotDTO(candidate.getName(), candidate.getArea(), "本地美食", candidate.getReason()))
-                .toList();
-    }
-
-    @SuppressWarnings("unused")
-    private List<HotelAreaDTO> hotelRecommendationSnapshot(CityProfile profile) {
-        return profile.hotelCandidates().stream()
-                .map(candidate -> new HotelAreaDTO(candidate.getName(), candidate.getReason(), "价格以实际预订平台为准"))
-                .toList();
-    }
 }

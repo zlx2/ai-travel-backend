@@ -31,11 +31,15 @@ public class DayPlanValidateNode {
         }
         context.setDayValidationReports(reports);
         List<DayPlanValidationReport> failed =
-                reports.stream().filter(report -> !Boolean.TRUE.equals(report.getPassed())).toList();
-        if (failed.size() > 0
+                reports.stream()
+                        .filter(report -> !Boolean.TRUE.equals(report.getPassed()))
+                        .toList();
+        List<DayPlanValidationReport> blockingFailures =
+                failed.stream().filter(this::isBlockingFailure).toList();
+        if (blockingFailures.size() > 0
                 || context.getLockedDailyPlans().size() != context.getRequirement().getDays()) {
             String details =
-                    failed.stream()
+                    blockingFailures.stream()
                             .map(
                                     report ->
                                             "第 "
@@ -44,9 +48,18 @@ public class DayPlanValidateNode {
                                                     + String.join("；", report.getWarnings()))
                             .reduce((left, right) -> left + "；" + right)
                             .orElse("返回天数与需求不一致");
-            throw new BusinessException(
-                    ErrorCode.AI_GENERATE_ERROR, "行程数据不完整，请重新生成：" + details);
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程数据不完整，请重新生成：" + details);
         }
+    }
+
+    private boolean isBlockingFailure(DayPlanValidationReport report) {
+        return report.getWarnings().stream()
+                .anyMatch(
+                        warning ->
+                                !warning.startsWith("每天应安排 2-4 个景点")
+                                        && !warning.startsWith("景点在多天行程中重复")
+                                        && !warning.startsWith("景点不在候选 POI 中")
+                                        && !warning.startsWith("景点缺少经纬度"));
     }
 
     private List<String> validateDay(
@@ -54,7 +67,8 @@ public class DayPlanValidateNode {
             DayDataPackage dataPackage,
             Set<String> usedSpotNames) {
         List<String> warnings = new ArrayList<>();
-        List<TripPlanDTO.Spot> spots = dailyPlan.getSpots() == null ? List.of() : dailyPlan.getSpots();
+        List<TripPlanDTO.Spot> spots =
+                dailyPlan.getSpots() == null ? List.of() : dailyPlan.getSpots();
         if (spots.size() < 2 || spots.size() > 4) {
             warnings.add("每天应安排 2-4 个景点，当前为 " + spots.size());
         }
@@ -64,13 +78,22 @@ public class DayPlanValidateNode {
 
         Set<String> allowedPoiIds = new HashSet<>();
         Set<String> allowedNames = new HashSet<>();
-        dataPackage.scenicCandidates().forEach(item -> {
-            allowedPoiIds.add(item.getSourcePoiId());
-            allowedNames.add(item.getName());
-        });
+        Set<String> normalizedAllowedNames = new HashSet<>();
+        dataPackage
+                .scenicCandidates()
+                .forEach(
+                        item -> {
+                            allowedPoiIds.add(item.getSourcePoiId());
+                            allowedNames.add(item.getName());
+                            normalizedAllowedNames.add(normalizePoiName(item.getName()));
+                        });
 
         for (TripPlanDTO.Spot spot : spots) {
-            if (!allowedPoiIds.contains(spot.getPoiId()) && !allowedNames.contains(spot.getName())) {
+            String normalizedName = normalizePoiName(spot.getName());
+            if (!allowedPoiIds.contains(spot.getPoiId())
+                    && !allowedNames.contains(spot.getName())
+                    && !normalizedAllowedNames.contains(normalizedName)
+                    && !hasSimilarAllowedName(normalizedName, normalizedAllowedNames)) {
                 warnings.add("景点不在候选 POI 中：" + spot.getName());
             }
             if (spot.getLng() == null || spot.getLat() == null) {
@@ -79,7 +102,6 @@ public class DayPlanValidateNode {
             if (spot.getOrder() == null) {
                 warnings.add("景点缺少排序 order：" + spot.getName());
             }
-            String normalizedName = normalizePoiName(spot.getName());
             if (!normalizedName.isBlank() && !usedSpotNames.add(normalizedName)) {
                 warnings.add("景点在多天行程中重复：" + spot.getName());
             }
@@ -87,12 +109,20 @@ public class DayPlanValidateNode {
         return warnings;
     }
 
+    private boolean hasSimilarAllowedName(String spotName, Set<String> allowedNames) {
+        if (spotName == null || spotName.isBlank()) {
+            return false;
+        }
+        return allowedNames.stream()
+                .filter(name -> name != null && !name.isBlank())
+                .anyMatch(name -> name.contains(spotName) || spotName.contains(name));
+    }
+
     private String normalizePoiName(String name) {
         if (name == null) {
             return "";
         }
-        return name
-                .replaceAll("[（(].*?[）)]", "")
+        return name.replaceAll("[（(].*?[）)]", "")
                 .replaceAll("[-—·].*$", "")
                 .replace("景区", "")
                 .replace("风景区", "")

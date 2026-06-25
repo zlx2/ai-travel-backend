@@ -8,8 +8,7 @@ import org.springframework.stereotype.Component;
  * <p>实现 Spring AI Alibaba Graph node 接口，是 {@link AiChatWorkflow} 工作流的第四个步骤。 负责调用 AI 大模型（如
  * DeepSeek）执行实际的推理请求。将构建好的 Prompt 发送给模型，并获取原始回复文本。
  *
- * <p>此节点也用于其他工作流（如 {@link com.sora.aitravel.workflow.analyze.InfoExtractNode}、 {@link
- * com.sora.aitravel.workflow.generate.TripPlanGenerateNode}）中， 是与 AI 模型交互的核心节点。
+ * <p>此节点预留给需要直接调用大模型的工作流使用；当前行程生成链路已改为后端结构化 POI 组装。
  *
  * <p>在整个工作流中的位置：聊天流程第 4 步（Prompt 构建之后，结果格式化之前）。
  *

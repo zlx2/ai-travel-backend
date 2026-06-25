@@ -29,7 +29,6 @@ public class TripSummaryNode {
                         profile.foodCandidates().stream().map(this::toFoodSpot).toList(),
                         profile.hotelCandidates().stream().map(this::toHotelArea).toList(),
                         new TransportPlanDTO(travelMode, null, null, travelMode.getTips())));
-        context.setRecommendationPromptContext("POI_BASED_STRUCTURED_GENERATION");
         log.info(
                 "节点[trip-summary]：已生成候选数据摘要，lockedDays={}",
                 context.getLockedDailyPlans().size());

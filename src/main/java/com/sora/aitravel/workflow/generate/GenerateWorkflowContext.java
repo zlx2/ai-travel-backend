@@ -21,8 +21,7 @@ import lombok.Data;
  *
  * <p>注意：Generate 工作流不负责自动保存行程，持久化必须由用户随后调用 Trip 接口触发。
  *
- * <p>输入：{@link #userId}（用户ID）、{@link #request}（生成请求 DTO）。 中间产物：{@link #rawModelResponse}（模型原始响应）。
- * 输出：{@link #result}（生成结果 DTO）。 标记：{@link #repairAttempted}（是否已执行过一次 JSON 修复）。
+ * <p>输入：{@link #userId}（用户ID）、{@link #request}（生成请求 DTO）。 输出：{@link #result}（生成结果 DTO）。
  */
 @Data
 public class GenerateWorkflowContext {
@@ -69,18 +68,9 @@ public class GenerateWorkflowContext {
     /** 已通过校验并锁定的每日行程。 */
     private List<TripPlanDTO.DailyPlan> lockedDailyPlans;
 
-    /** AI 模型返回的原始行程计划 JSON 字符串，由 TripPlanGenerateNode 调用模型后填充。 */
-    private String rawModelResponse;
-
     /** 行程生成前准备好的景点、美食、住宿和交通推荐上下文。 */
     private RecommendationContextDTO recommendationContext;
 
-    /** 推荐上下文格式化后的提示文本，供模型生成最终行程时参考。 */
-    private String recommendationPromptContext;
-
     /** 最终的结构化行程生成结果（包含每日计划等），供 Controller 返回给前端。 */
     private TripGenerateResponse result;
-
-    /** 标记是否已经执行过一次 JSON 修复。若为 true 则不再重复修复，避免死循环。 */
-    private boolean repairAttempted;
 }

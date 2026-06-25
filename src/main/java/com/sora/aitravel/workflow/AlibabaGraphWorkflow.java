@@ -46,20 +46,20 @@ public final class AlibabaGraphWorkflow {
 
             for (Step<C> step : steps) {
                 graph.addNode(
-                        step.name(),
+                        step.getName(),
                         AsyncNodeAction.node_async(
                                 state -> {
                                     C context = readContext(state);
-                                    step.action().execute(context);
+                                    step.getAction().execute(context);
                                     return Map.of(CONTEXT_KEY, context);
                                 }));
             }
 
-            graph.addEdge(StateGraph.START, steps.get(0).name());
+            graph.addEdge(StateGraph.START, steps.get(0).getName());
             for (int i = 0; i < steps.size() - 1; i++) {
-                graph.addEdge(steps.get(i).name(), steps.get(i + 1).name());
+                graph.addEdge(steps.get(i).getName(), steps.get(i + 1).getName());
             }
-            graph.addEdge(steps.get(steps.size() - 1).name(), StateGraph.END);
+            graph.addEdge(steps.get(steps.size() - 1).getName(), StateGraph.END);
 
             return graph.compile();
         } catch (GraphStateException ex) {
@@ -88,10 +88,23 @@ public final class AlibabaGraphWorkflow {
                                                         + CONTEXT_KEY));
     }
 
-    public record Step<C>(String name, WorkflowStep<C> action) {
-        public Step {
+    public static final class Step<C> {
+        private final String name;
+        private final WorkflowStep<C> action;
+
+        private Step(String name, WorkflowStep<C> action) {
             Objects.requireNonNull(name, "step name must not be null");
             Objects.requireNonNull(action, "step action must not be null");
+            this.name = name;
+            this.action = action;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public WorkflowStep<C> getAction() {
+            return action;
         }
     }
 
