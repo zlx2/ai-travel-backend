@@ -2,7 +2,10 @@ package com.sora.aitravel.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 游记（攻略）实体类。
@@ -31,6 +34,9 @@ import lombok.Data;
  * </table>
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("note")
 public class Note {
     /** 主键 ID，自增。 */

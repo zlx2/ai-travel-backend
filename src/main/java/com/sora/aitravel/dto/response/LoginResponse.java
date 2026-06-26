@@ -1,6 +1,7 @@
 package com.sora.aitravel.dto.response;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -17,6 +18,7 @@ import lombok.NoArgsConstructor;
  * @param user 可公开的当前用户资料，不包含密码哈希等内部字段
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginResponse {

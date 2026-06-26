@@ -4,6 +4,7 @@ import com.sora.aitravel.common.enums.FoodSearchIntentTypeEnum;
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
  * <p>FoodTool 直接返回该 DTO，方便工作流读取 total、list、centerLocation 等结构化字段。
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class FoodRecommendResponse {

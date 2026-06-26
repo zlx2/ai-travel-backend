@@ -44,10 +44,10 @@ public class RequirementValidateNode {
                 "ROAD_TRIP".equals(requirement.getRouteMode())
                         || "LANDING_RENTAL_TRIP".equals(requirement.getRouteMode())
                         || "RENTAL_CAR".equals(requirement.getTransportMode())
+                        || "SELF_DRIVE".equals(requirement.getTransportMode())
                         || "USER_REQUIRED".equals(requirement.getRentalIntent());
         if (rentalTrip && context.getRequest().getSelectedQuote() == null) {
-            // TODO 租车业务接入后恢复强校验；当前由 RequirementLoadNode 自动补模拟报价。
-            log.info("节点[requirement-validate]：租车需求未传 selectedQuote，将在后续节点补充模拟报价。");
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "租车行程需要先确认租车报价");
         }
         boolean roadTrip = "ROAD_TRIP".equals(requirement.getRouteMode());
         if (roadTrip) {

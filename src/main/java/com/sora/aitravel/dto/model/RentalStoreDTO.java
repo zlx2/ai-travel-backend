@@ -1,6 +1,9 @@
 package com.sora.aitravel.dto.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 推荐租车服务点。
@@ -8,6 +11,9 @@ import lombok.Data;
  * <p>这是租车工作流的中间模型，可以继续作为库存、价格、异店还车、下单等节点的入参。字段来自地图 POI 解析和本地筛选规则，不表示平台自营门店，也不表示该服务点一定有车或可下单。
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class RentalStoreDTO {
     /** 系统内临时服务点编码，当前由高德 POI ID 派生。 */
     private String storeCode;

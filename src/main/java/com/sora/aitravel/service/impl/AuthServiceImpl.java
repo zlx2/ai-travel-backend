@@ -43,17 +43,18 @@ public class AuthServiceImpl implements AuthService {
         emailCodeService.verify(email, REGISTER_SCENE, request.getEmailCode());
 
         LocalDateTime now = LocalDateTime.now();
-        SysUser user = new SysUser();
-        user.setUsername(username);
-        // 数据库只保存带盐的单向哈希，永不持久化明文密码。
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setEmail(email);
-        user.setNickname(username);
-        user.setRole(AuthConstants.USER_ROLE);
-        user.setStatus(1);
-        user.setCreateTime(now);
-        user.setUpdateTime(now);
-        user.setDeleted(0);
+        SysUser user = SysUser.builder()
+                .username(username)
+                // 数据库只保存带盐的单向哈希，永不持久化明文密码。
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .email(email)
+                .nickname(username)
+                .role(AuthConstants.USER_ROLE)
+                .status(1)
+                .createTime(now)
+                .updateTime(now)
+                .deleted(0)
+                .build();
         userMapper.insert(user);
         // 注册成功后立即核销验证码，使其成为一次性凭证。
         emailCodeService.remove(email, REGISTER_SCENE);
@@ -112,14 +113,15 @@ public class AuthServiceImpl implements AuthService {
     }
 
     static UserInfoResponse toResponse(SysUser user) {
-        return new UserInfoResponse(
-                user.getId(),
-                user.getUsername(),
-                user.getNickname(),
-                user.getEmail(),
-                user.getAvatarUrl(),
-                user.getRole(),
-                user.getStatus(),
-                DateTimeUtils.format(user.getCreateTime()));
+        return UserInfoResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .nickname(user.getNickname())
+                .email(user.getEmail())
+                .avatarUrl(user.getAvatarUrl())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .createTime(DateTimeUtils.format(user.getCreateTime()))
+                .build();
     }
 }

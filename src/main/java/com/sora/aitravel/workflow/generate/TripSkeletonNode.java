@@ -19,7 +19,7 @@ public class TripSkeletonNode {
         }
         context.setDaySkeletons(skeletons);
         log.info(
-                "节点[trip-skeleton]：模拟生成整体行程骨架，days={}, skeletons={}",
+                "节点[trip-skeleton]：按需求生成整体行程骨架，days={}, skeletons={}",
                 requirement.getDays(),
                 skeletons);
     }

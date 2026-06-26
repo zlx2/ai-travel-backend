@@ -105,25 +105,24 @@ public class RentalOrderServiceImpl implements RentalOrderService {
             Long userId, RentalOrderCreateRequest request, RentalQuoteOptionDTO quote) {
         TravelRequirementDTO requirement = request.getRequirement();
         TripPlanDTO tripPlan = request.getTripPlan();
-        Trip trip = new Trip();
-        trip.setUserId(userId);
-        trip.setConversationId(request.getConversationId());
-        trip.setTitle(
-                notBlank(tripPlan.getTitle())
+        return Trip.builder()
+                .userId(userId)
+                .conversationId(request.getConversationId())
+                .title(notBlank(tripPlan.getTitle())
                         ? tripPlan.getTitle()
-                        : tripDestination(requirement, tripPlan) + "行程");
-        trip.setDeparture(tripDeparture(requirement, quote));
-        trip.setDestination(tripDestination(requirement, tripPlan));
-        trip.setDays(requirement.getDays());
-        trip.setBudget(requirement.getBudget());
-        trip.setPreferencesJson(toJson(requirement.getPreferences()));
-        trip.setRequirementJson(toJson(requirement));
-        trip.setTripPlanJson(toJson(tripPlan));
-        trip.setSummary(tripPlan.getSummary());
-        trip.setSource(1);
-        trip.setStatus(1);
-        trip.setDeleted(0);
-        return trip;
+                        : tripDestination(requirement, tripPlan) + "行程")
+                .departure(tripDeparture(requirement, quote))
+                .destination(tripDestination(requirement, tripPlan))
+                .days(requirement.getDays())
+                .budget(requirement.getBudget())
+                .preferencesJson(toJson(requirement.getPreferences()))
+                .requirementJson(toJson(requirement))
+                .tripPlanJson(toJson(tripPlan))
+                .summary(tripPlan.getSummary())
+                .source(1)
+                .status(1)
+                .deleted(0)
+                .build();
     }
 
     private RentalOrder buildOrder(
@@ -136,49 +135,46 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         RentalFeeBreakdownDTO fee = quote.getFeeBreakdown();
         LocalDate pickupDate = parseDate(requirement.getTravelDate());
 
-        RentalOrder order = new RentalOrder();
-        order.setOrderNo(
-                "RO"
-                        + LocalDateTime.now()
-                                .format(
-                                        java.time.format.DateTimeFormatter.ofPattern(
-                                                "yyyyMMddHHmmss"))
-                        + UUID.randomUUID().toString().substring(0, 6).toUpperCase());
-        order.setUserId(userId);
-        order.setTripId(tripId);
-        order.setPickupPoiId(quote.getPickupPoiId());
-        order.setPickupMode(quote.getPickupMode());
-        order.setReturnPoiId(quote.getReturnPoiId());
-        order.setReturnMode(quote.getReturnMode());
-        order.setDeliveryAddress(rental == null ? null : rental.getDeliveryAddress());
-        order.setReturnAddress(rental == null ? null : rental.getReturnAddress());
-        order.setDeliveryFeeCent(fee.getDeliveryFeeCent());
-        order.setPickupPoiSnapshot(toJson(poiSnapshot("pickup", quote)));
-        order.setReturnPoiSnapshot(toJson(poiSnapshot("return", quote)));
-        order.setVehicleGroupId(quote.getVehicleGroupId());
-        order.setPickupTime(pickupDate.atTime(10, 0));
-        order.setReturnTime(pickupDate.plusDays(quote.getRentalDays()).atTime(18, 0));
-        order.setRentalDays(BigDecimal.valueOf(quote.getRentalDays()));
-        order.setIsOneWay(Boolean.TRUE.equals(quote.getIsOneWay()) ? 1 : 0);
-        order.setRentalFeeCent(fee.getRentalFeeCent());
-        order.setBaseServiceFeeCent(fee.getBaseServiceFeeCent());
-        order.setVehiclePrepareFeeCent(fee.getVehiclePrepareFeeCent());
-        order.setOneWayBaseFeeCent(fee.getOneWayFeeCent());
-        order.setOneWayDiscountCent(0);
-        order.setOneWayFinalFeeCent(fee.getOneWayFeeCent());
-        order.setRentalDepositCent(fee.getRentalDepositCent());
-        order.setViolationDepositCent(fee.getViolationDepositCent());
-        order.setDepositFreeThresholdScore(fee.getDepositFreeThresholdScore());
-        order.setTotalPriceCent(fee.getTotalPriceCent());
-        order.setPriceTemplateId(quote.getPriceTemplateId());
-        order.setPriceSnapshot(toJson(quote.getPriceSnapshot()));
-        order.setContactName(request.getContactName());
-        order.setContactPhone(request.getContactPhone());
-        order.setOrderStatus("pending");
-        order.setPaymentStatus("unpaid");
-        order.setRemark(request.getRemark());
-        order.setDeleted(0);
-        return order;
+        return RentalOrder.builder()
+                .orderNo("RO"
+                        + LocalDateTime.now().format(
+                                java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                        + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                .userId(userId)
+                .tripId(tripId)
+                .pickupPoiId(quote.getPickupPoiId())
+                .pickupMode(quote.getPickupMode())
+                .returnPoiId(quote.getReturnPoiId())
+                .returnMode(quote.getReturnMode())
+                .deliveryAddress(rental == null ? null : rental.getDeliveryAddress())
+                .returnAddress(rental == null ? null : rental.getReturnAddress())
+                .deliveryFeeCent(fee.getDeliveryFeeCent())
+                .pickupPoiSnapshot(toJson(poiSnapshot("pickup", quote)))
+                .returnPoiSnapshot(toJson(poiSnapshot("return", quote)))
+                .vehicleGroupId(quote.getVehicleGroupId())
+                .pickupTime(pickupDate.atTime(10, 0))
+                .returnTime(pickupDate.plusDays(quote.getRentalDays()).atTime(18, 0))
+                .rentalDays(BigDecimal.valueOf(quote.getRentalDays()))
+                .isOneWay(Boolean.TRUE.equals(quote.getIsOneWay()) ? 1 : 0)
+                .rentalFeeCent(fee.getRentalFeeCent())
+                .baseServiceFeeCent(fee.getBaseServiceFeeCent())
+                .vehiclePrepareFeeCent(fee.getVehiclePrepareFeeCent())
+                .oneWayBaseFeeCent(fee.getOneWayFeeCent())
+                .oneWayDiscountCent(0)
+                .oneWayFinalFeeCent(fee.getOneWayFeeCent())
+                .rentalDepositCent(fee.getRentalDepositCent())
+                .violationDepositCent(fee.getViolationDepositCent())
+                .depositFreeThresholdScore(fee.getDepositFreeThresholdScore())
+                .totalPriceCent(fee.getTotalPriceCent())
+                .priceTemplateId(quote.getPriceTemplateId())
+                .priceSnapshot(toJson(quote.getPriceSnapshot()))
+                .contactName(request.getContactName())
+                .contactPhone(request.getContactPhone())
+                .orderStatus("pending")
+                .paymentStatus("unpaid")
+                .remark(request.getRemark())
+                .deleted(0)
+                .build();
     }
 
     private Map<String, Object> poiSnapshot(String type, RentalQuoteOptionDTO quote) {
@@ -210,33 +206,35 @@ public class RentalOrderServiceImpl implements RentalOrderService {
 
     private RentalOrderResponse toResponse(RentalOrder order) {
         RentalFeeBreakdownDTO fee =
-                new RentalFeeBreakdownDTO(
-                        order.getRentalFeeCent(),
-                        order.getBaseServiceFeeCent(),
-                        order.getVehiclePrepareFeeCent(),
-                        order.getOneWayFinalFeeCent(),
-                        order.getDeliveryFeeCent(),
-                        order.getTotalPriceCent(),
-                        order.getRentalDepositCent(),
-                        order.getViolationDepositCent(),
-                        order.getDepositFreeThresholdScore());
+                RentalFeeBreakdownDTO.builder()
+                        .rentalFeeCent(order.getRentalFeeCent())
+                        .baseServiceFeeCent(order.getBaseServiceFeeCent())
+                        .vehiclePrepareFeeCent(order.getVehiclePrepareFeeCent())
+                        .oneWayFeeCent(order.getOneWayFinalFeeCent())
+                        .deliveryFeeCent(order.getDeliveryFeeCent())
+                        .totalPriceCent(order.getTotalPriceCent())
+                        .rentalDepositCent(order.getRentalDepositCent())
+                        .violationDepositCent(order.getViolationDepositCent())
+                        .depositFreeThresholdScore(order.getDepositFreeThresholdScore())
+                        .build();
         Map<String, Object> priceSnapshot = fromJsonMap(order.getPriceSnapshot());
-        return new RentalOrderResponse(
-                order.getId(),
-                order.getOrderNo(),
-                order.getTripId(),
-                stringValue(priceSnapshot.get("city")),
-                order.getVehicleGroupId(),
-                order.getOrderStatus(),
-                order.getPaymentStatus(),
-                order.getTotalPriceCent(),
-                fee,
-                fromJsonMap(order.getPickupPoiSnapshot()),
-                fromJsonMap(order.getReturnPoiSnapshot()),
-                priceSnapshot,
-                order.getPickupTime(),
-                order.getReturnTime(),
-                order.getCreateTime());
+        return RentalOrderResponse.builder()
+                .id(order.getId())
+                .orderNo(order.getOrderNo())
+                .tripId(order.getTripId())
+                .rentalCity(stringValue(priceSnapshot.get("city")))
+                .vehicleGroupId(order.getVehicleGroupId())
+                .orderStatus(order.getOrderStatus())
+                .paymentStatus(order.getPaymentStatus())
+                .totalPriceCent(order.getTotalPriceCent())
+                .feeBreakdown(fee)
+                .pickupPoiSnapshot(fromJsonMap(order.getPickupPoiSnapshot()))
+                .returnPoiSnapshot(fromJsonMap(order.getReturnPoiSnapshot()))
+                .priceSnapshot(priceSnapshot)
+                .pickupTime(order.getPickupTime())
+                .returnTime(order.getReturnTime())
+                .createTime(order.getCreateTime())
+                .build();
     }
 
     private String tripDestination(TravelRequirementDTO requirement, TripPlanDTO tripPlan) {

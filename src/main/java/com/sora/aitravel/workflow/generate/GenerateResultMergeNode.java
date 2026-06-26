@@ -56,12 +56,12 @@ public class GenerateResultMergeNode {
             hotel = context.getCityProfile().hotelCandidates().get(0);
         }
         if (hotel == null) {
-            return new TripPlanDTO.AccommodationSuggestion("待确认住宿区域", "后端未获取到可用住宿候选。", null);
+            return null;
         }
         return new TripPlanDTO.AccommodationSuggestion(
                 firstNonBlank(hotel.getArea(), hotel.getName()),
-                hotel.getReason(),
-                "价格以实际预订平台为准");
+                null,
+                null);
     }
 
     private TripPlanDTO.BudgetSummary budgetSummary(
@@ -105,13 +105,8 @@ public class GenerateResultMergeNode {
     }
 
     private TripPlanDTO.DataQuality dataQuality(GenerateWorkflowContext context) {
-        boolean hasMockPoi =
-                context.getRankedDayDataPackages() != null
-                        && context.getRankedDayDataPackages().stream()
-                                .flatMap(pkg -> pkg.scenicCandidates().stream())
-                                .anyMatch(candidate -> !"AMAP".equals(candidate.getSource()));
         return new TripPlanDTO.DataQuality(
-                hasMockPoi ? "MIXED" : "AMAP",
+                "AMAP",
                 "AMAP",
                 "AMAP_AVERAGE_COST_AND_ROUTE;TICKET_HOTEL_UNAVAILABLE");
     }

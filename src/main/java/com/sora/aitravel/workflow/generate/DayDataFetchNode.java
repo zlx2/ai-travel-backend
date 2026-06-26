@@ -29,12 +29,11 @@ public class DayDataFetchNode {
             List<PoiCandidate> food = new ArrayList<>();
             for (QueryItem query : plan.queries()) {
                 if ("SCENIC".equals(query.getType())) {
-                    scenicBatches.add(
-                            search(query, "SCENIC", "符合当天主题和游览区域。"));
+                    scenicBatches.add(search(query, "SCENIC"));
                 } else if ("NIGHT".equals(query.getType())) {
-                    night.addAll(search(query, "NIGHT", query.getPurpose()));
+                    night.addAll(search(query, "NIGHT"));
                 } else if ("FOOD".equals(query.getType())) {
-                    food.addAll(search(query, "FOOD", "适合穿插在当天路线中用餐。"));
+                    food.addAll(search(query, "FOOD"));
                 }
             }
             List<PoiCandidate> scenic = new ArrayList<>();
@@ -76,8 +75,7 @@ public class DayDataFetchNode {
         return new ArrayList<>(result.values());
     }
 
-    private List<PoiCandidate> search(
-            QueryItem query, String category, String defaultReason) {
+    private List<PoiCandidate> search(QueryItem query, String category) {
         try {
             List<Poi> pois =
                     amapPoiCacheService.searchText(
@@ -91,8 +89,8 @@ public class DayDataFetchNode {
                             category);
             return pois.stream()
                     .filter(poi -> poi.getId() != null && poi.getName() != null && poi.getLocation() != null)
-                    .filter(this::isUsefulPoi)
-                    .map(poi -> toCandidate(category, poi, defaultReason))
+                    .filter(poi -> isUsefulPoi(poi, category))
+                    .map(poi -> toCandidate(category, poi))
                     .toList();
         } catch (RuntimeException exception) {
             log.warn(
@@ -115,7 +113,7 @@ public class DayDataFetchNode {
         return merged.values().stream().limit(MAX_DAY_CANDIDATES).toList();
     }
 
-    private PoiCandidate toCandidate(String category, Poi poi, String reason) {
+    private PoiCandidate toCandidate(String category, Poi poi) {
         return new PoiCandidate(
                 category,
                 poi.getName(),
@@ -124,7 +122,7 @@ public class DayDataFetchNode {
                 poi.getLocation(),
                 "AMAP",
                 poi.getId(),
-                reason,
+                null,
                 parseInteger(poi.getDistance()),
                 poi.getTypecode(),
                 poi.getParent(),
@@ -147,14 +145,38 @@ public class DayDataFetchNode {
                                 .toList());
     }
 
-    private boolean isUsefulPoi(Poi poi) {
+    private boolean isUsefulPoi(Poi poi, String category) {
         String name = poi.getName();
-        return !name.contains("停车场")
-                && !name.contains("游客中心")
-                && !name.contains("入口")
-                && !name.contains("售票")
-                && !name.contains("卫生间")
-                && !name.contains("公交站");
+        if (name.contains("停车场")
+                || name.contains("游客中心")
+                || name.contains("入口")
+                || name.contains("售票")
+                || name.contains("卫生间")
+                || name.contains("公交站")) {
+            return false;
+        }
+        if ("SCENIC".equals(category) || "NIGHT".equals(category)) {
+            return !isStoreLikePoi(name, poi);
+        }
+        return true;
+    }
+
+    private boolean isStoreLikePoi(String name, Poi poi) {
+        String type = poi.getType() == null ? "" : poi.getType();
+        return name.contains("餐厅")
+                || name.contains("饭店")
+                || name.contains("菜馆")
+                || name.contains("小吃")
+                || name.contains("美食")
+                || name.contains("酒店")
+                || name.contains("宾馆")
+                || name.contains("商场")
+                || name.contains("超市")
+                || name.contains("便利店")
+                || name.matches(".*[（(].*店[）)].*")
+                || type.contains("餐饮")
+                || type.contains("购物")
+                || type.contains("住宿");
     }
 
     private String dedupKey(PoiCandidate candidate) {

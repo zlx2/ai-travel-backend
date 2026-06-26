@@ -73,14 +73,15 @@ public class CommentServiceImpl implements CommentService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "游记不存在");
         }
 
-        NoteComment comment = new NoteComment();
-        comment.setNoteId(noteId);
-        comment.setUserId(userId);
-        comment.setContent(request.getContent());
-        comment.setStatus(1);
         LocalDateTime now = LocalDateTime.now();
-        comment.setCreateTime(now);
-        comment.setUpdateTime(now);
+        NoteComment comment = NoteComment.builder()
+                .noteId(noteId)
+                .userId(userId)
+                .content(request.getContent())
+                .status(1)
+                .createTime(now)
+                .updateTime(now)
+                .build();
 
         commentMapper.insert(comment);
 
@@ -118,18 +119,15 @@ public class CommentServiceImpl implements CommentService {
     }
 
     private CommentResponse toCommentResponse(NoteComment comment) {
-        CommentResponse response = new CommentResponse();
-        response.setId(comment.getId());
-        response.setNoteId(comment.getNoteId());
-        response.setUserId(comment.getUserId());
-        response.setContent(comment.getContent());
-        response.setCreateTime(
-                comment.getCreateTime() != null ? comment.getCreateTime().format(FMT) : null);
-
         SysUser user = userMapper.selectById(comment.getUserId());
-        response.setNickname(user != null ? user.getNickname() : "未知用户");
-        response.setAvatarUrl(user != null ? user.getAvatarUrl() : null);
-
-        return response;
+        return CommentResponse.builder()
+                .id(comment.getId())
+                .noteId(comment.getNoteId())
+                .userId(comment.getUserId())
+                .content(comment.getContent())
+                .createTime(comment.getCreateTime() != null ? comment.getCreateTime().format(FMT) : null)
+                .nickname(user != null ? user.getNickname() : "未知用户")
+                .avatarUrl(user != null ? user.getAvatarUrl() : null)
+                .build();
     }
 }
