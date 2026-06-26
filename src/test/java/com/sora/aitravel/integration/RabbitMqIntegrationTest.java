@@ -20,6 +20,7 @@ class RabbitMqIntegrationTest extends ExternalIntegrationTestSupport {
         factory.setPort(requiredPort("RABBITMQ_PORT"));
         factory.setUsername(requiredEnv("RABBITMQ_USERNAME"));
         factory.setPassword(requiredEnv("RABBITMQ_PASSWORD"));
+        factory.setVirtualHost(optionalEnv("RABBITMQ_VHOST", "/ai-travel"));
         factory.setConnectionTimeout(10_000);
         factory.setHandshakeTimeout(10_000);
 
