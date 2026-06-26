@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.service.MailSendService;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,17 +27,19 @@ class EmailCodeServiceImplTest {
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
     @Mock private MailSendService mailSendService;
+    @Mock private SysUserMapper userMapper;
 
     private EmailCodeServiceImpl service;
 
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        service = new EmailCodeServiceImpl(redisTemplate, mailSendService);
+        service = new EmailCodeServiceImpl(redisTemplate, mailSendService, userMapper);
     }
 
     @Test
     void sendShouldDeliverRealCodeAndCacheItWithDocumentedTtl() {
+        when(userMapper.selectCount(any())).thenReturn(0L);
         when(valueOperations.setIfAbsent(any(), eq("1"), any(Duration.class))).thenReturn(true);
 
         service.send("TEST@example.com", "register");

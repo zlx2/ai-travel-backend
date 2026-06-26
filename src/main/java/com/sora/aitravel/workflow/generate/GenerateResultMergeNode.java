@@ -26,7 +26,8 @@ public class GenerateResultMergeNode {
                         requirement,
                         context.getSelectedQuote(),
                         context.getRecommendationContext(),
-                        tripPlan));
+                        tripPlan,
+                        null));
         log.info("节点[result-merge]：Generate 响应已组装，schema={}, dailyPlans={}", SCHEMA_VERSION, tripPlan.getDailyPlans().size());
     }
 

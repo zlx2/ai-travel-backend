@@ -4,6 +4,7 @@ import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,4 +29,5 @@ public class TripGenerateResponse {
     private RentalQuoteOptionDTO selectedQuote;
     private RecommendationContextDTO recommendationContext;
     private TripPlanDTO tripPlan;
+    private List<TripGenerateDayStatusResponse> dayStatuses;
 }

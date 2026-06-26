@@ -14,6 +14,7 @@ import com.sora.aitravel.dto.response.*;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.AiTripDayGenerateService;
+import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationOrchestrator;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
 import com.sora.aitravel.service.TripDayGenerateMessageProducer;
@@ -50,6 +51,7 @@ public class AiTripController {
     private final TripAnalyzeWorkflow tripAnalyzeWorkflow;
     private final AiTripGenerationOrchestrator aiTripGenerationOrchestrator;
     private final AiTripDayGenerateService aiTripDayGenerateService;
+    private final AiTripDayGenerationService aiTripDayGenerationService;
     private final AiTripGenerationSessionService aiTripGenerationSessionService;
     private final TripDayGenerateMessageProducer tripDayGenerateMessageProducer;
     private final ObjectMapper objectMapper;
@@ -131,12 +133,18 @@ public class AiTripController {
             if (requirement.getDays() == null || nextDay > requirement.getDays()) {
                 return;
             }
+            AiTripDayGeneration queuedDay =
+                    aiTripDayGenerationService.createQueuedIfAbsent(
+                            sessionId, session.getUserId(), nextDay, "ASYNC");
+            if (!"QUEUED".equals(queuedDay.getStatus())) {
+                return;
+            }
             tripDayGenerateMessageProducer.send(
                     new TripDayGenerateMessage(
                             sessionId,
                             session.getUserId(),
                             nextDay,
-                            "PREFETCH",
+                            "ASYNC",
                             false,
                             UUID.randomUUID().toString()));
         } catch (Exception exception) {
@@ -172,7 +180,9 @@ public class AiTripController {
         AiTripGenerationSession session = aiTripGenerationOrchestrator.prepareSession(userId, request);
         AiTripDayGeneration day =
                 aiTripDayGenerateService.generateDay(session.getSessionId(), 1, "USER", false);
+
         enqueueNextDay(session.getSessionId(), 1);
+
         return buildGenerateResponse(session, day, request.getSelectedQuote());
     }
 
@@ -206,10 +216,32 @@ public class AiTripController {
                     requirement,
                     selectedQuote,
                     (RecommendationContextDTO) null,
-                    tripPlan);
+                    tripPlan,
+                    buildDayStatuses(requirement.getDays(), day));
         } catch (Exception exception) {
             throw new IllegalStateException("组装单日生成响应失败", exception);
         }
+    }
+
+    private List<TripGenerateDayStatusResponse> buildDayStatuses(
+            Integer days, AiTripDayGeneration generatedDay) {
+        if (days == null || days <= 0) {
+            return List.of();
+        }
+        return java.util.stream.IntStream.rangeClosed(1, days)
+                .mapToObj(
+                        dayNo -> {
+                            if (generatedDay.getDayNo().equals(dayNo)) {
+                                return new TripGenerateDayStatusResponse(
+                                        generatedDay.getDayNo(),
+                                        generatedDay.getGenerationVersion(),
+                                        generatedDay.getIsCurrent(),
+                                        generatedDay.getStatus(),
+                                        generatedDay.getErrorMessage());
+                            }
+                            return new TripGenerateDayStatusResponse(dayNo, null, 0, "NOT_STARTED", null);
+                        })
+                .toList();
     }
 
     private TripPlanDTO.BudgetSummary budgetSummary(List<TripPlanDTO.DailyPlan> dailyPlans) {

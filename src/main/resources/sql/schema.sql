@@ -161,3 +161,41 @@ CREATE TABLE IF NOT EXISTS rental_order (
   KEY idx_rental_order_trip (trip_id), KEY idx_rental_order_status (order_status, payment_status),
   KEY idx_rental_order_pickup_time (pickup_time), KEY idx_rental_order_vehicle_group (vehicle_group_id)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ai_trip_generation_session (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  session_id VARCHAR(64) NOT NULL,
+  user_id BIGINT NOT NULL,
+  conversation_id VARCHAR(64),
+  requirement_json JSON NOT NULL,
+  day_skeletons_json JSON,
+  city_profile_json JSON,
+  weather_json JSON,
+  hotel_json JSON,
+  status VARCHAR(32) NOT NULL,
+  error_message VARCHAR(1000),
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ai_trip_generation_session_id (session_id),
+  KEY idx_ai_trip_generation_user_time (user_id, create_time)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ai_trip_day_generation (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  session_id VARCHAR(64) NOT NULL,
+  user_id BIGINT NOT NULL,
+  day_no INT NOT NULL,
+  generation_version INT NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  is_current TINYINT NOT NULL DEFAULT 1,
+  request_mode VARCHAR(32),
+  result_json JSON,
+  error_message VARCHAR(1000),
+  started_at DATETIME,
+  finished_at DATETIME,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ai_trip_day_version (session_id, day_no, generation_version),
+  KEY idx_ai_trip_day_current (session_id, day_no, is_current),
+  KEY idx_ai_trip_day_status (status)
+) ENGINE=InnoDB;

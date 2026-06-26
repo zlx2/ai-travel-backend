@@ -10,6 +10,9 @@ public interface AiTripDayGenerationService {
     AiTripDayGeneration createPending(
             String sessionId, Long userId, Integer dayNo, Integer generationVersion, String requestMode);
 
+    AiTripDayGeneration createQueuedIfAbsent(
+            String sessionId, Long userId, Integer dayNo, String requestMode);
+
     void markQueued(Long id);
 
     void markGenerating(Long id);

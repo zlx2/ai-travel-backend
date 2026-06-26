@@ -51,6 +51,34 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     @Override
+    public AiTripDayGeneration createQueuedIfAbsent(
+            String sessionId, Long userId, Integer dayNo, String requestMode) {
+        AiTripDayGeneration latest = getLatest(sessionId, dayNo);
+        if (latest != null
+                && (STATUS_GENERATED.equals(latest.getStatus())
+                        || STATUS_GENERATING.equals(latest.getStatus())
+                        || STATUS_QUEUED.equals(latest.getStatus()))) {
+            return latest;
+        }
+        int version = latest == null ? 1 : latest.getGenerationVersion() + 1;
+        if (latest != null) {
+            supersedeDay(sessionId, dayNo);
+        }
+        AiTripDayGeneration day =
+                AiTripDayGeneration.builder()
+                        .sessionId(sessionId)
+                        .userId(userId)
+                        .dayNo(dayNo)
+                        .generationVersion(version)
+                        .status(STATUS_QUEUED)
+                        .isCurrent(1)
+                        .requestMode(requestMode)
+                        .build();
+        mapper.insert(day);
+        return day;
+    }
+
+    @Override
     public void markQueued(Long id) {
         updateStatus(id, STATUS_QUEUED, null, null);
     }

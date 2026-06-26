@@ -47,15 +47,25 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         if (!forceRegenerate
                 && latest != null
                 && ("QUEUED".equals(latest.getStatus()) || "GENERATING".equals(latest.getStatus()))) {
-            return latest;
+            if (!"QUEUED".equals(latest.getStatus()) || !"ASYNC".equals(requestMode)) {
+                return latest;
+            }
         }
-        int version = latest == null ? 1 : latest.getGenerationVersion() + 1;
-        if (latest != null) {
-            dayGenerationService.supersedeDay(sessionId, dayNo);
+        AiTripDayGeneration day;
+        if (!forceRegenerate
+                && latest != null
+                && "QUEUED".equals(latest.getStatus())
+                && "ASYNC".equals(requestMode)) {
+            day = latest;
+        } else {
+            int version = latest == null ? 1 : latest.getGenerationVersion() + 1;
+            if (latest != null) {
+                dayGenerationService.supersedeDay(sessionId, dayNo);
+            }
+            day =
+                    dayGenerationService.createPending(
+                            sessionId, session.getUserId(), dayNo, version, requestMode);
         }
-        AiTripDayGeneration day =
-                dayGenerationService.createPending(
-                        sessionId, session.getUserId(), dayNo, version, requestMode);
         try {
             dayGenerationService.markGenerating(day.getId());
             GenerateWorkflowContext context = restoreContext(session);
