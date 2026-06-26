@@ -1,6 +1,7 @@
 package com.sora.aitravel.dto.response;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -17,6 +18,7 @@ import lombok.NoArgsConstructor;
  * @param createTime 注册时间
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserInfoResponse {

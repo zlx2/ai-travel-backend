@@ -45,9 +45,10 @@ public class NoteInteractionServiceImpl implements NoteInteractionService {
                         > 0;
         if (exists) return;
 
-        NoteLike like = new NoteLike();
-        like.setNoteId(noteId);
-        like.setUserId(userId);
+        NoteLike like = NoteLike.builder()
+                .noteId(noteId)
+                .userId(userId)
+                .build();
         noteLikeMapper.insert(like);
 
         note.setLikeCount(note.getLikeCount() + 1);
@@ -86,9 +87,10 @@ public class NoteInteractionServiceImpl implements NoteInteractionService {
                         > 0;
         if (exists) return;
 
-        NoteFavorite favorite = new NoteFavorite();
-        favorite.setNoteId(noteId);
-        favorite.setUserId(userId);
+        NoteFavorite favorite = NoteFavorite.builder()
+                .noteId(noteId)
+                .userId(userId)
+                .build();
         noteFavoriteMapper.insert(favorite);
 
         note.setFavoriteCount(note.getFavoriteCount() + 1);

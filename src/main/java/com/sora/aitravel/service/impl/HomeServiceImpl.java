@@ -89,7 +89,11 @@ public class HomeServiceImpl implements HomeService {
                         .map(this::toTagResponse)
                         .collect(Collectors.toList());
 
-        return new HomeResponse(destinations, hotNotes, hotTags);
+        return HomeResponse.builder()
+                .hotDestinations(destinations)
+                .hotNotes(hotNotes)
+                .hotTags(hotTags)
+                .build();
     }
 
     private Map<Long, SysUser> loadUsers(List<Long> userIds) {
@@ -103,19 +107,20 @@ public class HomeServiceImpl implements HomeService {
     }
 
     private DestinationResponse toDestinationResponse(Destination destination) {
-        return new DestinationResponse(
-                destination.getId(),
-                destination.getName(),
-                destination.getProvince(),
-                destination.getCity(),
-                destination.getLongitude(),
-                destination.getLatitude(),
-                destination.getCoverUrl(),
-                destination.getDescription(),
-                parseTags(destination.getTagsJson()),
-                destination.getHeat(),
-                destination.getStatus(),
-                DateTimeUtils.format(destination.getCreateTime()));
+        return DestinationResponse.builder()
+                .id(destination.getId())
+                .name(destination.getName())
+                .province(destination.getProvince())
+                .city(destination.getCity())
+                .longitude(destination.getLongitude())
+                .latitude(destination.getLatitude())
+                .coverUrl(destination.getCoverUrl())
+                .description(destination.getDescription())
+                .tags(parseTags(destination.getTagsJson()))
+                .heat(destination.getHeat())
+                .status(destination.getStatus())
+                .createTime(DateTimeUtils.format(destination.getCreateTime()))
+                .build();
     }
 
     private NoteListItemResponse toNoteListItemResponse(Note note, SysUser author) {
@@ -129,29 +134,31 @@ public class HomeServiceImpl implements HomeService {
                         .map(Tag::getName)
                         .collect(Collectors.toList());
 
-        return new NoteListItemResponse(
-                note.getId(),
-                note.getTitle(),
-                note.getCoverUrl(),
-                note.getDestination(),
-                note.getSummary(),
-                note.getUserId(),
-                author == null ? null : author.getNickname(),
-                author == null ? null : author.getAvatarUrl(),
-                tags,
-                note.getLikeCount(),
-                note.getFavoriteCount(),
-                note.getCommentCount(),
-                DateTimeUtils.format(note.getCreateTime()));
+        return NoteListItemResponse.builder()
+                .id(note.getId())
+                .title(note.getTitle())
+                .coverUrl(note.getCoverUrl())
+                .destination(note.getDestination())
+                .summary(note.getSummary())
+                .authorId(note.getUserId())
+                .authorNickname(author == null ? null : author.getNickname())
+                .authorAvatarUrl(author == null ? null : author.getAvatarUrl())
+                .tags(tags)
+                .likeCount(note.getLikeCount())
+                .favoriteCount(note.getFavoriteCount())
+                .commentCount(note.getCommentCount())
+                .createTime(DateTimeUtils.format(note.getCreateTime()))
+                .build();
     }
 
     private TagResponse toTagResponse(Tag tag) {
-        return new TagResponse(
-                tag.getId(),
-                tag.getName(),
-                tag.getType(),
-                tag.getStatus(),
-                DateTimeUtils.format(tag.getCreateTime()));
+        return TagResponse.builder()
+                .id(tag.getId())
+                .name(tag.getName())
+                .type(tag.getType())
+                .status(tag.getStatus())
+                .createTime(DateTimeUtils.format(tag.getCreateTime()))
+                .build();
     }
 
     private List<String> parseTags(String tagsJson) {

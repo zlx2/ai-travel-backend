@@ -26,11 +26,11 @@ import com.sora.aitravel.mapper.TagMapper;
 import com.sora.aitravel.service.NoteService;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -132,22 +132,23 @@ public class NoteServiceImpl implements NoteService {
     @Transactional
     public Long create(CreateNoteRequest request) {
         Long userId = LoginUserUtils.getUserId();
-
-        Note note = new Note();
-        note.setUserId(userId);
-        note.setTitle(request.getTitle());
-        note.setCoverUrl(request.getCoverUrl());
-        note.setDestination(request.getDestination());
-        note.setSummary(request.getSummary());
-        note.setContent(request.getContent());
-        note.setStatus(request.getStatus());
-        note.setViewCount(0);
-        note.setLikeCount(0);
-        note.setFavoriteCount(0);
-        note.setCommentCount(0);
         LocalDateTime now = LocalDateTime.now();
-        note.setCreateTime(now);
-        note.setUpdateTime(now);
+
+        Note note = Note.builder()
+                .userId(userId)
+                .title(request.getTitle())
+                .coverUrl(request.getCoverUrl())
+                .destination(request.getDestination())
+                .summary(request.getSummary())
+                .content(request.getContent())
+                .status(request.getStatus())
+                .viewCount(0)
+                .likeCount(0)
+                .favoriteCount(0)
+                .commentCount(0)
+                .createTime(now)
+                .updateTime(now)
+                .build();
 
         noteMapper.insert(note);
 
@@ -181,25 +182,26 @@ public class NoteServiceImpl implements NoteService {
         List<String> tags = getTagNamesByNoteId(id);
         List<Long> tagIds = getTagIdsByNoteId(id);
 
-        NoteDetailResponse response = new NoteDetailResponse();
-        response.setId(note.getId());
-        response.setTitle(note.getTitle());
-        response.setCoverUrl(note.getCoverUrl());
-        response.setDestination(note.getDestination());
-        response.setSummary(note.getSummary());
-        response.setContent(note.getContent());
-        response.setAuthorId(note.getUserId());
-        response.setAuthorNickname(author != null ? author.getNickname() : "未知用户");
-        response.setAuthorAvatarUrl(author != null ? author.getAvatarUrl() : null);
-        response.setTags(tags);
-        response.setTagIds(tagIds);
-        response.setViewCount(note.getViewCount());
-        response.setLikeCount(note.getLikeCount());
-        response.setFavoriteCount(note.getFavoriteCount());
-        response.setCommentCount(note.getCommentCount());
-        response.setStatus(note.getStatus());
-        response.setCreateTime(note.getCreateTime() != null ? note.getCreateTime().format(FMT) : null);
-        response.setUpdateTime(note.getUpdateTime() != null ? note.getUpdateTime().format(FMT) : null);
+        NoteDetailResponse response = NoteDetailResponse.builder()
+                .id(note.getId())
+                .title(note.getTitle())
+                .coverUrl(note.getCoverUrl())
+                .destination(note.getDestination())
+                .summary(note.getSummary())
+                .content(note.getContent())
+                .authorId(note.getUserId())
+                .authorNickname(author != null ? author.getNickname() : "未知用户")
+                .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
+                .tags(tags)
+                .tagIds(tagIds)
+                .viewCount(note.getViewCount())
+                .likeCount(note.getLikeCount())
+                .favoriteCount(note.getFavoriteCount())
+                .commentCount(note.getCommentCount())
+                .status(note.getStatus())
+                .createTime(note.getCreateTime() != null ? note.getCreateTime().format(FMT) : null)
+                .updateTime(note.getUpdateTime() != null ? note.getUpdateTime().format(FMT) : null)
+                .build();
 
         // 当前用户是否已点赞/收藏
         try {
@@ -235,12 +237,8 @@ public class NoteServiceImpl implements NoteService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "仅作者可编辑此游记");
         }
 
-        note.setTitle(request.getTitle());
-        note.setCoverUrl(request.getCoverUrl());
-        note.setDestination(request.getDestination());
-        note.setSummary(request.getSummary());
-        note.setContent(request.getContent());
-        note.setStatus(request.getStatus());
+        // 通过 使用BeanUtil 工具 优化代码
+        BeanUtils.copyProperties(request, note);
         note.setUpdateTime(LocalDateTime.now());
         noteMapper.updateById(note);
 
@@ -280,25 +278,22 @@ public class NoteServiceImpl implements NoteService {
     }
 
     private NoteListItemResponse toListItemResponse(Note note) {
-        NoteListItemResponse item = new NoteListItemResponse();
-        item.setId(note.getId());
-        item.setTitle(note.getTitle());
-        item.setCoverUrl(note.getCoverUrl());
-        item.setDestination(note.getDestination());
-        item.setSummary(note.getSummary());
-        item.setAuthorId(note.getUserId());
-
         SysUser author = userMapper.selectById(note.getUserId());
-        item.setAuthorNickname(author != null ? author.getNickname() : "未知用户");
-        item.setAuthorAvatarUrl(author != null ? author.getAvatarUrl() : null);
-
-        item.setTags(getTagNamesByNoteId(note.getId()));
-        item.setLikeCount(note.getLikeCount());
-        item.setFavoriteCount(note.getFavoriteCount());
-        item.setCommentCount(note.getCommentCount());
-        item.setCreateTime(
-                note.getCreateTime() != null ? note.getCreateTime().format(FMT) : null);
-        return item;
+        return NoteListItemResponse.builder()
+                .id(note.getId())
+                .title(note.getTitle())
+                .coverUrl(note.getCoverUrl())
+                .destination(note.getDestination())
+                .summary(note.getSummary())
+                .authorId(note.getUserId())
+                .authorNickname(author != null ? author.getNickname() : "未知用户")
+                .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
+                .tags(getTagNamesByNoteId(note.getId()))
+                .likeCount(note.getLikeCount())
+                .favoriteCount(note.getFavoriteCount())
+                .commentCount(note.getCommentCount())
+                .createTime(note.getCreateTime() != null ? note.getCreateTime().format(FMT) : null)
+                .build();
     }
 
     private List<String> getTagNamesByNoteId(Long noteId) {
@@ -330,14 +325,13 @@ public class NoteServiceImpl implements NoteService {
 
     private void saveNoteTags(Long noteId, List<Long> tagIds) {
         LocalDateTime now = LocalDateTime.now();
-        List<NoteTag> list = new ArrayList<>();
-        for (Long tagId : tagIds) {
-            NoteTag nt = new NoteTag();
-            nt.setNoteId(noteId);
-            nt.setTagId(tagId);
-            nt.setCreateTime(now);
-            list.add(nt);
-        }
+        List<NoteTag> list = tagIds.stream()
+                .map(tagId -> NoteTag.builder()
+                        .noteId(noteId)
+                        .tagId(tagId)
+                        .createTime(now)
+                        .build())
+                .collect(Collectors.toList());
         noteTagMapper.insert(list);
     }
 }

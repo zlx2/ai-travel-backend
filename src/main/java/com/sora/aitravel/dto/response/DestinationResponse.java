@@ -3,6 +3,7 @@ package com.sora.aitravel.dto.response;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.NoArgsConstructor;
  * @param createTime 创建时间
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DestinationResponse {

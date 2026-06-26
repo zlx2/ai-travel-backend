@@ -2,6 +2,7 @@ package com.sora.aitravel.dto.model;
 
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
  * 扩展信息；高德没有返回的数据保持为空，不手动编造评分、人均、营业时间。
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class FoodRestaurantItemDTO {

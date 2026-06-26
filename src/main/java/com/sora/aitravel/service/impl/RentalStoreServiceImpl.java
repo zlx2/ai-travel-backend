@@ -167,35 +167,32 @@ public class RentalStoreServiceImpl implements RentalStoreService {
      */
     RentalStoreDTO buildRentalStoreResponse(
             JSONObject poi, String targetName, RentalStoreUsageEnum usage) {
-        RentalStoreDTO response = new RentalStoreDTO();
-
         String poiId = text(poi, "id");
         String location = text(poi, "location");
         String[] lngLat = location.split(",");
 
-        response.setStoreCode("AMAP_" + poiId);
-        response.setDisplayName(
-                targetName + (usage == RentalStoreUsageEnum.PICKUP ? "推荐取车点" : "推荐还车点"));
-        response.setSource("AMAP_DYNAMIC");
-        response.setUsage(usage.name());
-        response.setAmapPoiId(poiId);
-        response.setAmapPoiName(text(poi, "name"));
-        response.setAddress(text(poi, "address"));
-        response.setCityName(text(poi, "cityname"));
-        response.setAdName(text(poi, "adname"));
-        response.setAdCode(text(poi, "adcode"));
+        RentalStoreDTO.RentalStoreDTOBuilder builder = RentalStoreDTO.builder()
+                .storeCode("AMAP_" + poiId)
+                .displayName(targetName
+                        + (usage == RentalStoreUsageEnum.PICKUP ? "推荐取车点" : "推荐还车点"))
+                .source("AMAP_DYNAMIC")
+                .usage(usage.name())
+                .amapPoiId(poiId)
+                .amapPoiName(text(poi, "name"))
+                .address(text(poi, "address"))
+                .cityName(text(poi, "cityname"))
+                .adName(text(poi, "adname"))
+                .adCode(text(poi, "adcode"))
+                .distanceMeters(intValue(text(poi, "distance"), 999999))
+                .typeCode(text(poi, "typecode"))
+                .openTime(businessText(poi, "opentime_today"))
+                .tel(businessText(poi, "tel"));
 
         if (lngLat.length == 2) {
-            response.setLng(lngLat[0]);
-            response.setLat(lngLat[1]);
+            builder.lng(lngLat[0]).lat(lngLat[1]);
         }
 
-        response.setDistanceMeters(intValue(text(poi, "distance"), 999999));
-        response.setTypeCode(text(poi, "typecode"));
-        response.setOpenTime(businessText(poi, "opentime_today"));
-        response.setTel(businessText(poi, "tel"));
-
-        return response;
+        return builder.build();
     }
 
     private String businessText(JSONObject poi, String fieldName) {
