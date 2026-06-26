@@ -22,6 +22,7 @@ spring:
     port: ${RABBITMQ_PORT}
     username: ${RABBITMQ_USERNAME}
     password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/ai-travel}
   mail:
     host: ${MAIL_HOST:smtp.qq.com}
     port: ${MAIL_PORT:465}
