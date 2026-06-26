@@ -32,13 +32,12 @@ public class CityDataProfileNode {
                 ensureEnoughScenicCandidates(
                         destination, requirement, searchScenicCandidates(destination, requirement));
         List<PoiCandidate> foodCandidates =
-                searchMany(foodKeywords(destination), destination, "FOOD", "适合安排顺路餐饮，减少跨区域移动。");
+                searchMany(foodKeywords(destination), destination, "FOOD");
         List<PoiCandidate> hotelCandidates =
                 searchMany(
                         List.of(destination + " 商圈", destination + " 酒店", destination + " 地铁站"),
                         destination,
-                        "HOTEL",
-                        "适合住宿，交通和餐饮相对便利。");
+                        "HOTEL");
 
         CityProfile profile =
                 new CityProfile(
@@ -61,7 +60,7 @@ public class CityDataProfileNode {
             String destination, TravelRequirementDTO requirement) {
         List<String> keywords = scenicKeywords(destination, requirement);
         List<PoiCandidate> candidates =
-                searchMany(keywords, destination, "SCENIC", scenicReason(requirement));
+                searchMany(keywords, destination, "SCENIC");
         log.info("节点[city-data-profile]：景点关键词={}，候选数={}", keywords, candidates.size());
         return candidates;
     }
@@ -85,15 +84,9 @@ public class CityDataProfileNode {
                         destination + " 文化",
                         destination + " 古街",
                         destination + " 寺庙",
-                        destination + " 展览馆",
-                        destination + " 购物街",
-                        destination + " 商圈",
-                        destination + " 网红打卡");
+                        destination + " 展览馆");
         for (String keyword : retryKeywords) {
-            addCandidates(
-                    candidates,
-                    searchDeep(keyword, destination, "SCENIC", scenicReason(requirement)),
-                    destination);
+            addCandidates(candidates, searchDeep(keyword, destination, "SCENIC"), destination);
             if (candidates.size() >= minimum) {
                 break;
             }
@@ -101,8 +94,7 @@ public class CityDataProfileNode {
 
         log.info(
                 "节点[city-data-profile]：景点候选补查完成，minimum={}, actual={}", minimum, candidates.size());
-        return ensureMinimumMockCandidates(
-                destination, candidates.values().stream().limit(MAX_CANDIDATES).toList(), minimum);
+        return candidates.values().stream().limit(MAX_CANDIDATES).toList();
     }
 
     private void addCandidates(
@@ -115,10 +107,10 @@ public class CityDataProfileNode {
     }
 
     private List<PoiCandidate> searchMany(
-            List<String> keywords, String region, String category, String defaultReason) {
+            List<String> keywords, String region, String category) {
         Map<String, PoiCandidate> deduped = new LinkedHashMap<>();
         for (String keyword : keywords) {
-            for (PoiCandidate candidate : search(keyword, region, category, defaultReason)) {
+            for (PoiCandidate candidate : search(keyword, region, category)) {
                 if (isUsableCandidate(candidate, region)) {
                     deduped.putIfAbsent(dedupKey(candidate), candidate);
                 }
@@ -127,8 +119,7 @@ public class CityDataProfileNode {
         return deduped.values().stream().limit(MAX_CANDIDATES).toList();
     }
 
-    private List<PoiCandidate> search(
-            String keywords, String region, String category, String defaultReason) {
+    private List<PoiCandidate> search(String keywords, String region, String category) {
         try {
             List<PoiCandidate> candidates = new ArrayList<>();
             for (int page = 1; page <= 2; page++) {
@@ -141,7 +132,7 @@ public class CityDataProfileNode {
                 candidates.addAll(
                         pagePois.stream()
                                 .filter(poi -> poi.getName() != null && poi.getLocation() != null)
-                                .map(poi -> toCandidate(category, poi, defaultReason))
+                                .map(poi -> toCandidate(category, poi))
                                 .toList());
             }
             return candidates.stream().limit(MAX_CANDIDATES).toList();
@@ -154,8 +145,7 @@ public class CityDataProfileNode {
         return List.of();
     }
 
-    private List<PoiCandidate> searchDeep(
-            String keywords, String region, String category, String defaultReason) {
+    private List<PoiCandidate> searchDeep(String keywords, String region, String category) {
         try {
             List<PoiCandidate> candidates = new ArrayList<>();
             for (int page = 1; page <= 5; page++) {
@@ -168,7 +158,7 @@ public class CityDataProfileNode {
                 candidates.addAll(
                         pagePois.stream()
                                 .filter(poi -> poi.getName() != null && poi.getLocation() != null)
-                                .map(poi -> toCandidate(category, poi, defaultReason))
+                                .map(poi -> toCandidate(category, poi))
                                 .toList());
             }
             return candidates.stream().limit(MAX_CANDIDATES).toList();
@@ -204,7 +194,7 @@ public class CityDataProfileNode {
         return List.of(destination + " 美食街", destination + " 餐厅", destination + " 老字号");
     }
 
-    private PoiCandidate toCandidate(String category, Poi poi, String reason) {
+    private PoiCandidate toCandidate(String category, Poi poi) {
         return new PoiCandidate(
                 category,
                 poi.getName(),
@@ -213,7 +203,7 @@ public class CityDataProfileNode {
                 poi.getLocation(),
                 "AMAP",
                 poi.getId(),
-                reason,
+                null,
                 parseInteger(poi.getDistance()),
                 poi.getTypecode(),
                 poi.getParent(),
@@ -249,6 +239,10 @@ public class CityDataProfileNode {
                 || name.contains("公交站")) {
             return false;
         }
+        if (("SCENIC".equals(candidate.getCategory()) || "NIGHT".equals(candidate.getCategory()))
+                && isStoreLikeCandidate(candidate)) {
+            return false;
+        }
         if (candidate.getAddress() != null
                 && !candidate.getAddress().isBlank()
                 && destination != null
@@ -258,6 +252,25 @@ public class CityDataProfileNode {
             return false;
         }
         return true;
+    }
+
+    private boolean isStoreLikeCandidate(PoiCandidate candidate) {
+        String name = candidate.getName() == null ? "" : candidate.getName();
+        String typeCode = candidate.getTypeCode() == null ? "" : candidate.getTypeCode();
+        return name.contains("餐厅")
+                || name.contains("饭店")
+                || name.contains("菜馆")
+                || name.contains("小吃")
+                || name.contains("美食")
+                || name.contains("酒店")
+                || name.contains("宾馆")
+                || name.contains("商场")
+                || name.contains("超市")
+                || name.contains("便利店")
+                || name.matches(".*[（(].*店[）)].*")
+                || typeCode.startsWith("05")
+                || typeCode.startsWith("06")
+                || typeCode.startsWith("10");
     }
 
     private String dedupKey(PoiCandidate candidate) {
@@ -274,76 +287,8 @@ public class CityDataProfileNode {
         if (candidates != null && !candidates.isEmpty()) {
             return candidates;
         }
-        return switch (category) {
-            case "FOOD" ->
-                    List.of(
-                            mock(
-                                    category,
-                                    destination + "特色餐饮街区",
-                                    destination + "核心区域",
-                                    "适合穿插午餐或晚餐，减少额外绕路。"));
-            case "HOTEL" ->
-                    List.of(
-                            mock(
-                                    category,
-                                    destination + "核心商圈住宿区域",
-                                    destination + "核心区域",
-                                    "交通和餐饮选择相对集中，适合作为住宿区域。"));
-            default ->
-                    List.of(
-                            mock(
-                                    category,
-                                    destination + "城市地标",
-                                    destination + "核心区域",
-                                    "适合作为城市开场的代表性体验。"),
-                            mock(
-                                    category,
-                                    destination + "历史文化街区",
-                                    destination + "老城区域",
-                                    "适合安排慢走和人文体验。"));
-        };
-    }
-
-    private List<PoiCandidate> ensureMinimumMockCandidates(
-            String destination, List<PoiCandidate> candidates, int minimum) {
-        if (candidates.size() >= minimum) {
-            return candidates;
-        }
-        List<PoiCandidate> result = new ArrayList<>(candidates);
-        List<String> fallbackNames =
-                List.of("城市地标", "历史文化街区", "城市公园", "博物馆", "特色商圈", "老街步行区", "文化广场", "滨水休闲区");
-        int index = 0;
-        while (result.size() < minimum) {
-            String name =
-                    destination
-                            + fallbackNames.get(index % fallbackNames.size())
-                            + (index / fallbackNames.size() + 1);
-            result.add(mock("SCENIC", name, destination + "核心区域", "适合作为当天路线的补充体验。"));
-            index++;
-        }
-        return result;
-    }
-
-    private PoiCandidate mock(String category, String name, String area, String reason) {
-        return new PoiCandidate(
-                category,
-                name,
-                area + "待确认地址",
-                area,
-                null,
-                "MOCK",
-                "MOCK_" + Math.abs(name.hashCode()),
-                reason,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                List.of(),
-                null,
-                List.of());
+        log.warn("节点[city-data-profile]：{} 没有可用真实候选，destination={}", category, destination);
+        return List.of();
     }
 
     private List<String> popularAreas(
@@ -366,13 +311,6 @@ public class CityDataProfileNode {
                 .distinct()
                 .limit(3)
                 .toList();
-    }
-
-    private String scenicReason(TravelRequirementDTO requirement) {
-        if (requirement.getPreferences() == null || requirement.getPreferences().isEmpty()) {
-            return "适合作为目的地代表性景点。";
-        }
-        return "匹配用户偏好：" + String.join("、", requirement.getPreferences()) + "。";
     }
 
     private boolean hasPreference(TravelRequirementDTO requirement, String keyword) {

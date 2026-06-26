@@ -36,15 +36,28 @@ public class TripSummaryNode {
 
     private ScenicSpotDTO toScenicSpot(PoiCandidate candidate) {
         return new ScenicSpotDTO(
-                candidate.getName(), candidate.getArea(), candidate.getReason(), "约2小时", false);
+                candidate.getName(), candidate.getArea(), scenicSummary(candidate), "约2小时", false);
     }
 
     private FoodSpotDTO toFoodSpot(PoiCandidate candidate) {
-        return new FoodSpotDTO(
-                candidate.getName(), candidate.getArea(), "本地美食", candidate.getReason());
+        return new FoodSpotDTO(candidate.getName(), candidate.getArea(), null, null);
     }
 
     private HotelAreaDTO toHotelArea(PoiCandidate candidate) {
-        return new HotelAreaDTO(candidate.getName(), candidate.getReason(), "价格以实际预订平台为准");
+        return new HotelAreaDTO(candidate.getName(), null, null);
+    }
+
+    private String scenicSummary(PoiCandidate candidate) {
+        String name = candidate.getName() == null ? "该景点" : candidate.getName();
+        if (name.contains("博物馆") || name.contains("博物院") || name.contains("纪念馆")) {
+            return "以展陈和主题收藏为主，适合了解当地故事。";
+        }
+        if (name.contains("山") || name.contains("风景区") || name.contains("湿地")) {
+            return "以自然景观和步道游览为主，适合安排慢行。";
+        }
+        if (name.contains("古街") || name.contains("街区") || name.contains("古镇")) {
+            return "以街巷、建筑和沿途小店为主，适合边走边看。";
+        }
+        return "可作为候选景点，具体看点以现场实际信息为准。";
     }
 }

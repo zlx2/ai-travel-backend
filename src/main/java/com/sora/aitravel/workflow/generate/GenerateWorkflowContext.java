@@ -35,13 +35,13 @@ public class GenerateWorkflowContext {
     /** 已确认的结构化旅行需求。 */
     private TravelRequirementDTO requirement;
 
-    /** 行程生成使用的租车报价；租车业务未接入时可由模拟报价补齐。 */
+    /** 行程生成使用的租车报价；仅使用用户已确认并传入的报价。 */
     private RentalQuoteOptionDTO selectedQuote;
 
     /** 整体行程骨架，只描述每天主题和区域，不代表最终地点推荐。 */
     private List<DaySkeleton> daySkeletons;
 
-    /** 城市基础数据池，后续会替换为真实工具查询结果。 */
+    /** 城市基础数据池，来源于真实 POI 查询结果。 */
     private CityProfile cityProfile;
 
     /** 目的地天气预报数据（由 WeatherTool 提供）。 */
@@ -56,7 +56,7 @@ public class GenerateWorkflowContext {
     /** 每天需要调用工具查询的数据计划。 */
     private List<DayQueryPlan> dayQueryPlans;
 
-    /** 按天保存的美食推荐结果，真实查询失败时由美食节点写入 mock 兜底响应。 */
+    /** 按天保存的美食推荐结果；真实查询失败时保存失败响应，不伪造餐饮数据。 */
     private Map<Integer, FoodRecommendResponse> foodRecommendationsByDay;
 
     /** 每天通过工具查询并经后端清洗后的候选数据。 */

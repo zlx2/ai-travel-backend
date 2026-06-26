@@ -1,11 +1,8 @@
 package com.sora.aitravel.workflow.generate;
 
-import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;
 import com.sora.aitravel.service.FoodRecommendService;
-import java.math.BigDecimal;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +12,7 @@ import org.springframework.util.StringUtils;
 /**
  * 美食真实数据获取节点。
  *
- * <p>读取每天的 FOOD 查询计划并调用 {@link FoodRecommendService}。真实查询失败或没有结果时，将城市基础数据池中的模拟美食候选转换为统一响应，
- * 保证 Generate 工作流不中断。
+ * <p>读取每天的 FOOD 查询计划并调用 {@link FoodRecommendService}。真实查询失败或没有结果时返回失败响应，不伪造餐饮数据。
  */
 @Slf4j
 @Component
@@ -50,7 +46,7 @@ public class FoodRecommendNode {
             }
 
             String query = buildQuery(foodQuery, context);
-            FoodRecommendResponse response = queryFood(plan.day(), query, context);
+            FoodRecommendResponse response = queryFood(plan.day(), query);
             recommendationsByDay.put(plan.day(), response);
         }
 
@@ -84,9 +80,8 @@ public class FoodRecommendNode {
         return StringUtils.hasText(city) ? city + "美食推荐" : "美食推荐";
     }
 
-    /** 调用真实美食服务；失败、空结果或异常时统一降级为 mock 响应。 */
-    private FoodRecommendResponse queryFood(
-            Integer day, String query, GenerateWorkflowContext context) {
+    /** 调用真实美食服务；失败、空结果或异常时返回失败响应。 */
+    private FoodRecommendResponse queryFood(Integer day, String query) {
         try {
             FoodRecommendResponse response =
                     foodRecommendService.recommend(
@@ -107,14 +102,15 @@ public class FoodRecommendNode {
                                     + response.getSuccess()
                                     + "，message="
                                     + response.getMessage();
-            return buildMockResponse(day, query, context, reason);
+            log.warn("节点[food-recommend]：第 {} 天无可用真实美食数据，query={}，reason={}", day, query, reason);
+            return FoodRecommendResponse.fail(reason);
         } catch (RuntimeException exception) {
             log.warn(
-                    "节点[food-recommend]：第 {} 天真实美食查询异常，query={}，切换 mock 兜底",
+                    "节点[food-recommend]：第 {} 天真实美食查询异常，query={}",
                     day,
                     query,
                     exception);
-            return buildMockResponse(day, query, context, exception.getMessage());
+            return FoodRecommendResponse.fail("美食查询失败：" + exception.getMessage());
         }
     }
 
@@ -126,76 +122,4 @@ public class FoodRecommendNode {
                 && !response.getList().isEmpty();
     }
 
-    /** 将 CityProfile 中的模拟候选转换成美食模块统一响应。 */
-    private FoodRecommendResponse buildMockResponse(
-            Integer day, String query, GenerateWorkflowContext context, String fallbackReason) {
-        List<FoodRestaurantItemDTO> mockItems = mockItems(context);
-        log.warn(
-                "节点[food-recommend]：第 {} 天使用 mock 美食兜底数据，query={}，reason={}，total={}",
-                day,
-                query,
-                fallbackReason,
-                mockItems.size());
-        return new FoodRecommendResponse(
-                true, "使用 mock 美食兜底数据", "MOCK", "MOCK", null, null, mockItems.size(), mockItems);
-    }
-
-    /** mock 数据只映射已有字段，评分、人均和营业时间等未知信息保持为空。 */
-    private List<FoodRestaurantItemDTO> mockItems(GenerateWorkflowContext context) {
-        if (context.getCityProfile() == null
-                || context.getCityProfile().foodCandidates() == null) {
-            return List.of();
-        }
-        return context.getCityProfile().foodCandidates().stream()
-                .map(this::toMockFoodItem)
-                .toList();
-    }
-
-    /** 将工作流统一 POI 候选转换成饭店 DTO。 */
-    private FoodRestaurantItemDTO toMockFoodItem(PoiCandidate candidate) {
-        BigDecimal longitude = null;
-        BigDecimal latitude = null;
-        if (candidate != null
-                && StringUtils.hasText(candidate.getLocation())
-                && candidate.getLocation().contains(",")) {
-            String[] parts = candidate.getLocation().split(",");
-            longitude = parseDecimal(parts[0]);
-            latitude = parts.length > 1 ? parseDecimal(parts[1]) : null;
-        }
-
-        return new FoodRestaurantItemDTO(
-                candidate == null ? null : candidate.getSourcePoiId(),
-                candidate == null ? null : candidate.getName(),
-                candidate == null ? null : candidate.getAddress(),
-                null,
-                candidate == null ? null : candidate.getArea(),
-                null,
-                null,
-                null,
-                null,
-                candidate == null ? null : candidate.getLocation(),
-                longitude,
-                latitude,
-                candidate == null ? null : candidate.getDistanceMeters(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                candidate == null ? null : candidate.getArea(),
-                null,
-                candidate == null ? null : candidate.getReason(),
-                "");
-    }
-
-    /** 安全转换经纬度数字，格式异常时保持为空。 */
-    private BigDecimal parseDecimal(String value) {
-        try {
-            return StringUtils.hasText(value) ? new BigDecimal(value.trim()) : null;
-        } catch (NumberFormatException exception) {
-            return null;
-        }
-    }
 }

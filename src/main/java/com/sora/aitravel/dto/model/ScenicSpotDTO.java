@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 /**
  * 景点推荐候选。
  *
- * <p>当前可由假数据节点生成，后续可替换为数据库、高德 POI 或 AI 评估后的真实推荐。
+ * <p>由真实 POI 查询结果或 AI 评估后的真实候选生成，不承载伪造景点。
  *
  * @param name 景点名称
  * @param area 所在区域
