@@ -1,7 +1,9 @@
 package com.sora.aitravel.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import com.sora.aitravel.common.result.*;
+import com.sora.aitravel.common.result.R;
+import com.sora.aitravel.dto.request.SendChangeEmailCodeRequest;
+import com.sora.aitravel.dto.request.UpdateUserEmailRequest;
 import com.sora.aitravel.dto.request.UpdateUserProfileRequest;
 import com.sora.aitravel.dto.response.UserInfoResponse;
 import com.sora.aitravel.service.UserService;
@@ -44,6 +46,30 @@ public class UserController {
     @PutMapping("/me")
     public R<Void> update(@Valid @RequestBody UpdateUserProfileRequest request) {
         userService.updateCurrentUser(request);
+        return R.ok();
+    }
+
+    /**
+     * 发送修改邮箱验证码到新邮箱。
+     *
+     * @param request 包含新邮箱地址的请求
+     * @return 无返回内容，验证码发送成功即返回成功响应
+     */
+    @PostMapping("/me/email-code")
+    public R<Void> sendChangeEmailCode(@Valid @RequestBody SendChangeEmailCodeRequest request) {
+        userService.sendChangeEmailCode(request);
+        return R.ok();
+    }
+
+    /**
+     * 确认修改当前登录用户的邮箱。
+     *
+     * @param request 包含新邮箱和验证码的请求
+     * @return 无返回内容，邮箱修改成功即返回成功响应
+     */
+    @PutMapping("/me/email")
+    public R<Void> updateEmail(@Valid @RequestBody UpdateUserEmailRequest request) {
+        userService.updateCurrentUserEmail(request);
         return R.ok();
     }
 }

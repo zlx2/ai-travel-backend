@@ -1,12 +1,14 @@
 package com.sora.aitravel.service;
 
+import com.sora.aitravel.dto.request.SendChangeEmailCodeRequest;
+import com.sora.aitravel.dto.request.UpdateUserEmailRequest;
 import com.sora.aitravel.dto.request.UpdateUserProfileRequest;
 import com.sora.aitravel.dto.response.UserInfoResponse;
 
 /**
  * 用户服务接口。
  *
- * <p>提供当前登录用户的基本信息查询和个人资料更新功能。
+ * <p>提供当前登录用户的基本信息查询、个人资料更新和邮箱修改功能。
  */
 public interface UserService {
     /**
@@ -22,4 +24,18 @@ public interface UserService {
      * @param request 更新用户资料请求
      */
     void updateCurrentUser(UpdateUserProfileRequest request);
+
+    /**
+     * 发送修改邮箱验证码。
+     *
+     * @param request 包含新邮箱地址的请求
+     */
+    void sendChangeEmailCode(SendChangeEmailCodeRequest request);
+
+    /**
+     * 确认修改当前登录用户的邮箱。
+     *
+     * @param request 包含新邮箱和验证码的请求
+     */
+    void updateCurrentUserEmail(UpdateUserEmailRequest request);
 }

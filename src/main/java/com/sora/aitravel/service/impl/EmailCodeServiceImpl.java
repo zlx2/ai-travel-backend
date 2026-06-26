@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class EmailCodeServiceImpl implements EmailCodeService {
 
     private static final String REGISTER_SCENE = "register";
+    private static final String CHANGE_EMAIL_SCENE = "change_email";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final StringRedisTemplate redisTemplate;
@@ -32,8 +33,8 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         String normalizedEmail = normalizeEmail(email);
         validateScene(scene);
 
-        // 注册场景：发送验证码前先校验邮箱是否已被注册，避免无效请求占用限流窗口。
-        if (REGISTER_SCENE.equals(scene)) {
+        // 注册或修改邮箱场景：发送验证码前先校验邮箱是否已被注册，避免无效请求占用限流窗口。
+        if (REGISTER_SCENE.equals(scene) || CHANGE_EMAIL_SCENE.equals(scene)) {
             Long count =
                     userMapper.selectCount(
                             new LambdaQueryWrapper<SysUser>()
@@ -91,8 +92,8 @@ public class EmailCodeServiceImpl implements EmailCodeService {
     }
 
     private void validateScene(String scene) {
-        if (!REGISTER_SCENE.equals(scene)) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "一期仅支持注册验证码");
+        if (!REGISTER_SCENE.equals(scene) && !CHANGE_EMAIL_SCENE.equals(scene)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "不支持的验证码场景：" + scene);
         }
     }
 
