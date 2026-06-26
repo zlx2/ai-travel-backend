@@ -22,6 +22,7 @@ public class GenerateResultMergeNode {
                 new TripGenerateResponse(
                         SCHEMA_VERSION,
                         context.getRequest().getConversationId(),
+                        null,
                         requirement,
                         context.getSelectedQuote(),
                         context.getRecommendationContext(),

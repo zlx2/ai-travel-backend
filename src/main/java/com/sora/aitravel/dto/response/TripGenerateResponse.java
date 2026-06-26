@@ -23,6 +23,7 @@ public class TripGenerateResponse {
 
     private String schemaVersion;
     private String conversationId;
+    private String generationSessionId;
     private TravelRequirementDTO requirement;
     private RentalQuoteOptionDTO selectedQuote;
     private RecommendationContextDTO recommendationContext;

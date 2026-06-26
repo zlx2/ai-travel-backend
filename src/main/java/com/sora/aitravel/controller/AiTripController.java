@@ -1,17 +1,29 @@
 package com.sora.aitravel.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.result.*;
 import com.sora.aitravel.common.utils.LoginUserUtils;
+import com.sora.aitravel.dto.message.TripDayGenerateMessage;
+import com.sora.aitravel.dto.model.RecommendationContextDTO;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.request.*;
 import com.sora.aitravel.dto.response.*;
+import com.sora.aitravel.entity.AiTripDayGeneration;
+import com.sora.aitravel.entity.AiTripGenerationSession;
+import com.sora.aitravel.service.AiTripDayGenerateService;
+import com.sora.aitravel.service.AiTripGenerationOrchestrator;
+import com.sora.aitravel.service.AiTripGenerationSessionService;
+import com.sora.aitravel.service.TripDayGenerateMessageProducer;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
-import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
-import com.sora.aitravel.workflow.generate.TripGenerateWorkflow;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,8 +47,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequestMapping("/api/ai/trips")
 public class AiTripController {
 
-    private final TripGenerateWorkflow tripGenerateWorkflow;
     private final TripAnalyzeWorkflow tripAnalyzeWorkflow;
+    private final AiTripGenerationOrchestrator aiTripGenerationOrchestrator;
+    private final AiTripDayGenerateService aiTripDayGenerateService;
+    private final AiTripGenerationSessionService aiTripGenerationSessionService;
+    private final TripDayGenerateMessageProducer tripDayGenerateMessageProducer;
+    private final ObjectMapper objectMapper;
 
     /**
      * AI 分析用户旅行需求（需登录）。
@@ -62,10 +78,70 @@ public class AiTripController {
      */
     @PostMapping("/generate")
     public R<TripGenerateResponse> generate(@Valid @RequestBody TripGenerateRequest request) {
-        GenerateWorkflowContext context = new GenerateWorkflowContext();
-        context.setUserId(LoginUserUtils.getUserId());
-        context.setRequest(request);
-        return R.ok(tripGenerateWorkflow.execute(context).getResult());
+        return R.ok(generateFirstDayAndPrefetchNext(LoginUserUtils.getUserId(), request));
+    }
+
+    @PostMapping("/generate/session")
+    public R<TripGenerateSessionResponse> prepareSession(
+            @Valid @RequestBody TripGenerateRequest request) {
+        AiTripGenerationSession session =
+                aiTripGenerationOrchestrator.prepareSession(LoginUserUtils.getUserId(), request);
+        return R.ok(
+                new TripGenerateSessionResponse(
+                        session.getSessionId(),
+                        session.getConversationId(),
+                        session.getStatus(),
+                        session.getErrorMessage()));
+    }
+
+    @PostMapping("/generate/session/{sessionId}/days/{dayNo}")
+    public R<TripGenerateDayResponse> generateDay(
+            @PathVariable String sessionId,
+            @PathVariable Integer dayNo,
+            @RequestParam(defaultValue = "USER") String requestMode,
+            @RequestParam(defaultValue = "false") boolean forceRegenerate,
+            @RequestParam(defaultValue = "false") boolean prefetchNext) {
+        AiTripDayGeneration day =
+                aiTripDayGenerateService.generateDay(
+                        sessionId, dayNo, requestMode, forceRegenerate);
+        if (prefetchNext) {
+            enqueueNextDay(sessionId, dayNo);
+        }
+        return R.ok(
+                new TripGenerateDayResponse(
+                        day.getSessionId(),
+                        day.getDayNo(),
+                        day.getGenerationVersion(),
+                        day.getIsCurrent(),
+                        day.getStatus(),
+                        day.getResultJson(),
+                        day.getErrorMessage()));
+    }
+
+    private void enqueueNextDay(String sessionId, Integer dayNo) {
+        try {
+            AiTripGenerationSession session =
+                    aiTripGenerationSessionService.getBySessionId(sessionId);
+            if (session == null || session.getRequirementJson() == null) {
+                return;
+            }
+            TravelRequirementDTO requirement =
+                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+            int nextDay = dayNo + 1;
+            if (requirement.getDays() == null || nextDay > requirement.getDays()) {
+                return;
+            }
+            tripDayGenerateMessageProducer.send(
+                    new TripDayGenerateMessage(
+                            sessionId,
+                            session.getUserId(),
+                            nextDay,
+                            "PREFETCH",
+                            false,
+                            UUID.randomUUID().toString()));
+        } catch (Exception exception) {
+            log.warn("投递下一天预生成失败，sessionId={}, dayNo={}", sessionId, dayNo, exception);
+        }
     }
 
     @PostMapping(value = "/generate/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -74,25 +150,12 @@ public class AiTripController {
         Long userId = LoginUserUtils.getUserId();
         CompletableFuture.runAsync(
                 () -> {
-                    GenerateWorkflowContext context = new GenerateWorkflowContext();
-                    context.setUserId(userId);
-                    context.setRequest(request);
                     try {
                         sendProgress(emitter, "start", "start", "开始生成行程", 1, null, null);
-                        GenerateWorkflowContext result =
-                                tripGenerateWorkflow.executeWithProgress(
-                                        context,
-                                        (node, progress) ->
-                                                sendProgress(
-                                                        emitter,
-                                                        "progress",
-                                                        node,
-                                                        progressLabel(node),
-                                                        progress,
-                                                        null,
-                                                        null));
+                        sendProgress(emitter, "progress", "prepare-session", "正在准备行程上下文", 20, null, null);
+                        TripGenerateResponse result = generateFirstDayAndPrefetchNext(userId, request);
                         sendProgress(
-                                emitter, "done", "done", "行程生成完成", 100, result.getResult(), null);
+                                emitter, "done", "done", "第 1 天行程生成完成", 100, result, null);
                         emitter.complete();
                     } catch (Exception ex) {
                         log.warn("AI 行程流式生成失败", ex);
@@ -102,6 +165,89 @@ public class AiTripController {
                     }
                 });
         return emitter;
+    }
+
+    private TripGenerateResponse generateFirstDayAndPrefetchNext(
+            Long userId, TripGenerateRequest request) {
+        AiTripGenerationSession session = aiTripGenerationOrchestrator.prepareSession(userId, request);
+        AiTripDayGeneration day =
+                aiTripDayGenerateService.generateDay(session.getSessionId(), 1, "USER", false);
+        enqueueNextDay(session.getSessionId(), 1);
+        return buildGenerateResponse(session, day, request.getSelectedQuote());
+    }
+
+    private TripGenerateResponse buildGenerateResponse(
+            AiTripGenerationSession session,
+            AiTripDayGeneration day,
+            RentalQuoteOptionDTO selectedQuote) {
+        try {
+            TravelRequirementDTO requirement =
+                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+            TripPlanDTO.DailyPlan dailyPlan =
+                    objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+            TripPlanDTO tripPlan =
+                    new TripPlanDTO(
+                            displayDestination(requirement) + requirement.getDays() + "日旅行方案",
+                            displayDestination(requirement),
+                            requirement.getDays(),
+                            "已生成第 " + dailyPlan.getDay() + " 天行程，后续天数将按需生成。",
+                            null,
+                            List.of(dailyPlan),
+                            budgetSummary(List.of(dailyPlan)),
+                            List.of("下一天行程会在后台预生成，点击对应日期时优先返回已生成版本。"),
+                            new TripPlanDTO.DataQuality(
+                                    "AMAP",
+                                    "AMAP",
+                                    "AMAP_AVERAGE_COST_AND_ROUTE;TICKET_HOTEL_UNAVAILABLE"));
+            return new TripGenerateResponse(
+                    "trip-plan-v1",
+                    session.getConversationId(),
+                    session.getSessionId(),
+                    requirement,
+                    selectedQuote,
+                    (RecommendationContextDTO) null,
+                    tripPlan);
+        } catch (Exception exception) {
+            throw new IllegalStateException("组装单日生成响应失败", exception);
+        }
+    }
+
+    private TripPlanDTO.BudgetSummary budgetSummary(List<TripPlanDTO.DailyPlan> dailyPlans) {
+        int tickets = 0;
+        int food = 0;
+        int transport = 0;
+        for (TripPlanDTO.DailyPlan day : dailyPlans) {
+            if (day.getEstimatedCost() == null) {
+                continue;
+            }
+            tickets += value(day.getEstimatedCost().getTickets());
+            food += value(day.getEstimatedCost().getFood());
+            transport += value(day.getEstimatedCost().getTransport());
+        }
+        TripPlanDTO.BudgetSummary summary = new TripPlanDTO.BudgetSummary();
+        summary.setTicketCost(tickets);
+        summary.setFoodCost(food);
+        summary.setTransportCost(transport);
+        summary.setHotelCost(null);
+        summary.setTotalEstimatedCost(tickets + food + transport);
+        summary.setTicketSource("UNAVAILABLE");
+        summary.setHotelSource("UNAVAILABLE");
+        summary.setExcludesUnknownItems(true);
+        return summary;
+    }
+
+    private int value(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private String displayDestination(TravelRequirementDTO requirement) {
+        if (requirement.getDestination() != null && !requirement.getDestination().isBlank()) {
+            return requirement.getDestination();
+        }
+        if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
+            return requirement.getRouteRegion();
+        }
+        return requirement.getRouteCities() == null ? "" : String.join("-", requirement.getRouteCities());
     }
 
     private boolean sendProgress(

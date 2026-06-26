@@ -73,4 +73,17 @@ public class GenerateWorkflowContext {
 
     /** 最终的结构化行程生成结果（包含每日计划等），供 Controller 返回给前端。 */
     private TripGenerateResponse result;
+
+    /** 当前是否只生成单日行程。 */
+    private Boolean singleDayGeneration;
+
+    public boolean hasScenicCandidates() {
+        return cityProfile != null
+                && cityProfile.scenicCandidates() != null
+                && !cityProfile.scenicCandidates().isEmpty();
+    }
+
+    public boolean isSingleDayGeneration() {
+        return Boolean.TRUE.equals(singleDayGeneration);
+    }
 }
