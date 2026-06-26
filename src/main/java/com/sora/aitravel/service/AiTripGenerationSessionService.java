@@ -10,6 +10,8 @@ public interface AiTripGenerationSessionService {
 
     AiTripGenerationSession getBySessionId(String sessionId);
 
+    void updateRequirementJson(String sessionId, String requirementJson);
+
     void markPrepared(
             String sessionId,
             String daySkeletonsJson,

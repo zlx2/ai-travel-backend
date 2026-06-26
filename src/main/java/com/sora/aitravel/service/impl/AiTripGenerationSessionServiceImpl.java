@@ -44,6 +44,15 @@ public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessi
     }
 
     @Override
+    public void updateRequirementJson(String sessionId, String requirementJson) {
+        mapper.update(
+                null,
+                new LambdaUpdateWrapper<AiTripGenerationSession>()
+                        .eq(AiTripGenerationSession::getSessionId, sessionId)
+                        .set(AiTripGenerationSession::getRequirementJson, requirementJson));
+    }
+
+    @Override
     public void markPrepared(
             String sessionId,
             String daySkeletonsJson,

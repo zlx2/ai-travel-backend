@@ -1,0 +1,86 @@
+{
+  "新疆": {
+    "type": "PROVINCE",
+    "aliases": ["新疆维吾尔自治区", "北疆", "南疆"],
+    "defaultCity": "乌鲁木齐",
+    "presets": [
+      {
+        "name": "乌鲁木齐-吐鲁番短线",
+        "minDays": 3,
+        "maxDays": 4,
+        "cities": ["乌鲁木齐", "吐鲁番"],
+        "tags": ["人文", "美食", "轻松"]
+      },
+      {
+        "name": "北疆入门",
+        "minDays": 5,
+        "maxDays": 7,
+        "cities": ["乌鲁木齐", "伊宁", "赛里木湖"],
+        "tags": ["自然", "摄影"]
+      }
+    ]
+  },
+  "海南": {
+    "type": "PROVINCE",
+    "aliases": ["海南岛", "海南环岛"],
+    "defaultCity": "海口",
+    "presets": [
+      {
+        "name": "海口-三亚经典线",
+        "minDays": 4,
+        "maxDays": 5,
+        "cities": ["海口", "三亚"],
+        "tags": ["海岛", "美食", "轻松"]
+      },
+      {
+        "name": "三亚度假线",
+        "minDays": 2,
+        "maxDays": 4,
+        "cities": ["三亚"],
+        "tags": ["海岛", "度假", "亲子"]
+      }
+    ]
+  },
+  "云南": {
+    "type": "PROVINCE",
+    "aliases": ["滇西北", "云南环线"],
+    "defaultCity": "昆明",
+    "presets": [
+      {
+        "name": "昆明-大理短线",
+        "minDays": 3,
+        "maxDays": 4,
+        "cities": ["昆明", "大理"],
+        "tags": ["古城", "美食", "轻松"]
+      },
+      {
+        "name": "昆明-大理-丽江",
+        "minDays": 5,
+        "maxDays": 7,
+        "cities": ["昆明", "大理", "丽江"],
+        "tags": ["自然", "人文", "古城"]
+      }
+    ]
+  },
+  "四川": {
+    "type": "PROVINCE",
+    "aliases": ["川西", "四川环线"],
+    "defaultCity": "成都",
+    "presets": [
+      {
+        "name": "成都城市短线",
+        "minDays": 1,
+        "maxDays": 3,
+        "cities": ["成都"],
+        "tags": ["美食", "人文", "轻松"]
+      },
+      {
+        "name": "成都-都江堰短线",
+        "minDays": 4,
+        "maxDays": 5,
+        "cities": ["成都", "都江堰"],
+        "tags": ["人文", "自然", "亲子"]
+      }
+    ]
+  }
+}

@@ -25,28 +25,41 @@ public class TripSkeletonNode {
     }
 
     private DaySkeleton buildSkeleton(TravelRequirementDTO requirement, int day) {
-        String destination = displayDestination(requirement);
+        String city = resolveCityForDay(requirement, day);
         boolean light = "LIGHT".equals(requirement.getPace());
         if (day == 1) {
-            return new DaySkeleton(day, "地标漫游与城市开场", destination + "核心商圈", "LIGHT");
+            return new DaySkeleton(day, city + "城市开场", city + "核心城区", "LIGHT");
         }
         if (day == requirement.getDays()) {
-            return new DaySkeleton(day, "慢游收束与从容返程", destination + "休闲街区", "LIGHT");
+            return new DaySkeleton(day, city + "慢游收束", city + "休闲街区", "LIGHT");
         }
         if (day == 2 && (hasPreference(requirement, "夜景") || hasPreference(requirement, "夜市"))) {
             return new DaySkeleton(
-                    day, "人文街区与夜色漫游", destination + "夜间活跃区域", light ? "LIGHT" : "NORMAL");
+                    day, city + "夜色漫游", city + "夜间活跃区域", light ? "LIGHT" : "NORMAL");
         }
         if (hasPreference(requirement, "自然")) {
             return new DaySkeleton(
-                    day, "自然风光与轻户外", destination + "自然景区周边", light ? "LIGHT" : "NORMAL");
+                    day, city + "自然风光", city + "自然景区周边", light ? "LIGHT" : "NORMAL");
         }
         if (hasPreference(requirement, "美食")) {
             return new DaySkeleton(
-                    day, "老城烟火与美食探索", destination + "老城与美食街区", light ? "LIGHT" : "NORMAL");
+                    day, city + "美食探索", city + "老城与美食街区", light ? "LIGHT" : "NORMAL");
         }
         return new DaySkeleton(
-                day, "经典景点与顺路美食", destination + "热门游览区域", light ? "LIGHT" : "NORMAL");
+                day, city + "经典景点", city + "热门游览区域", light ? "LIGHT" : "NORMAL");
+    }
+
+    private String resolveCityForDay(TravelRequirementDTO requirement, int day) {
+        List<String> routeCities = requirement.getRouteCities();
+        if (routeCities != null && !routeCities.isEmpty()) {
+            int days = requirement.getDays() != null ? requirement.getDays() : 1;
+            int cityIndex = (int) Math.floor((double) (day - 1) * routeCities.size() / days);
+            if (cityIndex >= routeCities.size()) {
+                cityIndex = routeCities.size() - 1;
+            }
+            return routeCities.get(cityIndex);
+        }
+        return displayDestination(requirement);
     }
 
     private boolean hasPreference(TravelRequirementDTO requirement, String keyword) {

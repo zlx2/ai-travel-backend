@@ -14,6 +14,7 @@ import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
 import com.sora.aitravel.workflow.generate.HotelFetchNode;
 import com.sora.aitravel.workflow.generate.RequirementLoadNode;
 import com.sora.aitravel.workflow.generate.RequirementValidateNode;
+import com.sora.aitravel.workflow.generate.RouteScopeResolveNode;
 import com.sora.aitravel.workflow.generate.TripSkeletonNode;
 import com.sora.aitravel.workflow.generate.WeatherFetchNode;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
     private final AiTripGenerationSessionService sessionService;
     private final RequirementValidateNode requirementValidateNode;
     private final RequirementLoadNode requirementLoadNode;
+    private final RouteScopeResolveNode routeScopeResolveNode;
     private final TripSkeletonNode tripSkeletonNode;
     private final CityDataProfileNode cityDataProfileNode;
     private final WeatherFetchNode weatherFetchNode;
@@ -45,6 +47,9 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
         try {
             requirementValidateNode.execute(context);
             requirementLoadNode.execute(context);
+            routeScopeResolveNode.execute(context);
+            sessionService.updateRequirementJson(
+                    session.getSessionId(), writeJson(context.getRequirement()));
             tripSkeletonNode.execute(context);
             cityDataProfileNode.execute(context);
             validatePreparedContext(context);

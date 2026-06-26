@@ -27,33 +27,68 @@ public class CityDataProfileNode {
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
         String destination = displayDestination(requirement);
+        List<String> searchCities = resolveSearchCities(requirement, destination);
 
-        List<PoiCandidate> scenicCandidates =
-                ensureEnoughScenicCandidates(
-                        destination, requirement, searchScenicCandidates(destination, requirement));
-        List<PoiCandidate> foodCandidates =
-                searchMany(foodKeywords(destination), destination, "FOOD");
-        List<PoiCandidate> hotelCandidates =
-                searchMany(
-                        List.of(destination + " 商圈", destination + " 酒店", destination + " 地铁站"),
-                        destination,
-                        "HOTEL");
+        List<PoiCandidate> scenicCandidates = new ArrayList<>();
+        List<PoiCandidate> foodCandidates = new ArrayList<>();
+        List<PoiCandidate> hotelCandidates = new ArrayList<>();
+
+        for (String city : searchCities) {
+            scenicCandidates.addAll(
+                    ensureEnoughScenicCandidates(
+                            city, requirement, searchScenicCandidates(city, requirement)));
+            foodCandidates.addAll(searchMany(foodKeywords(city), city, "FOOD"));
+            hotelCandidates.addAll(
+                    searchMany(
+                            List.of(city + " 商圈", city + " 酒店", city + " 地铁站"),
+                            city,
+                            "HOTEL"));
+        }
+
+        List<PoiCandidate> mergedScenic =
+                deduplicateCandidates(scenicCandidates.stream().limit(MAX_CANDIDATES).toList());
+        List<PoiCandidate> mergedFood =
+                deduplicateCandidates(foodCandidates.stream().limit(MAX_CANDIDATES).toList());
+        List<PoiCandidate> mergedHotel =
+                deduplicateCandidates(hotelCandidates.stream().limit(MAX_CANDIDATES).toList());
 
         CityProfile profile =
                 new CityProfile(
                         destination,
-                        popularAreas(destination, hotelCandidates, scenicCandidates),
-                        List.of(destination + "火车站", destination + "机场"),
-                        ensureCandidates(destination, "SCENIC", scenicCandidates),
-                        ensureCandidates(destination, "FOOD", foodCandidates),
-                        ensureCandidates(destination, "HOTEL", hotelCandidates));
+                        popularAreas(destination, mergedHotel, mergedScenic),
+                        searchCities.stream()
+                                .flatMap(city -> List.of(city + "火车站", city + "机场").stream())
+                                .distinct()
+                                .toList(),
+                        ensureCandidates(destination, "SCENIC", mergedScenic),
+                        ensureCandidates(destination, "FOOD", mergedFood),
+                        ensureCandidates(destination, "HOTEL", mergedHotel));
         context.setCityProfile(profile);
         log.info(
-                "节点[city-data-profile]：城市数据准备完成，destination={}, scenic={}, food={}, hotel={}",
+                "节点[city-data-profile]：城市数据准备完成，destination={}, searchCities={}, scenic={}, food={}, hotel={}",
                 destination,
+                searchCities,
                 profile.scenicCandidates().size(),
                 profile.foodCandidates().size(),
                 profile.hotelCandidates().size());
+    }
+
+    private List<String> resolveSearchCities(
+            TravelRequirementDTO requirement, String fallbackDestination) {
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            return requirement.getRouteCities().stream().distinct().toList();
+        }
+        return List.of(fallbackDestination);
+    }
+
+    private List<PoiCandidate> deduplicateCandidates(List<PoiCandidate> candidates) {
+        Map<String, PoiCandidate> deduped = new LinkedHashMap<>();
+        for (PoiCandidate candidate : candidates) {
+            if (candidate != null) {
+                deduped.putIfAbsent(dedupKey(candidate), candidate);
+            }
+        }
+        return deduped.values().stream().toList();
     }
 
     private List<PoiCandidate> searchScenicCandidates(
