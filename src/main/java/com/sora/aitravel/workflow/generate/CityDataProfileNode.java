@@ -46,11 +46,11 @@ public class CityDataProfileNode {
         }
 
         List<PoiCandidate> mergedScenic =
-                deduplicateCandidates(scenicCandidates.stream().limit(MAX_CANDIDATES).toList());
+                limitBalanced(searchCities, scenicCandidates, MAX_CANDIDATES);
         List<PoiCandidate> mergedFood =
-                deduplicateCandidates(foodCandidates.stream().limit(MAX_CANDIDATES).toList());
+                limitBalanced(searchCities, foodCandidates, MAX_CANDIDATES);
         List<PoiCandidate> mergedHotel =
-                deduplicateCandidates(hotelCandidates.stream().limit(MAX_CANDIDATES).toList());
+                limitBalanced(searchCities, hotelCandidates, MAX_CANDIDATES);
 
         CityProfile profile =
                 new CityProfile(
@@ -89,6 +89,47 @@ public class CityDataProfileNode {
             }
         }
         return deduped.values().stream().toList();
+    }
+
+    private List<PoiCandidate> limitBalanced(
+            List<String> searchCities, List<PoiCandidate> raw, int maxTotal) {
+        List<PoiCandidate> deduped = deduplicateCandidates(raw);
+        if (searchCities.size() <= 1 || deduped.size() <= maxTotal) {
+            return deduped.stream().limit(maxTotal).toList();
+        }
+        int perCity = Math.max(20, maxTotal / searchCities.size());
+        List<PoiCandidate> result = new ArrayList<>();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (String city : searchCities) {
+            int added = 0;
+            for (PoiCandidate c : deduped) {
+                if (added >= perCity) break;
+                String key = dedupKey(c);
+                if (!used.contains(key) && matchesCity(c, city)) {
+                    result.add(c);
+                    used.add(key);
+                    added++;
+                }
+            }
+        }
+        for (PoiCandidate c : deduped) {
+            if (result.size() >= maxTotal) break;
+            String key = dedupKey(c);
+            if (!used.contains(key)) {
+                result.add(c);
+                used.add(key);
+            }
+        }
+        return result;
+    }
+
+    private boolean matchesCity(PoiCandidate candidate, String city) {
+        String name = candidate.getName();
+        String area = candidate.getArea();
+        String address = candidate.getAddress();
+        return (name != null && name.contains(city))
+                || (area != null && area.contains(city))
+                || (address != null && address.contains(city));
     }
 
     private List<PoiCandidate> searchScenicCandidates(

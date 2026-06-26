@@ -28,7 +28,7 @@ public class HotelFetchNode {
      */
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
-        String destination = requirement.getDestination();
+        String destination = primarySearchCity(requirement);
 
         if (destination == null || destination.isBlank()) {
             log.warn("节点[hotel-fetch]：目的地为空，跳过酒店查询");
@@ -51,5 +51,15 @@ public class HotelFetchNode {
             log.error("节点[hotel-fetch]：酒店查询失败，destination={}", destination, e);
             context.setHotelSearchResult("酒店数据暂不可用：" + e.getMessage());
         }
+    }
+
+    private String primarySearchCity(TravelRequirementDTO requirement) {
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            return requirement.getRouteCities().get(0);
+        }
+        if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
+            return requirement.getRouteRegion();
+        }
+        return requirement.getDestination();
     }
 }

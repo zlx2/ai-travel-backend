@@ -84,7 +84,14 @@ public class RouteScopeResolveNode {
             requirement.setRouteStructure(
                     preset.getCities().size() > 1 ? "MULTI_CITY" : "SINGLE_CITY");
         } else {
-            fallbackSingleCity(requirement, destination);
+            String fallbackCity =
+                    group.getDefaultCity() != null && !group.getDefaultCity().isBlank()
+                            ? group.getDefaultCity()
+                            : destination;
+            requirement.setRouteRegion(standardName);
+            requirement.setRouteCities(List.of(fallbackCity));
+            requirement.setRouteMode("REGION");
+            requirement.setRouteStructure("SINGLE_CITY");
         }
     }
 

@@ -20,7 +20,7 @@ public class WeatherFetchNode {
 
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
-        String destination = requirement.getDestination();
+        String destination = primarySearchCity(requirement);
 
         if (destination == null || destination.isBlank()) {
             log.warn("节点[weather-fetch]：目的地为空，跳过天气查询");
@@ -36,5 +36,15 @@ public class WeatherFetchNode {
             log.error("节点[weather-fetch]：天气查询失败，destination={}", destination, e);
             context.setWeatherForecast("天气数据暂不可用：" + e.getMessage());
         }
+    }
+
+    private String primarySearchCity(TravelRequirementDTO requirement) {
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            return requirement.getRouteCities().get(0);
+        }
+        if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
+            return requirement.getRouteRegion();
+        }
+        return requirement.getDestination();
     }
 }
