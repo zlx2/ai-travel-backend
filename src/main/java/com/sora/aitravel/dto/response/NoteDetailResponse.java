@@ -17,7 +17,8 @@ import lombok.NoArgsConstructor;
  * @param authorId 作者用户 ID
  * @param authorNickname 作者昵称
  * @param authorAvatarUrl 作者头像 URL
- * @param tags 关联标签列表
+ * @param tags 关联标签名称列表
+ * @param tagIds 关联标签 ID 列表
  * @param viewCount 浏览数
  * @param likeCount 点赞数
  * @param favoriteCount 收藏数
@@ -42,7 +43,8 @@ public class NoteDetailResponse {
     private Long authorId;
     private String authorNickname;
     private String authorAvatarUrl;
-    private List<TagResponse> tags;
+    private List<String> tags;
+    private List<Long> tagIds;
     private Integer viewCount;
     private Integer likeCount;
     private Integer favoriteCount;

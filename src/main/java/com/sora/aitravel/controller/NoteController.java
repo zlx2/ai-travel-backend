@@ -4,7 +4,9 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.sora.aitravel.common.result.*;
 import com.sora.aitravel.dto.request.*;
 import com.sora.aitravel.dto.response.*;
+import com.sora.aitravel.service.NoteService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,7 +20,11 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/notes")
+@RequiredArgsConstructor
 public class NoteController {
+
+    private final NoteService noteService;
+
     /**
      * 分页查询游记列表（公开接口）。
      *
@@ -38,7 +44,24 @@ public class NoteController {
             @RequestParam(required = false) String destination,
             @RequestParam(required = false) Long tagId,
             @RequestParam(defaultValue = "latest") String sort) {
-        return ScaffoldResponses.notImplemented();
+        return R.ok(noteService.list(pageNum, pageSize, keyword, destination, tagId, sort));
+    }
+
+    /**
+     * 分页查询当前用户的游记列表（需登录，含草稿和已发布）。
+     *
+     * @param pageNum 页码，默认 1
+     * @param pageSize 每页条数，默认 10
+     * @param status 状态筛选（可选，0-草稿，1-已发布），不传返回全部
+     * @return 分页的游记列表（NoteListItemResponse）
+     */
+    @SaCheckLogin
+    @GetMapping("/my")
+    public R<PageResult<NoteListItemResponse>> listMine(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) Integer status) {
+        return R.ok(noteService.listMine(pageNum, pageSize, status));
     }
 
     /**
@@ -50,7 +73,8 @@ public class NoteController {
     @SaCheckLogin
     @PostMapping
     public R<IdResponse> create(@Valid @RequestBody CreateNoteRequest request) {
-        return ScaffoldResponses.notImplemented();
+        Long id = noteService.create(request);
+        return R.ok(new IdResponse(id));
     }
 
     /**
@@ -61,7 +85,7 @@ public class NoteController {
      */
     @GetMapping("/{id}")
     public R<NoteDetailResponse> detail(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        return R.ok(noteService.detail(id));
     }
 
     /**
@@ -74,7 +98,8 @@ public class NoteController {
     @SaCheckLogin
     @PutMapping("/{id}")
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody UpdateNoteRequest request) {
-        return ScaffoldResponses.notImplemented();
+        noteService.update(id, request);
+        return R.ok();
     }
 
     /**
@@ -86,6 +111,7 @@ public class NoteController {
     @SaCheckLogin
     @DeleteMapping("/{id}")
     public R<Void> delete(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        noteService.delete(id);
+        return R.ok();
     }
 }

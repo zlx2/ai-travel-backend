@@ -2,6 +2,8 @@ package com.sora.aitravel.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.sora.aitravel.common.result.*;
+import com.sora.aitravel.service.NoteInteractionService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -16,7 +18,11 @@ import org.springframework.web.bind.annotation.*;
 @SaCheckLogin
 @RestController
 @RequestMapping("/api/notes/{id}")
+@RequiredArgsConstructor
 public class NoteInteractionController {
+
+    private final NoteInteractionService noteInteractionService;
+
     /**
      * 点赞指定游记。
      *
@@ -25,7 +31,8 @@ public class NoteInteractionController {
      */
     @PostMapping("/like")
     public R<Void> like(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        noteInteractionService.like(id);
+        return R.ok();
     }
 
     /**
@@ -36,7 +43,8 @@ public class NoteInteractionController {
      */
     @DeleteMapping("/like")
     public R<Void> unlike(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        noteInteractionService.unlike(id);
+        return R.ok();
     }
 
     /**
@@ -47,7 +55,8 @@ public class NoteInteractionController {
      */
     @PostMapping("/favorite")
     public R<Void> favorite(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        noteInteractionService.favorite(id);
+        return R.ok();
     }
 
     /**
@@ -58,6 +67,7 @@ public class NoteInteractionController {
      */
     @DeleteMapping("/favorite")
     public R<Void> unfavorite(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        noteInteractionService.unfavorite(id);
+        return R.ok();
     }
 }

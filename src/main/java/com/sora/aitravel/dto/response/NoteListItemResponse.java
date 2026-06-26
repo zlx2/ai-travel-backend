@@ -1,5 +1,6 @@
 package com.sora.aitravel.dto.response;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,7 @@ import lombok.NoArgsConstructor;
  * @param authorId 作者用户 ID
  * @param authorNickname 作者昵称
  * @param authorAvatarUrl 作者头像 URL
+ * @param tags 标签名称列表
  * @param likeCount 点赞数
  * @param favoriteCount 收藏数
  * @param commentCount 评论数
@@ -33,6 +35,7 @@ public class NoteListItemResponse {
     private Long authorId;
     private String authorNickname;
     private String authorAvatarUrl;
+    private List<String> tags;
     private Integer likeCount;
     private Integer favoriteCount;
     private Integer commentCount;

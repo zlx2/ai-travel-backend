@@ -12,8 +12,10 @@ import com.sora.aitravel.entity.Destination;
 import com.sora.aitravel.entity.Note;
 import com.sora.aitravel.entity.SysUser;
 import com.sora.aitravel.entity.Tag;
+import com.sora.aitravel.entity.NoteTag;
 import com.sora.aitravel.mapper.DestinationMapper;
 import com.sora.aitravel.mapper.NoteMapper;
+import com.sora.aitravel.mapper.NoteTagMapper;
 import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.mapper.TagMapper;
 import com.sora.aitravel.service.HomeService;
@@ -34,6 +36,7 @@ public class HomeServiceImpl implements HomeService {
 
     private final DestinationMapper destinationMapper;
     private final NoteMapper noteMapper;
+    private final NoteTagMapper noteTagMapper;
     private final TagMapper tagMapper;
     private final SysUserMapper userMapper;
     private final ObjectMapper objectMapper;
@@ -116,6 +119,16 @@ public class HomeServiceImpl implements HomeService {
     }
 
     private NoteListItemResponse toNoteListItemResponse(Note note, SysUser author) {
+        List<String> tags =
+                noteTagMapper.selectList(
+                                new LambdaQueryWrapper<NoteTag>()
+                                        .eq(NoteTag::getNoteId, note.getId()))
+                        .stream()
+                        .map(nt -> tagMapper.selectById(nt.getTagId()))
+                        .filter(tag -> tag != null && tag.getStatus() == 1)
+                        .map(Tag::getName)
+                        .collect(Collectors.toList());
+
         return new NoteListItemResponse(
                 note.getId(),
                 note.getTitle(),
@@ -125,6 +138,7 @@ public class HomeServiceImpl implements HomeService {
                 note.getUserId(),
                 author == null ? null : author.getNickname(),
                 author == null ? null : author.getAvatarUrl(),
+                tags,
                 note.getLikeCount(),
                 note.getFavoriteCount(),
                 note.getCommentCount(),

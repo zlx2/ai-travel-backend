@@ -4,7 +4,9 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.sora.aitravel.common.result.*;
 import com.sora.aitravel.dto.request.CreateCommentRequest;
 import com.sora.aitravel.dto.response.CommentResponse;
+import com.sora.aitravel.service.CommentService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,7 +20,11 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api")
+@RequiredArgsConstructor
 public class CommentController {
+
+    private final CommentService commentService;
+
     /**
      * 分页查询指定游记的评论列表（公开接口）。
      *
@@ -32,7 +38,7 @@ public class CommentController {
             @PathVariable Long id,
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize) {
-        return ScaffoldResponses.notImplemented();
+        return R.ok(commentService.list(id, pageNum, pageSize));
     }
 
     /**
@@ -46,7 +52,7 @@ public class CommentController {
     @PostMapping("/notes/{id}/comments")
     public R<CommentResponse> create(
             @PathVariable Long id, @Valid @RequestBody CreateCommentRequest request) {
-        return ScaffoldResponses.notImplemented();
+        return R.ok(commentService.create(id, request));
     }
 
     /**
@@ -58,6 +64,7 @@ public class CommentController {
     @SaCheckLogin
     @DeleteMapping("/comments/{id}")
     public R<Void> delete(@PathVariable Long id) {
-        return ScaffoldResponses.notImplemented();
+        commentService.delete(id);
+        return R.ok();
     }
 }

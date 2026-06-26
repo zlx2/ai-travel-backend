@@ -59,4 +59,14 @@ public interface NoteService {
      * @param id 游记 ID
      */
     void delete(Long id);
+
+    /**
+     * 分页查询当前用户的游记列表（含草稿）。
+     *
+     * @param pageNum 页码（从 1 开始）
+     * @param pageSize 每页条数
+     * @param status 状态筛选（可选，0-草稿，1-已发布），不传返回全部
+     * @return 游记分页结果
+     */
+    PageResult<NoteListItemResponse> listMine(Integer pageNum, Integer pageSize, Integer status);
 }

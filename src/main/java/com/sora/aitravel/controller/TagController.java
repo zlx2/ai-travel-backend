@@ -2,7 +2,9 @@ package com.sora.aitravel.controller;
 
 import com.sora.aitravel.common.result.*;
 import com.sora.aitravel.dto.response.TagResponse;
+import com.sora.aitravel.service.TagService;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -16,7 +18,11 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/tags")
+@RequiredArgsConstructor
 public class TagController {
+
+    private final TagService tagService;
+
     /**
      * 查询标签列表（公开接口）。
      *
@@ -25,6 +31,6 @@ public class TagController {
      */
     @GetMapping
     public R<List<TagResponse>> list(@RequestParam(required = false) Integer type) {
-        return ScaffoldResponses.notImplemented();
+        return R.ok(tagService.list(type));
     }
 }
