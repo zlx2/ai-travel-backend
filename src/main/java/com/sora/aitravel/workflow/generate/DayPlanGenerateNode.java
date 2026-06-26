@@ -28,10 +28,9 @@ public class DayPlanGenerateNode {
     private static final String SOURCE_AMAP = "AMAP";
     private static final String SOURCE_ESTIMATED = "ESTIMATED";
     private static final double WALKING_ROUTE_MAX_KM = 2.0;
-    private static final int ACTUAL_ROUTE_POOL_LIMIT = 24;
-    private static final RoutePolicy LIGHT_ROUTE_POLICY = new RoutePolicy(8.0, 14.0, 24.0, 16.0);
-    private static final RoutePolicy DEFAULT_ROUTE_POLICY =
-            new RoutePolicy(14.0, 24.0, 38.0, 26.0);
+    private static final int COMPACT_ROUTE_POOL_LIMIT = 24;
+    private static final RoutePolicy LIGHT_ROUTE_POLICY = new RoutePolicy(8.0, 14.0);
+    private static final RoutePolicy DEFAULT_ROUTE_POLICY = new RoutePolicy(14.0, 24.0);
 
     private final AmapApiService amapApiService;
 
@@ -63,7 +62,7 @@ public class DayPlanGenerateNode {
                         wantsNightExperience(requirement, dayContext));
         selected = supplementMinimumSpots(context, selected, dayContext, usedPoiKeys);
         selected = optimizeOrder(selected);
-        selected = preferActualCompactRoute(context, dataPackage, selected, dayContext, usedPoiKeys, spotCount);
+        selected = preferWorkflowCompactRoute(context, dataPackage, selected, dayContext, usedPoiKeys, spotCount);
         selected = optimizeOrder(selected);
         selected.forEach(candidate -> usedPoiKeys.add(dedupKey(candidate)));
         List<TripPlanDTO.Spot> spots = new ArrayList<>();
@@ -691,14 +690,15 @@ public class DayPlanGenerateNode {
         return best;
     }
 
-    private List<PoiCandidate> preferActualCompactRoute(
+    private List<PoiCandidate> preferWorkflowCompactRoute(
             GenerateWorkflowContext context,
             DayDataPackage dataPackage,
             List<PoiCandidate> selected,
             DayContext dayContext,
             Set<String> usedPoiKeys,
             int limit) {
-        if (selected.size() < 2 || actualRouteKm(selected) <= maxActualDailyKm(dayContext)) {
+        double selectedDirectKm = totalDirectRouteKm(selected);
+        if (selected.size() < 2 || selectedDirectKm <= maxDailyDirectKm(dayContext)) {
             return selected;
         }
         List<PoiCandidate> pool =
@@ -706,16 +706,17 @@ public class DayPlanGenerateNode {
                         .stream()
                         .filter(candidate -> !usedPoiKeys.contains(dedupKey(candidate)))
                         .sorted(candidateComparator(dayContext))
-                        .limit(ACTUAL_ROUTE_POOL_LIMIT)
+                        .limit(COMPACT_ROUTE_POOL_LIMIT)
                         .toList();
         List<PoiCandidate> compact =
-                bestActualRouteCluster(pool, Math.min(limit, selected.size()), dayContext);
-        if (compact.size() >= 2 && actualRouteKm(compact) < actualRouteKm(selected)) {
+                bestCluster(pool, Math.min(limit, selected.size()), maxDistanceKm(dayContext));
+        double compactDirectKm = totalDirectRouteKm(compact);
+        if (compact.size() >= 2 && compactDirectKm < selectedDirectKm) {
             log.info(
-                    "节点[day-plan-generate]：第 {} 天路线过长，已替换为紧凑路线，before={}km, after={}km",
+                    "节点[day-plan-generate]：第 {} 天路线过散，已替换为紧凑候选，before={}km, after={}km",
                     dayContext.getDay(),
-                    String.format("%.1f", actualRouteKm(selected)),
-                    String.format("%.1f", actualRouteKm(compact)));
+                    String.format("%.1f", selectedDirectKm),
+                    String.format("%.1f", compactDirectKm));
             return compact;
         }
         return selected;
@@ -733,74 +734,12 @@ public class DayPlanGenerateNode {
         return new ArrayList<>(merged.values());
     }
 
-    private List<PoiCandidate> bestActualRouteCluster(
-            List<PoiCandidate> candidates, int limit, DayContext dayContext) {
-        List<PoiCandidate> best = List.of();
-        for (PoiCandidate anchor : candidates) {
-            List<PoiCandidate> cluster = new ArrayList<>();
-            cluster.add(anchor);
-            for (PoiCandidate candidate : candidates) {
-                if (cluster.size() >= limit) {
-                    break;
-                }
-                if (cluster.contains(candidate) || isNightCandidate(candidate)) {
-                    continue;
-                }
-                double legKm =
-                        cluster.stream()
-                                .mapToDouble(item -> actualSegmentKm(item, candidate))
-                                .min()
-                                .orElse(Double.MAX_VALUE);
-                List<PoiCandidate> nextCluster = new ArrayList<>(cluster);
-                nextCluster.add(candidate);
-                if (legKm <= maxActualLegKm(dayContext)
-                        && totalDirectRouteKm(nextCluster) <= maxDailyDirectKm(dayContext)
-                        && actualRouteKm(nextCluster) <= maxActualDailyKm(dayContext)) {
-                    cluster.add(candidate);
-                }
-            }
-            if (cluster.size() > best.size()
-                    || (cluster.size() == best.size()
-                            && actualRouteKm(cluster) < actualRouteKm(best))) {
-                best = cluster;
-            }
-        }
-        return best;
-    }
-
-    private double actualRouteKm(List<PoiCandidate> candidates) {
-        if (candidates.size() < 2) {
-            return 0;
-        }
-        double total = 0;
-        for (int index = 0; index < candidates.size() - 1; index++) {
-            total += actualSegmentKm(candidates.get(index), candidates.get(index + 1));
-        }
-        return total;
-    }
-
-    private double actualSegmentKm(PoiCandidate from, PoiCandidate to) {
-        RouteMetric metric = fetchRouteMetric(routeLocation(from), routeLocation(to));
-        if (metric.getDistanceMeters() == null || metric.getDistanceMeters() >= Integer.MAX_VALUE / 8) {
-            return coordinateDistanceKm(routeLocation(from), routeLocation(to));
-        }
-        return metric.getDistanceMeters() / 1000.0;
-    }
-
     private double maxDistanceKm(DayContext dayContext) {
         return routePolicy(dayContext).getMaxClusterKm();
     }
 
     private double maxDailyDirectKm(DayContext dayContext) {
         return routePolicy(dayContext).getMaxDirectDailyKm();
-    }
-
-    private double maxActualDailyKm(DayContext dayContext) {
-        return routePolicy(dayContext).getMaxActualDailyKm();
-    }
-
-    private double maxActualLegKm(DayContext dayContext) {
-        return routePolicy(dayContext).getMaxActualLegKm();
     }
 
     private RoutePolicy routePolicy(DayContext dayContext) {
@@ -1097,18 +1036,10 @@ public class DayPlanGenerateNode {
     private static final class RoutePolicy {
         private final double maxClusterKm;
         private final double maxDirectDailyKm;
-        private final double maxActualDailyKm;
-        private final double maxActualLegKm;
 
-        private RoutePolicy(
-                double maxClusterKm,
-                double maxDirectDailyKm,
-                double maxActualDailyKm,
-                double maxActualLegKm) {
+        private RoutePolicy(double maxClusterKm, double maxDirectDailyKm) {
             this.maxClusterKm = maxClusterKm;
             this.maxDirectDailyKm = maxDirectDailyKm;
-            this.maxActualDailyKm = maxActualDailyKm;
-            this.maxActualLegKm = maxActualLegKm;
         }
 
         private double getMaxClusterKm() {
@@ -1117,14 +1048,6 @@ public class DayPlanGenerateNode {
 
         private double getMaxDirectDailyKm() {
             return maxDirectDailyKm;
-        }
-
-        private double getMaxActualDailyKm() {
-            return maxActualDailyKm;
-        }
-
-        private double getMaxActualLegKm() {
-            return maxActualLegKm;
         }
     }
 }
