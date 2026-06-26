@@ -2,8 +2,11 @@ package com.sora.aitravel.service.impl;
 
 import static com.sora.aitravel.common.constants.RedisKeyConstants.*;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.entity.SysUser;
+import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.service.EmailCodeService;
 import com.sora.aitravel.service.MailSendService;
 import java.security.SecureRandom;
@@ -22,11 +25,24 @@ public class EmailCodeServiceImpl implements EmailCodeService {
 
     private final StringRedisTemplate redisTemplate;
     private final MailSendService mailSendService;
+    private final SysUserMapper userMapper;
 
     @Override
     public void send(String email, String scene) {
         String normalizedEmail = normalizeEmail(email);
         validateScene(scene);
+
+        // 注册场景：发送验证码前先校验邮箱是否已被注册，避免无效请求占用限流窗口。
+        if (REGISTER_SCENE.equals(scene)) {
+            Long count =
+                    userMapper.selectCount(
+                            new LambdaQueryWrapper<SysUser>()
+                                    .eq(SysUser::getEmail, normalizedEmail));
+            if (count != null && count > 0) {
+                throw new BusinessException(ErrorCode.EMAIL_EXISTS);
+            }
+        }
+
         String limitKey = limitKey(scene, normalizedEmail);
         // Redis SET NX 形成发送冷却窗口，拦截重复点击和批量滥发。
         Boolean allowed =
