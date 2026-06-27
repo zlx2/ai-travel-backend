@@ -19,14 +19,20 @@ import com.sora.aitravel.mapper.NoteTagMapper;
 import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.mapper.TagMapper;
 import com.sora.aitravel.service.HomeService;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HomeServiceImpl implements HomeService {
@@ -40,9 +46,50 @@ public class HomeServiceImpl implements HomeService {
     private final TagMapper tagMapper;
     private final SysUserMapper userMapper;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate stringRedisTemplate;
+
+    @Value("${app.cache.key-prefix:plango:dev}")
+    private String cacheKeyPrefix;
 
     @Override
     public HomeResponse aggregate() {
+        HomeResponse cached = getHomeFromCache();
+        if (cached != null) {
+            return cached;
+        }
+
+        HomeResponse fresh = queryHomeFromDb();
+        putHomeToCache(fresh);
+        return fresh;
+    }
+
+    private HomeResponse getHomeFromCache() {
+        try {
+            String json = stringRedisTemplate.opsForValue().get(homeCacheKey());
+            if (!StringUtils.hasText(json)) {
+                return null;
+            }
+            return objectMapper.readValue(json, HomeResponse.class);
+        } catch (Exception e) {
+            log.warn("读取首页 Redis 缓存失败，降级查询数据库", e);
+            return null;
+        }
+    }
+
+    private void putHomeToCache(HomeResponse response) {
+        try {
+            String json = objectMapper.writeValueAsString(response);
+            stringRedisTemplate.opsForValue().set(homeCacheKey(), json, Duration.ofSeconds(60));
+        } catch (Exception e) {
+            log.warn("写入首页 Redis 缓存失败，忽略缓存", e);
+        }
+    }
+
+    private String homeCacheKey() {
+        return cacheKeyPrefix + ":home";
+    }
+
+    private HomeResponse queryHomeFromDb() {
         List<DestinationResponse> destinations =
                 destinationMapper
                         .selectList(

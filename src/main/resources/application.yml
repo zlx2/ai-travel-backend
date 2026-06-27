@@ -81,6 +81,8 @@ sa-token:
   is-log: false
 
 app:
+  cache:
+    key-prefix: ${CACHE_KEY_PREFIX:plango:dev}
   redis-stack:
     host: ${REDIS_STACK_HOST}
     port: ${REDIS_STACK_PORT}
