@@ -39,6 +39,8 @@ public class HomeServiceImpl implements HomeService {
     private static final int HOT_DESTINATION_LIMIT = 6;
     private static final int HOT_NOTE_LIMIT = 3;
     private static final int HOT_TAG_LIMIT = 12;
+    /** 首页缓存有效期：演示项目使用 3 天，避免频繁回源查询。 */
+    private static final Duration HOME_CACHE_TTL = Duration.ofDays(3);
 
     private final DestinationMapper destinationMapper;
     private final NoteMapper noteMapper;
@@ -79,7 +81,7 @@ public class HomeServiceImpl implements HomeService {
     private void putHomeToCache(HomeResponse response) {
         try {
             String json = objectMapper.writeValueAsString(response);
-            stringRedisTemplate.opsForValue().set(homeCacheKey(), json, Duration.ofSeconds(60));
+            stringRedisTemplate.opsForValue().set(homeCacheKey(), json, HOME_CACHE_TTL);
         } catch (Exception e) {
             log.warn("写入首页 Redis 缓存失败，忽略缓存", e);
         }
