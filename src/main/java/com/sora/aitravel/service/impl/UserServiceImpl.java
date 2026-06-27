@@ -8,11 +8,17 @@ import com.sora.aitravel.dto.request.SendChangeEmailCodeRequest;
 import com.sora.aitravel.dto.request.UpdateUserEmailRequest;
 import com.sora.aitravel.dto.request.UpdateUserProfileRequest;
 import com.sora.aitravel.dto.response.UserInfoResponse;
+import com.sora.aitravel.dto.response.UserProfileStatsResponse;
+import com.sora.aitravel.entity.Note;
 import com.sora.aitravel.entity.SysUser;
+import com.sora.aitravel.entity.Trip;
+import com.sora.aitravel.mapper.NoteMapper;
 import com.sora.aitravel.mapper.SysUserMapper;
+import com.sora.aitravel.mapper.TripMapper;
 import com.sora.aitravel.service.EmailCodeService;
 import com.sora.aitravel.service.UserService;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,10 +32,48 @@ public class UserServiceImpl implements UserService {
 
     private final SysUserMapper userMapper;
     private final EmailCodeService emailCodeService;
+    private final TripMapper tripMapper;
+    private final NoteMapper noteMapper;
 
     @Override
     public UserInfoResponse getCurrentUser() {
         return AuthServiceImpl.toResponse(requireCurrentUser());
+    }
+
+    @Override
+    public UserProfileStatsResponse getCurrentUserStats() {
+        Long userId = LoginUserUtils.getUserId();
+
+        Long tripCount =
+                tripMapper.selectCount(
+                        new LambdaQueryWrapper<Trip>()
+                                .eq(Trip::getUserId, userId)
+                                .eq(Trip::getStatus, 1)
+                                .eq(Trip::getDeleted, 0));
+
+        List<Note> myNotes =
+                noteMapper.selectList(
+                        new LambdaQueryWrapper<Note>()
+                                .eq(Note::getUserId, userId)
+                                .eq(Note::getStatus, 1)
+                                .eq(Note::getDeleted, 0));
+
+        long noteCount = myNotes.size();
+        long likeCount =
+                myNotes.stream()
+                        .mapToLong(note -> note.getLikeCount() == null ? 0L : note.getLikeCount())
+                        .sum();
+        long favoriteCount =
+                myNotes.stream()
+                        .mapToLong(
+                                note ->
+                                        note.getFavoriteCount() == null
+                                                ? 0L
+                                                : note.getFavoriteCount())
+                        .sum();
+
+        return new UserProfileStatsResponse(
+                tripCount == null ? 0L : tripCount, noteCount, likeCount, favoriteCount);
     }
 
     @Override

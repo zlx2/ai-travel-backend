@@ -6,6 +6,7 @@ import com.sora.aitravel.dto.request.SendChangeEmailCodeRequest;
 import com.sora.aitravel.dto.request.UpdateUserEmailRequest;
 import com.sora.aitravel.dto.request.UpdateUserProfileRequest;
 import com.sora.aitravel.dto.response.UserInfoResponse;
+import com.sora.aitravel.dto.response.UserProfileStatsResponse;
 import com.sora.aitravel.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,16 @@ public class UserController {
     @GetMapping("/me")
     public R<UserInfoResponse> me() {
         return R.ok(userService.getCurrentUser());
+    }
+
+    /**
+     * 获取当前登录用户的个人中心统计数据。
+     *
+     * @return 当前用户的行程、游记、获赞和收藏统计
+     */
+    @GetMapping("/me/stats")
+    public R<UserProfileStatsResponse> stats() {
+        return R.ok(userService.getCurrentUserStats());
     }
 
     /**
