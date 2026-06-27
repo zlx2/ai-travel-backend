@@ -261,11 +261,11 @@ public class NoteServiceImpl implements NoteService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "仅作者可删除此游记");
         }
 
-        // 软删除：同时设置 status 和 deleted 字段
+        // 软删除：先设置业务删除状态，再交给 MyBatis-Plus 更新逻辑删除字段。
         note.setStatus(NoteStatusEnum.DELETED.ordinal());
-        note.setDeleted(1);
         note.setUpdateTime(LocalDateTime.now());
         noteMapper.updateById(note);
+        noteMapper.deleteById(id);
     }
 
     // ---------- private helpers ----------
