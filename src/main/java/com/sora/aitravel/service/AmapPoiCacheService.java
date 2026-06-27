@@ -60,13 +60,7 @@ public class AmapPoiCacheService {
 
         AmapApiResp<List<Poi>> response =
                 amapApiService.searchPoiText(
-                        keywords,
-                        types,
-                        region,
-                        cityLimit,
-                        pageSize,
-                        pageNum,
-                        showFields);
+                        keywords, types, region, cityLimit, pageSize, pageNum, showFields);
         if (response == null || !response.isSuccess() || response.getData() == null) {
             return List.of();
         }
@@ -83,10 +77,7 @@ public class AmapPoiCacheService {
             }
             return objectMapper.readValue(json, POI_LIST_TYPE);
         } catch (RuntimeException exception) {
-            log.warn(
-                    "读取高德 POI 缓存失败，降级为直查，key={}, reason={}",
-                    key,
-                    exception.getMessage());
+            log.warn("读取高德 POI 缓存失败，降级为直查，key={}, reason={}", key, exception.getMessage());
             return null;
         } catch (Exception exception) {
             log.warn("高德 POI 缓存数据损坏，忽略缓存，key={}", key, exception);
@@ -101,14 +92,9 @@ public class AmapPoiCacheService {
 
     private void write(String key, List<Poi> pois, Duration ttl) {
         try {
-            redisTemplate
-                    .opsForValue()
-                    .set(key, objectMapper.writeValueAsString(pois), ttl);
+            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(pois), ttl);
         } catch (Exception exception) {
-            log.warn(
-                    "写入高德 POI 缓存失败，本次结果继续使用，key={}, reason={}",
-                    key,
-                    exception.getMessage());
+            log.warn("写入高德 POI 缓存失败，本次结果继续使用，key={}, reason={}", key, exception.getMessage());
         }
     }
 
@@ -139,9 +125,15 @@ public class AmapPoiCacheService {
                         String.valueOf(pageSize),
                         String.valueOf(pageNum),
                         text(showFields));
-        String hash =
-                DigestUtils.md5DigestAsHex(raw.getBytes(StandardCharsets.UTF_8));
-        return KEY_PREFIX + normalize(region) + ":" + normalize(category) + ":" + pageNum + ":" + hash;
+        String hash = DigestUtils.md5DigestAsHex(raw.getBytes(StandardCharsets.UTF_8));
+        return KEY_PREFIX
+                + normalize(region)
+                + ":"
+                + normalize(category)
+                + ":"
+                + pageNum
+                + ":"
+                + hash;
     }
 
     private String normalize(String value) {

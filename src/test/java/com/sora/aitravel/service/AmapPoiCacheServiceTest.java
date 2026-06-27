@@ -39,24 +39,15 @@ class AmapPoiCacheServiceTest {
     @Test
     void cacheMissShouldQueryAmapAndCacheScenicPoiForOneDay() {
         when(valueOperations.get(anyString())).thenReturn(null);
-        when(amapApiService.searchPoiText(
-                        "成都公园", null, "成都", true, 25, 1, "business,navi,photos"))
+        when(amapApiService.searchPoiText("成都公园", null, "成都", true, 25, 1, "business,navi,photos"))
                 .thenReturn(success(List.of(poi("交子公园"))));
 
         List<Poi> result =
                 service.searchText(
-                        "成都公园",
-                        null,
-                        "成都",
-                        true,
-                        25,
-                        1,
-                        "business,navi,photos",
-                        "SCENIC");
+                        "成都公园", null, "成都", true, 25, 1, "business,navi,photos", "SCENIC");
 
         assertThat(result).extracting(Poi::getName).containsExactly("交子公园");
-        verify(valueOperations)
-                .set(anyString(), anyString(), eq(Duration.ofHours(24)));
+        verify(valueOperations).set(anyString(), anyString(), eq(Duration.ofHours(24)));
     }
 
     @Test
@@ -66,14 +57,7 @@ class AmapPoiCacheServiceTest {
 
         List<Poi> result =
                 service.searchText(
-                        "成都古街",
-                        null,
-                        "成都",
-                        true,
-                        25,
-                        1,
-                        "business,navi,photos",
-                        "SCENIC");
+                        "成都古街", null, "成都", true, 25, 1, "business,navi,photos", "SCENIC");
 
         assertThat(result).extracting(Poi::getName).containsExactly("锦里古街");
         verify(amapApiService, times(0))
@@ -83,20 +67,12 @@ class AmapPoiCacheServiceTest {
     @Test
     void redisFailureShouldFallBackToAmap() {
         when(valueOperations.get(anyString())).thenThrow(new IllegalStateException("redis down"));
-        when(amapApiService.searchPoiText(
-                        "成都夜市", null, "成都", true, 25, 1, "business,navi,photos"))
+        when(amapApiService.searchPoiText("成都夜市", null, "成都", true, 25, 1, "business,navi,photos"))
                 .thenReturn(success(List.of(poi("夜猫子夜市"))));
 
         List<Poi> result =
                 service.searchText(
-                        "成都夜市",
-                        null,
-                        "成都",
-                        true,
-                        25,
-                        1,
-                        "business,navi,photos",
-                        "NIGHT");
+                        "成都夜市", null, "成都", true, 25, 1, "business,navi,photos", "NIGHT");
 
         assertThat(result).extracting(Poi::getName).containsExactly("夜猫子夜市");
     }

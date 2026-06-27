@@ -57,8 +57,7 @@ public class RouteScopeResolveNode {
             requirement.setRouteRegion(requirement.getDestination());
         }
         if (requirement.getRouteMode() == null || requirement.getRouteMode().isBlank()) {
-            requirement.setRouteMode(
-                    requirement.getRouteCities().size() > 1 ? "REGION" : "CITY");
+            requirement.setRouteMode(requirement.getRouteCities().size() > 1 ? "REGION" : "CITY");
         }
         if (requirement.getRouteStructure() == null || requirement.getRouteStructure().isBlank()) {
             requirement.setRouteStructure(
@@ -70,8 +69,7 @@ public class RouteScopeResolveNode {
             TravelRequirementDTO requirement,
             RegionRoutePresetProperties.RegionPresetGroup group,
             String destination) {
-        int days =
-                requirement.getDays() != null ? requirement.getDays() : 3;
+        int days = requirement.getDays() != null ? requirement.getDays() : 3;
         RegionRoutePresetProperties.RoutePreset preset =
                 regionRoutePresetProperties.selectPreset(group, days, requirement.getPreferences());
         String standardName =

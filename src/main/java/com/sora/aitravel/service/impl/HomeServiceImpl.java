@@ -10,9 +10,9 @@ import com.sora.aitravel.dto.response.NoteListItemResponse;
 import com.sora.aitravel.dto.response.TagResponse;
 import com.sora.aitravel.entity.Destination;
 import com.sora.aitravel.entity.Note;
+import com.sora.aitravel.entity.NoteTag;
 import com.sora.aitravel.entity.SysUser;
 import com.sora.aitravel.entity.Tag;
-import com.sora.aitravel.entity.NoteTag;
 import com.sora.aitravel.mapper.DestinationMapper;
 import com.sora.aitravel.mapper.NoteMapper;
 import com.sora.aitravel.mapper.NoteTagMapper;
@@ -174,7 +174,8 @@ public class HomeServiceImpl implements HomeService {
 
     private NoteListItemResponse toNoteListItemResponse(Note note, SysUser author) {
         List<String> tags =
-                noteTagMapper.selectList(
+                noteTagMapper
+                        .selectList(
                                 new LambdaQueryWrapper<NoteTag>()
                                         .eq(NoteTag::getNoteId, note.getId()))
                         .stream()

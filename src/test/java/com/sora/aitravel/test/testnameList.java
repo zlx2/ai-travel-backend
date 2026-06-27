@@ -10,12 +10,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 public class testnameList {
 
-    @Autowired
-    private ChatModel chatModel;
+    @Autowired private ChatModel chatModel;
 
-
-    @Autowired
-    private ScenicTool scenicTool;
+    @Autowired private ScenicTool scenicTool;
 
     @Test
     void test() throws Exception {
@@ -26,15 +23,13 @@ public class testnameList {
         // 第二步：生成票价预测
         String prompt = PRICE_PROMPT.formatted(scenicJson);
 
-        String result = ChatClient.create(chatModel)
-                .prompt(prompt)
-                .call()
-                .content();
+        String result = ChatClient.create(chatModel).prompt(prompt).call().content();
 
         System.out.println(result);
     }
 
-    private static final String PRICE_PROMPT = """
+    private static final String PRICE_PROMPT =
+            """
 你是旅游票价预测专家。
 
 根据景点列表生成门票预测。

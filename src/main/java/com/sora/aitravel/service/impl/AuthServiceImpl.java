@@ -43,18 +43,19 @@ public class AuthServiceImpl implements AuthService {
         emailCodeService.verify(email, REGISTER_SCENE, request.getEmailCode());
 
         LocalDateTime now = LocalDateTime.now();
-        SysUser user = SysUser.builder()
-                .username(username)
-                // 数据库只保存带盐的单向哈希，永不持久化明文密码。
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .email(email)
-                .nickname(username)
-                .role(AuthConstants.USER_ROLE)
-                .status(1)
-                .createTime(now)
-                .updateTime(now)
-                .deleted(0)
-                .build();
+        SysUser user =
+                SysUser.builder()
+                        .username(username)
+                        // 数据库只保存带盐的单向哈希，永不持久化明文密码。
+                        .passwordHash(passwordEncoder.encode(request.getPassword()))
+                        .email(email)
+                        .nickname(username)
+                        .role(AuthConstants.USER_ROLE)
+                        .status(1)
+                        .createTime(now)
+                        .updateTime(now)
+                        .deleted(0)
+                        .build();
         userMapper.insert(user);
         // 注册成功后立即核销验证码，使其成为一次性凭证。
         emailCodeService.remove(email, REGISTER_SCENE);

@@ -8,8 +8,8 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
-import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripDayGenerateService;
+import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -39,14 +39,13 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             String sessionId, Integer dayNo, String requestMode, boolean forceRegenerate) {
         AiTripGenerationSession session = requirePreparedSession(sessionId);
         AiTripDayGeneration latest = dayGenerationService.getLatest(sessionId, dayNo);
-        if (!forceRegenerate
-                && latest != null
-                && "GENERATED".equals(latest.getStatus())) {
+        if (!forceRegenerate && latest != null && "GENERATED".equals(latest.getStatus())) {
             return latest;
         }
         if (!forceRegenerate
                 && latest != null
-                && ("QUEUED".equals(latest.getStatus()) || "GENERATING".equals(latest.getStatus()))) {
+                && ("QUEUED".equals(latest.getStatus())
+                        || "GENERATING".equals(latest.getStatus()))) {
             if (!"QUEUED".equals(latest.getStatus()) || !"ASYNC".equals(requestMode)) {
                 return latest;
             }
@@ -71,8 +70,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             GenerateWorkflowContext context = restoreContext(session);
             runDayNodes(context, dayNo);
             dayGenerationService.markGenerated(
-                    day.getId(),
-                    writeJson(context.getLockedDailyPlans().get(0)));
+                    day.getId(), writeJson(context.getLockedDailyPlans().get(0)));
             return dayGenerationService.getLatest(sessionId, dayNo);
         } catch (RuntimeException exception) {
             dayGenerationService.markFailed(day.getId(), exception.getMessage());

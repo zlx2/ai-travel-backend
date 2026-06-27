@@ -171,22 +171,26 @@ public class RentalStoreServiceImpl implements RentalStoreService {
         String location = text(poi, "location");
         String[] lngLat = location.split(",");
 
-        RentalStoreDTO.RentalStoreDTOBuilder builder = RentalStoreDTO.builder()
-                .storeCode("AMAP_" + poiId)
-                .displayName(targetName
-                        + (usage == RentalStoreUsageEnum.PICKUP ? "推荐取车点" : "推荐还车点"))
-                .source("AMAP_DYNAMIC")
-                .usage(usage.name())
-                .amapPoiId(poiId)
-                .amapPoiName(text(poi, "name"))
-                .address(text(poi, "address"))
-                .cityName(text(poi, "cityname"))
-                .adName(text(poi, "adname"))
-                .adCode(text(poi, "adcode"))
-                .distanceMeters(intValue(text(poi, "distance"), 999999))
-                .typeCode(text(poi, "typecode"))
-                .openTime(businessText(poi, "opentime_today"))
-                .tel(businessText(poi, "tel"));
+        RentalStoreDTO.RentalStoreDTOBuilder builder =
+                RentalStoreDTO.builder()
+                        .storeCode("AMAP_" + poiId)
+                        .displayName(
+                                targetName
+                                        + (usage == RentalStoreUsageEnum.PICKUP
+                                                ? "推荐取车点"
+                                                : "推荐还车点"))
+                        .source("AMAP_DYNAMIC")
+                        .usage(usage.name())
+                        .amapPoiId(poiId)
+                        .amapPoiName(text(poi, "name"))
+                        .address(text(poi, "address"))
+                        .cityName(text(poi, "cityname"))
+                        .adName(text(poi, "adname"))
+                        .adCode(text(poi, "adcode"))
+                        .distanceMeters(intValue(text(poi, "distance"), 999999))
+                        .typeCode(text(poi, "typecode"))
+                        .openTime(businessText(poi, "opentime_today"))
+                        .tel(businessText(poi, "tel"));
 
         if (lngLat.length == 2) {
             builder.lng(lngLat[0]).lat(lngLat[1]);

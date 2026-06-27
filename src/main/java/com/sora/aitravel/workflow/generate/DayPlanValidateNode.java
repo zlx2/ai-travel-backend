@@ -38,7 +38,8 @@ public class DayPlanValidateNode {
                 failed.stream().filter(this::isBlockingFailure).toList();
         boolean dayCountMismatch =
                 !context.isSingleDayGeneration()
-                        && context.getLockedDailyPlans().size() != context.getRequirement().getDays();
+                        && context.getLockedDailyPlans().size()
+                                != context.getRequirement().getDays();
         if (blockingFailures.size() > 0 || dayCountMismatch) {
             String details =
                     blockingFailures.stream()

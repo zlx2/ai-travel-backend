@@ -39,16 +39,12 @@ public class CityDataProfileNode {
                             city, requirement, searchScenicCandidates(city, requirement)));
             foodCandidates.addAll(searchMany(foodKeywords(city), city, "FOOD"));
             hotelCandidates.addAll(
-                    searchMany(
-                            List.of(city + " 商圈", city + " 酒店", city + " 地铁站"),
-                            city,
-                            "HOTEL"));
+                    searchMany(List.of(city + " 商圈", city + " 酒店", city + " 地铁站"), city, "HOTEL"));
         }
 
         List<PoiCandidate> mergedScenic =
                 limitBalanced(searchCities, scenicCandidates, MAX_CANDIDATES);
-        List<PoiCandidate> mergedFood =
-                limitBalanced(searchCities, foodCandidates, MAX_CANDIDATES);
+        List<PoiCandidate> mergedFood = limitBalanced(searchCities, foodCandidates, MAX_CANDIDATES);
         List<PoiCandidate> mergedHotel =
                 limitBalanced(searchCities, hotelCandidates, MAX_CANDIDATES);
 
@@ -135,8 +131,7 @@ public class CityDataProfileNode {
     private List<PoiCandidate> searchScenicCandidates(
             String destination, TravelRequirementDTO requirement) {
         List<String> keywords = scenicKeywords(destination, requirement);
-        List<PoiCandidate> candidates =
-                searchMany(keywords, destination, "SCENIC");
+        List<PoiCandidate> candidates = searchMany(keywords, destination, "SCENIC");
         log.info("节点[city-data-profile]：景点关键词={}，候选数={}", keywords, candidates.size());
         return candidates;
     }
@@ -182,8 +177,7 @@ public class CityDataProfileNode {
         }
     }
 
-    private List<PoiCandidate> searchMany(
-            List<String> keywords, String region, String category) {
+    private List<PoiCandidate> searchMany(List<String> keywords, String region, String category) {
         Map<String, PoiCandidate> deduped = new LinkedHashMap<>();
         for (String keyword : keywords) {
             for (PoiCandidate candidate : search(keyword, region, category)) {

@@ -88,7 +88,11 @@ public class DayDataFetchNode {
                             POI_SHOW_FIELDS,
                             category);
             return pois.stream()
-                    .filter(poi -> poi.getId() != null && poi.getName() != null && poi.getLocation() != null)
+                    .filter(
+                            poi ->
+                                    poi.getId() != null
+                                            && poi.getName() != null
+                                            && poi.getLocation() != null)
                     .filter(poi -> isUsefulPoi(poi, category))
                     .map(poi -> toCandidate(category, poi))
                     .toList();
@@ -101,8 +105,7 @@ public class DayDataFetchNode {
         }
     }
 
-    private List<PoiCandidate> merge(
-            List<PoiCandidate> primary, List<PoiCandidate> fallback) {
+    private List<PoiCandidate> merge(List<PoiCandidate> primary, List<PoiCandidate> fallback) {
         Map<String, PoiCandidate> merged = new LinkedHashMap<>();
         for (PoiCandidate candidate : primary) {
             merged.putIfAbsent(dedupKey(candidate), candidate);
@@ -181,8 +184,7 @@ public class DayDataFetchNode {
 
     private String dedupKey(PoiCandidate candidate) {
         String name = candidate.getName() == null ? "" : candidate.getName();
-        return name
-                .replaceAll("[（(].*?[）)]", "")
+        return name.replaceAll("[（(].*?[）)]", "")
                 .replaceAll("[-—·].*$", "")
                 .replace("景区", "")
                 .replace("风景区", "")

@@ -1,30 +1,40 @@
 package com.sora.aitravel.test;
 
-import com.sora.aitravel.dto.model.staticmap.StaticMapResp;
-import com.sora.aitravel.service.AmapApiService;
 import com.sora.aitravel.dto.model.staticmap.Marker;
 import com.sora.aitravel.dto.model.staticmap.StaticMapRequest;
+import com.sora.aitravel.dto.model.staticmap.StaticMapResp;
+import com.sora.aitravel.service.AmapApiService;
+import java.io.File;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.io.File;
-import java.util.List;
-
-/**
- * 静态地图使用示例
- */
+/** 静态地图使用示例 */
 @SpringBootTest
 public class StaticMapDemo {
     // 初始化服务
-    @Autowired
-    AmapApiService amapService;
+    @Autowired AmapApiService amapService;
 
     @Test
     void test() {
-        StaticMapRequest request = new StaticMapRequest(null, "116.397128,39.916527", 12, "800*800", 2,
-                List.of(new Marker("mid", "0xFF0000", "A", null, List.of("116.397128,39.916527"))),
-                null, null, 1);
+        StaticMapRequest request =
+                new StaticMapRequest(
+                        null,
+                        "116.397128,39.916527",
+                        12,
+                        "800*800",
+                        2,
+                        List.of(
+                                new Marker(
+                                        "mid",
+                                        "0xFF0000",
+                                        "A",
+                                        null,
+                                        List.of("116.397128,39.916527"))),
+                        null,
+                        null,
+                        1);
 
         try {
             // 1. 请求静态地图

@@ -28,7 +28,10 @@ public class GenerateResultMergeNode {
                         context.getRecommendationContext(),
                         tripPlan,
                         null));
-        log.info("节点[result-merge]：Generate 响应已组装，schema={}, dailyPlans={}", SCHEMA_VERSION, tripPlan.getDailyPlans().size());
+        log.info(
+                "节点[result-merge]：Generate 响应已组装，schema={}, dailyPlans={}",
+                SCHEMA_VERSION,
+                tripPlan.getDailyPlans().size());
     }
 
     private TripPlanDTO buildTripPlan(
@@ -61,9 +64,7 @@ public class GenerateResultMergeNode {
             return null;
         }
         return new TripPlanDTO.AccommodationSuggestion(
-                firstNonBlank(hotel.getArea(), hotel.getName()),
-                null,
-                null);
+                firstNonBlank(hotel.getArea(), hotel.getName()), null, null);
     }
 
     private TripPlanDTO.BudgetSummary budgetSummary(
@@ -96,7 +97,11 @@ public class GenerateResultMergeNode {
         if (context.getDayValidationReports() != null) {
             for (DayPlanValidationReport report : context.getDayValidationReports()) {
                 if (!Boolean.TRUE.equals(report.passed())) {
-                    tips.add("第 " + report.getDay() + " 天校验提示：" + String.join("；", report.getWarnings()));
+                    tips.add(
+                            "第 "
+                                    + report.getDay()
+                                    + " 天校验提示："
+                                    + String.join("；", report.getWarnings()));
                 }
             }
         }
@@ -108,9 +113,7 @@ public class GenerateResultMergeNode {
 
     private TripPlanDTO.DataQuality dataQuality(GenerateWorkflowContext context) {
         return new TripPlanDTO.DataQuality(
-                "AMAP",
-                "AMAP",
-                "AMAP_AVERAGE_COST_AND_ROUTE;TICKET_HOTEL_UNAVAILABLE");
+                "AMAP", "AMAP", "AMAP_AVERAGE_COST_AND_ROUTE;TICKET_HOTEL_UNAVAILABLE");
     }
 
     private String displayDestination(TravelRequirementDTO requirement) {
@@ -130,5 +133,4 @@ public class GenerateResultMergeNode {
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
     }
-
 }

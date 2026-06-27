@@ -38,7 +38,9 @@ public class DayContextBuildNode {
             PoiCandidate hotel = profile.hotelCandidates().get(0);
             return firstNonBlank(hotel.getName(), hotel.getArea());
         }
-        if (profile != null && profile.getPopularAreas() != null && !profile.getPopularAreas().isEmpty()) {
+        if (profile != null
+                && profile.getPopularAreas() != null
+                && !profile.getPopularAreas().isEmpty()) {
             return profile.getPopularAreas().get(0);
         }
         if (context.getRequirement() != null) {

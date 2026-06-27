@@ -29,14 +29,13 @@ public class FileController {
     /**
      * 上传文件（需登录）。
      *
-     * @param file    上传的 Multipart 文件
+     * @param file 上传的 Multipart 文件
      * @param bizType 业务类型（如 avatar、note_cover），用于区分 COS 存储目录
      * @return 上传成功返回文件的 URL、对象键、文件名和大小（FileUploadResponse）
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<FileUploadResponse> upload(
-            @RequestPart("file") MultipartFile file,
-            @RequestParam String bizType) {
+            @RequestPart("file") MultipartFile file, @RequestParam String bizType) {
         return R.ok(fileService.upload(file, bizType));
     }
 }

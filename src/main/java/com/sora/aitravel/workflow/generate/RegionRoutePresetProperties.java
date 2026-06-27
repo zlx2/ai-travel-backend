@@ -24,7 +24,8 @@ public class RegionRoutePresetProperties {
             ClassPathResource resource = new ClassPathResource(PRESETS_PATH);
             try (InputStream stream = resource.getInputStream()) {
                 Map<String, RegionPresetGroup> loaded =
-                        mapper.readValue(stream, new TypeReference<Map<String, RegionPresetGroup>>() {});
+                        mapper.readValue(
+                                stream, new TypeReference<Map<String, RegionPresetGroup>>() {});
                 groups = Map.copyOf(loaded);
             }
             log.info("已加载 region-route-presets.json, keys={}", groups.keySet());
@@ -59,8 +60,7 @@ public class RegionRoutePresetProperties {
         return null;
     }
 
-    public RoutePreset selectPreset(
-            RegionPresetGroup group, int days, List<String> preferences) {
+    public RoutePreset selectPreset(RegionPresetGroup group, int days, List<String> preferences) {
         if (group == null || group.getPresets() == null) {
             return null;
         }
@@ -107,16 +107,45 @@ public class RegionRoutePresetProperties {
         private List<RoutePreset> presets;
         private String standardName;
 
-        public String getType() { return type; }
-        public void setType(String type) { this.type = type; }
-        public List<String> getAliases() { return aliases; }
-        public void setAliases(List<String> aliases) { this.aliases = aliases; }
-        public String getDefaultCity() { return defaultCity; }
-        public void setDefaultCity(String defaultCity) { this.defaultCity = defaultCity; }
-        public List<RoutePreset> getPresets() { return presets; }
-        public void setPresets(List<RoutePreset> presets) { this.presets = presets; }
-        public String getStandardName() { return standardName; }
-        public void setStandardName(String standardName) { this.standardName = standardName; }
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public List<String> getAliases() {
+            return aliases;
+        }
+
+        public void setAliases(List<String> aliases) {
+            this.aliases = aliases;
+        }
+
+        public String getDefaultCity() {
+            return defaultCity;
+        }
+
+        public void setDefaultCity(String defaultCity) {
+            this.defaultCity = defaultCity;
+        }
+
+        public List<RoutePreset> getPresets() {
+            return presets;
+        }
+
+        public void setPresets(List<RoutePreset> presets) {
+            this.presets = presets;
+        }
+
+        public String getStandardName() {
+            return standardName;
+        }
+
+        public void setStandardName(String standardName) {
+            this.standardName = standardName;
+        }
     }
 
     public static class RoutePreset {
@@ -126,15 +155,44 @@ public class RegionRoutePresetProperties {
         private List<String> cities;
         private List<String> tags;
 
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public Integer getMinDays() { return minDays; }
-        public void setMinDays(Integer minDays) { this.minDays = minDays; }
-        public Integer getMaxDays() { return maxDays; }
-        public void setMaxDays(Integer maxDays) { this.maxDays = maxDays; }
-        public List<String> getCities() { return cities; }
-        public void setCities(List<String> cities) { this.cities = cities; }
-        public List<String> getTags() { return tags; }
-        public void setTags(List<String> tags) { this.tags = tags; }
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Integer getMinDays() {
+            return minDays;
+        }
+
+        public void setMinDays(Integer minDays) {
+            this.minDays = minDays;
+        }
+
+        public Integer getMaxDays() {
+            return maxDays;
+        }
+
+        public void setMaxDays(Integer maxDays) {
+            this.maxDays = maxDays;
+        }
+
+        public List<String> getCities() {
+            return cities;
+        }
+
+        public void setCities(List<String> cities) {
+            this.cities = cities;
+        }
+
+        public List<String> getTags() {
+            return tags;
+        }
+
+        public void setTags(List<String> tags) {
+            this.tags = tags;
+        }
     }
 }

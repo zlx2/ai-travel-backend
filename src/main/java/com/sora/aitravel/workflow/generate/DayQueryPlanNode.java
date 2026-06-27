@@ -21,14 +21,7 @@ public class DayQueryPlanNode {
             List<QueryItem> queries = new ArrayList<>();
             for (String keyword : scenicKeywords(city, dayContext)) {
                 queries.add(
-                        new QueryItem(
-                                "SCENIC",
-                                keyword,
-                                city,
-                                targetArea,
-                                null,
-                                null,
-                                "查询当天核心景点"));
+                        new QueryItem("SCENIC", keyword, city, targetArea, null, null, "查询当天核心景点"));
             }
             if (wantsNight && dayContext.getDay() == nightDay) {
                 queries.add(
@@ -61,13 +54,7 @@ public class DayQueryPlanNode {
                             "查询午餐和晚餐候选"));
             queries.add(
                     new QueryItem(
-                            "HOTEL",
-                            dayContext.hotelArea(),
-                            city,
-                            null,
-                            null,
-                            null,
-                            "确认住宿区域上下文"));
+                            "HOTEL", dayContext.hotelArea(), city, null, null, null, "确认住宿区域上下文"));
             queries.add(
                     new QueryItem(
                             "TRANSPORT",

@@ -29,9 +29,7 @@ public class TripSummaryNode {
                         profile.foodCandidates().stream().map(this::toFoodSpot).toList(),
                         profile.hotelCandidates().stream().map(this::toHotelArea).toList(),
                         new TransportPlanDTO(travelMode, null, null, travelMode.getTips())));
-        log.info(
-                "节点[trip-summary]：已生成候选数据摘要，lockedDays={}",
-                context.getLockedDailyPlans().size());
+        log.info("节点[trip-summary]：已生成候选数据摘要，lockedDays={}", context.getLockedDailyPlans().size());
     }
 
     private ScenicSpotDTO toScenicSpot(PoiCandidate candidate) {

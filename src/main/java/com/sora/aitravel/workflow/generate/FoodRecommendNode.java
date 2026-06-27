@@ -105,11 +105,7 @@ public class FoodRecommendNode {
             log.warn("节点[food-recommend]：第 {} 天无可用真实美食数据，query={}，reason={}", day, query, reason);
             return FoodRecommendResponse.fail(reason);
         } catch (RuntimeException exception) {
-            log.warn(
-                    "节点[food-recommend]：第 {} 天真实美食查询异常，query={}",
-                    day,
-                    query,
-                    exception);
+            log.warn("节点[food-recommend]：第 {} 天真实美食查询异常，query={}", day, query, exception);
             return FoodRecommendResponse.fail("美食查询失败：" + exception.getMessage());
         }
     }
@@ -121,5 +117,4 @@ public class FoodRecommendNode {
                 && response.getList() != null
                 && !response.getList().isEmpty();
     }
-
 }

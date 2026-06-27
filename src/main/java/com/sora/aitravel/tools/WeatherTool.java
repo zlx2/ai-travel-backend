@@ -6,7 +6,6 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import java.util.HashMap;
 import java.util.Map;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -203,7 +202,8 @@ public class WeatherTool {
                     dayForecast.set("tempMin", Math.round(minTemp));
                     dayForecast.set("tempMax", Math.round(maxTemp));
                     if (precip > 0) {
-                        dayForecast.set("precipitation", Double.parseDouble(String.format("%.1f", precip)));
+                        dayForecast.set(
+                                "precipitation", Double.parseDouble(String.format("%.1f", precip)));
                     }
                     forecastArr.add(dayForecast);
                 }

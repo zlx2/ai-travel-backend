@@ -1,5 +1,7 @@
 package com.sora.aitravel.service.impl;
 
+import static com.sora.aitravel.common.enums.ErrorCode.*;
+
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PutObjectRequest;
@@ -10,23 +12,19 @@ import com.sora.aitravel.dto.response.FileUploadResponse;
 import com.sora.aitravel.entity.FileResource;
 import com.sora.aitravel.mapper.FileResourceMapper;
 import com.sora.aitravel.service.FileService;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Set;
-import java.util.UUID;
-
-import static com.sora.aitravel.common.enums.ErrorCode.*;
-
 /**
  * 文件上传服务实现。
  *
- * <p>将用户上传的文件存储到腾讯云 COS，并将记录写入 file_resource 表。
- * 一期支持 avatar（头像）和 note_cover（游记封面）两种业务类型。
+ * <p>将用户上传的文件存储到腾讯云 COS，并将记录写入 file_resource 表。 一期支持 avatar（头像）和 note_cover（游记封面）两种业务类型。
  */
 @Slf4j
 @Service
@@ -44,7 +42,8 @@ public class FileServiceImpl implements FileService {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
 
     /** 允许的 Content-Type。 */
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Set<String> ALLOWED_CONTENT_TYPES =
+            Set.of("image/jpeg", "image/png", "image/webp");
 
     /** 允许的业务类型。 */
     private static final Set<String> ALLOWED_BIZ_TYPES = Set.of("avatar", "note_cover");
@@ -83,7 +82,9 @@ public class FileServiceImpl implements FileService {
 
         // 6. 构建 COS objectKey：bizType/userId/yyyy/MM/dd/uuid.ext
         LocalDate now = LocalDate.now();
-        String datePath = String.format("%d/%02d/%02d", now.getYear(), now.getMonthValue(), now.getDayOfMonth());
+        String datePath =
+                String.format(
+                        "%d/%02d/%02d", now.getYear(), now.getMonthValue(), now.getDayOfMonth());
         String uuid = UUID.randomUUID().toString();
         String objectKey = bizType + "/" + userId + "/" + datePath + "/" + uuid + "." + ext;
 
@@ -93,8 +94,9 @@ public class FileServiceImpl implements FileService {
             metadata.setContentType(contentType);
             metadata.setContentLength(file.getSize());
 
-            PutObjectRequest putRequest = new PutObjectRequest(
-                    cosProperties.getBucket(), objectKey, file.getInputStream(), metadata);
+            PutObjectRequest putRequest =
+                    new PutObjectRequest(
+                            cosProperties.getBucket(), objectKey, file.getInputStream(), metadata);
             cosClient.putObject(putRequest);
         } catch (Exception e) {
             log.error("COS upload failed: objectKey={}, size={}", objectKey, file.getSize(), e);
@@ -133,7 +135,8 @@ public class FileServiceImpl implements FileService {
         if (domain != null && !domain.isBlank()) {
             return domain.replaceAll("/+$", "") + "/" + objectKey;
         }
-        return String.format("https://%s.cos.%s.myqcloud.com/%s",
+        return String.format(
+                "https://%s.cos.%s.myqcloud.com/%s",
                 cosProperties.getBucket(), cosProperties.getRegion(), objectKey);
     }
 }

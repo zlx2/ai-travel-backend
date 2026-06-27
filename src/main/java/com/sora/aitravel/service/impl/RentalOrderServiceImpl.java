@@ -108,9 +108,10 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return Trip.builder()
                 .userId(userId)
                 .conversationId(request.getConversationId())
-                .title(notBlank(tripPlan.getTitle())
-                        ? tripPlan.getTitle()
-                        : tripDestination(requirement, tripPlan) + "行程")
+                .title(
+                        notBlank(tripPlan.getTitle())
+                                ? tripPlan.getTitle()
+                                : tripDestination(requirement, tripPlan) + "行程")
                 .departure(tripDeparture(requirement, quote))
                 .destination(tripDestination(requirement, tripPlan))
                 .days(requirement.getDays())
@@ -136,10 +137,13 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         LocalDate pickupDate = parseDate(requirement.getTravelDate());
 
         return RentalOrder.builder()
-                .orderNo("RO"
-                        + LocalDateTime.now().format(
-                                java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                        + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
+                .orderNo(
+                        "RO"
+                                + LocalDateTime.now()
+                                        .format(
+                                                java.time.format.DateTimeFormatter.ofPattern(
+                                                        "yyyyMMddHHmmss"))
+                                + UUID.randomUUID().toString().substring(0, 6).toUpperCase())
                 .userId(userId)
                 .tripId(tripId)
                 .pickupPoiId(quote.getPickupPoiId())

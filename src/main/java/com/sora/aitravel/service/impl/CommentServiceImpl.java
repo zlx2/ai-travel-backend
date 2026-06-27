@@ -17,7 +17,6 @@ import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.service.CommentService;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -37,8 +36,7 @@ public class CommentServiceImpl implements CommentService {
     private final NoteMapper noteMapper;
     private final SysUserMapper userMapper;
 
-    private static final DateTimeFormatter FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public PageResult<CommentResponse> list(Long noteId, Integer pageNum, Integer pageSize) {
@@ -74,14 +72,15 @@ public class CommentServiceImpl implements CommentService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        NoteComment comment = NoteComment.builder()
-                .noteId(noteId)
-                .userId(userId)
-                .content(request.getContent())
-                .status(1)
-                .createTime(now)
-                .updateTime(now)
-                .build();
+        NoteComment comment =
+                NoteComment.builder()
+                        .noteId(noteId)
+                        .userId(userId)
+                        .content(request.getContent())
+                        .status(1)
+                        .createTime(now)
+                        .updateTime(now)
+                        .build();
 
         commentMapper.insert(comment);
 
@@ -125,7 +124,10 @@ public class CommentServiceImpl implements CommentService {
                 .noteId(comment.getNoteId())
                 .userId(comment.getUserId())
                 .content(comment.getContent())
-                .createTime(comment.getCreateTime() != null ? comment.getCreateTime().format(FMT) : null)
+                .createTime(
+                        comment.getCreateTime() != null
+                                ? comment.getCreateTime().format(FMT)
+                                : null)
                 .nickname(user != null ? user.getNickname() : "未知用户")
                 .avatarUrl(user != null ? user.getAvatarUrl() : null)
                 .build();

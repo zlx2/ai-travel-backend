@@ -19,8 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 游记互动服务实现类。
  *
- * <p>提供用户对游记的点赞和收藏功能。点赞/收藏为幂等操作： 重复点赞不会产生重复记录，取消不存在的点赞也不会报错。
- * 每次操作后同步更新游记的对应计数。
+ * <p>提供用户对游记的点赞和收藏功能。点赞/收藏为幂等操作： 重复点赞不会产生重复记录，取消不存在的点赞也不会报错。 每次操作后同步更新游记的对应计数。
  */
 @Service
 @RequiredArgsConstructor
@@ -45,10 +44,7 @@ public class NoteInteractionServiceImpl implements NoteInteractionService {
                         > 0;
         if (exists) return;
 
-        NoteLike like = NoteLike.builder()
-                .noteId(noteId)
-                .userId(userId)
-                .build();
+        NoteLike like = NoteLike.builder().noteId(noteId).userId(userId).build();
         noteLikeMapper.insert(like);
 
         note.setLikeCount(note.getLikeCount() + 1);
@@ -87,10 +83,7 @@ public class NoteInteractionServiceImpl implements NoteInteractionService {
                         > 0;
         if (exists) return;
 
-        NoteFavorite favorite = NoteFavorite.builder()
-                .noteId(noteId)
-                .userId(userId)
-                .build();
+        NoteFavorite favorite = NoteFavorite.builder().noteId(noteId).userId(userId).build();
         noteFavoriteMapper.insert(favorite);
 
         note.setFavoriteCount(note.getFavoriteCount() + 1);

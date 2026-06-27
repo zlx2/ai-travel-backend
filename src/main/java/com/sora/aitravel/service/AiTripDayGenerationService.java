@@ -8,7 +8,11 @@ public interface AiTripDayGenerationService {
     AiTripDayGeneration getLatest(String sessionId, Integer dayNo);
 
     AiTripDayGeneration createPending(
-            String sessionId, Long userId, Integer dayNo, Integer generationVersion, String requestMode);
+            String sessionId,
+            Long userId,
+            Integer dayNo,
+            Integer generationVersion,
+            String requestMode);
 
     AiTripDayGeneration createQueuedIfAbsent(
             String sessionId, Long userId, Integer dayNo, String requestMode);

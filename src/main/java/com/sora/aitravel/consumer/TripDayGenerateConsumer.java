@@ -1,6 +1,5 @@
 package com.sora.aitravel.consumer;
 
-import com.sora.aitravel.config.RabbitMqConfig;
 import com.sora.aitravel.dto.message.TripDayGenerateMessage;
 import com.sora.aitravel.service.AiTripDayGenerateService;
 import lombok.RequiredArgsConstructor;

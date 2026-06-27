@@ -379,13 +379,7 @@ public class DayPlanGenerateNode {
                         + durationMinutes
                         + " 分钟"
                         + (MODE_TAXI.equals(mode) && cost != null ? "，打车约 ¥" + cost : "");
-        return new RouteMetric(
-                distance,
-                durationMinutes,
-                cost,
-                mode,
-                description,
-                SOURCE_AMAP);
+        return new RouteMetric(distance, durationMinutes, cost, mode, description, SOURCE_AMAP);
     }
 
     private String routeLocation(PoiCandidate candidate) {
@@ -1026,7 +1020,10 @@ public class DayPlanGenerateNode {
         List<String> parts = new ArrayList<>();
         parts.add(experienceReference(candidate, city));
         if (candidate.getBusinessTags() != null && !candidate.getBusinessTags().isEmpty()) {
-            parts.add("标签：" + String.join("、", candidate.getBusinessTags().stream().limit(4).toList()));
+            parts.add(
+                    "标签："
+                            + String.join(
+                                    "、", candidate.getBusinessTags().stream().limit(4).toList()));
         }
         if (candidate.getAddress() != null && !candidate.getAddress().isBlank()) {
             parts.add("位置线索：" + candidate.getAddress());

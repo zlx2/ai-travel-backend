@@ -109,8 +109,7 @@ class FoodRecommendNodeTest {
 
         node.execute(context);
 
-        FoodRestaurantItemDTO item =
-                context.getFoodRecommendationsByDay().get(1).getList().get(0);
+        FoodRestaurantItemDTO item = context.getFoodRecommendationsByDay().get(1).getList().get(0);
         checkValue("POI ID", "MOCK_FOOD_1", item.getAmapPoiId());
         checkValue("饭店名称", "重庆本地小吃街", item.getName());
         checkValue("行政区域", "老城区域", item.getAdName());
@@ -165,14 +164,7 @@ class FoodRecommendNodeTest {
                                     null,
                                     null,
                                     "查询午餐和晚餐候选")
-                            : new QueryItem(
-                                    "SCENIC",
-                                    "重庆景点",
-                                    "重庆",
-                                    "重庆核心商圈",
-                                    null,
-                                    null,
-                                    "查询景点");
+                            : new QueryItem("SCENIC", "重庆景点", "重庆", "重庆核心商圈", null, null, "查询景点");
             plans.add(new DayQueryPlan(day, List.of(query)));
         }
         context.setDayQueryPlans(plans);

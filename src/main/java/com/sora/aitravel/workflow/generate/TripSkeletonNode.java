@@ -34,19 +34,16 @@ public class TripSkeletonNode {
             return new DaySkeleton(day, city + "慢游收束", city + "休闲街区", "LIGHT");
         }
         if (day == 2 && (hasPreference(requirement, "夜景") || hasPreference(requirement, "夜市"))) {
-            return new DaySkeleton(
-                    day, city + "夜色漫游", city + "夜间活跃区域", light ? "LIGHT" : "NORMAL");
+            return new DaySkeleton(day, city + "夜色漫游", city + "夜间活跃区域", light ? "LIGHT" : "NORMAL");
         }
         if (hasPreference(requirement, "自然")) {
-            return new DaySkeleton(
-                    day, city + "自然风光", city + "自然景区周边", light ? "LIGHT" : "NORMAL");
+            return new DaySkeleton(day, city + "自然风光", city + "自然景区周边", light ? "LIGHT" : "NORMAL");
         }
         if (hasPreference(requirement, "美食")) {
             return new DaySkeleton(
                     day, city + "美食探索", city + "老城与美食街区", light ? "LIGHT" : "NORMAL");
         }
-        return new DaySkeleton(
-                day, city + "经典景点", city + "热门游览区域", light ? "LIGHT" : "NORMAL");
+        return new DaySkeleton(day, city + "经典景点", city + "热门游览区域", light ? "LIGHT" : "NORMAL");
     }
 
     private String resolveCityForDay(TravelRequirementDTO requirement, int day) {

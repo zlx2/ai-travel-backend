@@ -128,7 +128,8 @@ public class AiTripController {
                 return;
             }
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+                    objectMapper.readValue(
+                            session.getRequirementJson(), TravelRequirementDTO.class);
             int nextDay = dayNo + 1;
             if (requirement.getDays() == null || nextDay > requirement.getDays()) {
                 return;
@@ -160,10 +161,17 @@ public class AiTripController {
                 () -> {
                     try {
                         sendProgress(emitter, "start", "start", "开始生成行程", 1, null, null);
-                        sendProgress(emitter, "progress", "prepare-session", "正在准备行程上下文", 20, null, null);
-                        TripGenerateResponse result = generateFirstDayAndPrefetchNext(userId, request);
                         sendProgress(
-                                emitter, "done", "done", "第 1 天行程生成完成", 100, result, null);
+                                emitter,
+                                "progress",
+                                "prepare-session",
+                                "正在准备行程上下文",
+                                20,
+                                null,
+                                null);
+                        TripGenerateResponse result =
+                                generateFirstDayAndPrefetchNext(userId, request);
+                        sendProgress(emitter, "done", "done", "第 1 天行程生成完成", 100, result, null);
                         emitter.complete();
                     } catch (Exception ex) {
                         log.warn("AI 行程流式生成失败", ex);
@@ -177,7 +185,8 @@ public class AiTripController {
 
     private TripGenerateResponse generateFirstDayAndPrefetchNext(
             Long userId, TripGenerateRequest request) {
-        AiTripGenerationSession session = aiTripGenerationOrchestrator.prepareSession(userId, request);
+        AiTripGenerationSession session =
+                aiTripGenerationOrchestrator.prepareSession(userId, request);
         AiTripDayGeneration day =
                 aiTripDayGenerateService.generateDay(session.getSessionId(), 1, "USER", false);
 
@@ -192,7 +201,8 @@ public class AiTripController {
             RentalQuoteOptionDTO selectedQuote) {
         try {
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+                    objectMapper.readValue(
+                            session.getRequirementJson(), TravelRequirementDTO.class);
             TripPlanDTO.DailyPlan dailyPlan =
                     objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
             TripPlanDTO tripPlan =
@@ -239,7 +249,8 @@ public class AiTripController {
                                         generatedDay.getStatus(),
                                         generatedDay.getErrorMessage());
                             }
-                            return new TripGenerateDayStatusResponse(dayNo, null, 0, "NOT_STARTED", null);
+                            return new TripGenerateDayStatusResponse(
+                                    dayNo, null, 0, "NOT_STARTED", null);
                         })
                 .toList();
     }
@@ -279,7 +290,9 @@ public class AiTripController {
         if (requirement.getRouteRegion() != null && !requirement.getRouteRegion().isBlank()) {
             return requirement.getRouteRegion();
         }
-        return requirement.getRouteCities() == null ? "" : String.join("-", requirement.getRouteCities());
+        return requirement.getRouteCities() == null
+                ? ""
+                : String.join("-", requirement.getRouteCities());
     }
 
     private boolean sendProgress(

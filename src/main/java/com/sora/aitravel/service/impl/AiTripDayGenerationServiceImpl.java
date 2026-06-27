@@ -35,7 +35,11 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     @Override
     public AiTripDayGeneration createPending(
-            String sessionId, Long userId, Integer dayNo, Integer generationVersion, String requestMode) {
+            String sessionId,
+            Long userId,
+            Integer dayNo,
+            Integer generationVersion,
+            String requestMode) {
         AiTripDayGeneration day =
                 AiTripDayGeneration.builder()
                         .sessionId(sessionId)
@@ -140,7 +144,8 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
                         .set(AiTripDayGeneration::getIsCurrent, 1));
     }
 
-    private void updateStatus(Long id, String status, LocalDateTime startedAt, LocalDateTime finishedAt) {
+    private void updateStatus(
+            Long id, String status, LocalDateTime startedAt, LocalDateTime finishedAt) {
         LambdaUpdateWrapper<AiTripDayGeneration> wrapper =
                 new LambdaUpdateWrapper<AiTripDayGeneration>()
                         .eq(AiTripDayGeneration::getId, id)

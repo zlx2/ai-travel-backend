@@ -20,22 +20,12 @@ class AmapTravelDataIntegrationTest {
     @Test
     void shouldParsePoiBusinessNaviAndPhotos() {
         List<Poi> pois =
-                service.searchPoiText(
-                                "成都夜市",
-                                "050000",
-                                "成都",
-                                true,
-                                25,
-                                1,
-                                "business,navi,photos")
+                service.searchPoiText("成都夜市", "050000", "成都", true, 25, 1, "business,navi,photos")
                         .getData();
 
         assertThat(pois).isNotEmpty();
         Poi sample =
-                pois.stream()
-                        .filter(poi -> poi.getBusiness() != null)
-                        .findFirst()
-                        .orElseThrow();
+                pois.stream().filter(poi -> poi.getBusiness() != null).findFirst().orElseThrow();
 
         assertThat(sample.getId()).isNotBlank();
         assertThat(sample.getLocation()).contains(",");
@@ -48,8 +38,7 @@ class AmapTravelDataIntegrationTest {
     @Test
     void shouldParseRouteDistanceDurationAndTaxiCost() {
         Route route =
-                service.drivingRoute("104.065735,30.659462", "104.079043,30.574469")
-                        .getData();
+                service.drivingRoute("104.065735,30.659462", "104.079043,30.574469").getData();
 
         assertThat(route).isNotNull();
         assertThat(route.getTaxiCost()).isNotBlank();

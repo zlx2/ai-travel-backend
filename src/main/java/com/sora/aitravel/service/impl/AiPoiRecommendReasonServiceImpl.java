@@ -1,7 +1,6 @@
 package com.sora.aitravel.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.sora.aitravel.entity.AiPoiRecommendReason;
 import com.sora.aitravel.mapper.AiPoiRecommendReasonMapper;
 import com.sora.aitravel.service.AiPoiRecommendReasonService;

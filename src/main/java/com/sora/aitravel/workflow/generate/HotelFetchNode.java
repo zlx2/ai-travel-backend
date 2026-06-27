@@ -4,7 +4,6 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.tools.HotelTool;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -37,13 +36,19 @@ public class HotelFetchNode {
 
         // 计算入住/离店日期
         String travelDate = requirement.getTravelDate();
-        LocalDate checkIn = travelDate != null ? LocalDate.parse(travelDate) : LocalDate.now().plusDays(1);
-        LocalDate checkOut = checkIn.plusDays(requirement.getDays() != null ? requirement.getDays() : 3);
+        LocalDate checkIn =
+                travelDate != null ? LocalDate.parse(travelDate) : LocalDate.now().plusDays(1);
+        LocalDate checkOut =
+                checkIn.plusDays(requirement.getDays() != null ? requirement.getDays() : 3);
         String checkInStr = checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE);
         String checkOutStr = checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
         try {
-            log.info("节点[hotel-fetch]：调用 HotelTool 查询 {} 酒店，入住={}，离店={}", destination, checkInStr, checkOutStr);
+            log.info(
+                    "节点[hotel-fetch]：调用 HotelTool 查询 {} 酒店，入住={}，离店={}",
+                    destination,
+                    checkInStr,
+                    checkOutStr);
             String hotelData = hotelTool.searchHotel(destination, checkInStr, checkOutStr);
             context.setHotelSearchResult(hotelData);
             log.info("节点[hotel-fetch]：酒店数据获取成功，长度={}", hotelData.length());

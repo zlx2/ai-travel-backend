@@ -51,8 +51,7 @@ public class NoteServiceImpl implements NoteService {
     private final TagMapper tagMapper;
     private final SysUserMapper userMapper;
 
-    private static final DateTimeFormatter FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public PageResult<NoteListItemResponse> list(
@@ -68,11 +67,7 @@ public class NoteServiceImpl implements NoteService {
         wrapper.eq(Note::getStatus, NoteStatusEnum.PUBLISHED.ordinal());
 
         if (keyword != null && !keyword.isBlank()) {
-            wrapper.and(
-                    w ->
-                            w.like(Note::getTitle, keyword)
-                                    .or()
-                                    .like(Note::getSummary, keyword));
+            wrapper.and(w -> w.like(Note::getTitle, keyword).or().like(Note::getSummary, keyword));
         }
         if (destination != null && !destination.isBlank()) {
             wrapper.eq(Note::getDestination, destination);
@@ -99,8 +94,7 @@ public class NoteServiceImpl implements NoteService {
                         .map(this::toListItemResponse)
                         .collect(Collectors.toList());
 
-        return new PageResult<>(
-                list, result.getTotal(), pageNum, pageSize);
+        return new PageResult<>(list, result.getTotal(), pageNum, pageSize);
     }
 
     @Override
@@ -134,21 +128,22 @@ public class NoteServiceImpl implements NoteService {
         Long userId = LoginUserUtils.getUserId();
         LocalDateTime now = LocalDateTime.now();
 
-        Note note = Note.builder()
-                .userId(userId)
-                .title(request.getTitle())
-                .coverUrl(request.getCoverUrl())
-                .destination(request.getDestination())
-                .summary(request.getSummary())
-                .content(request.getContent())
-                .status(request.getStatus())
-                .viewCount(0)
-                .likeCount(0)
-                .favoriteCount(0)
-                .commentCount(0)
-                .createTime(now)
-                .updateTime(now)
-                .build();
+        Note note =
+                Note.builder()
+                        .userId(userId)
+                        .title(request.getTitle())
+                        .coverUrl(request.getCoverUrl())
+                        .destination(request.getDestination())
+                        .summary(request.getSummary())
+                        .content(request.getContent())
+                        .status(request.getStatus())
+                        .viewCount(0)
+                        .likeCount(0)
+                        .favoriteCount(0)
+                        .commentCount(0)
+                        .createTime(now)
+                        .updateTime(now)
+                        .build();
 
         noteMapper.insert(note);
 
@@ -182,26 +177,33 @@ public class NoteServiceImpl implements NoteService {
         List<String> tags = getTagNamesByNoteId(id);
         List<Long> tagIds = getTagIdsByNoteId(id);
 
-        NoteDetailResponse response = NoteDetailResponse.builder()
-                .id(note.getId())
-                .title(note.getTitle())
-                .coverUrl(note.getCoverUrl())
-                .destination(note.getDestination())
-                .summary(note.getSummary())
-                .content(note.getContent())
-                .authorId(note.getUserId())
-                .authorNickname(author != null ? author.getNickname() : "未知用户")
-                .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
-                .tags(tags)
-                .tagIds(tagIds)
-                .viewCount(note.getViewCount())
-                .likeCount(note.getLikeCount())
-                .favoriteCount(note.getFavoriteCount())
-                .commentCount(note.getCommentCount())
-                .status(note.getStatus())
-                .createTime(note.getCreateTime() != null ? note.getCreateTime().format(FMT) : null)
-                .updateTime(note.getUpdateTime() != null ? note.getUpdateTime().format(FMT) : null)
-                .build();
+        NoteDetailResponse response =
+                NoteDetailResponse.builder()
+                        .id(note.getId())
+                        .title(note.getTitle())
+                        .coverUrl(note.getCoverUrl())
+                        .destination(note.getDestination())
+                        .summary(note.getSummary())
+                        .content(note.getContent())
+                        .authorId(note.getUserId())
+                        .authorNickname(author != null ? author.getNickname() : "未知用户")
+                        .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
+                        .tags(tags)
+                        .tagIds(tagIds)
+                        .viewCount(note.getViewCount())
+                        .likeCount(note.getLikeCount())
+                        .favoriteCount(note.getFavoriteCount())
+                        .commentCount(note.getCommentCount())
+                        .status(note.getStatus())
+                        .createTime(
+                                note.getCreateTime() != null
+                                        ? note.getCreateTime().format(FMT)
+                                        : null)
+                        .updateTime(
+                                note.getUpdateTime() != null
+                                        ? note.getUpdateTime().format(FMT)
+                                        : null)
+                        .build();
 
         // 当前用户是否已点赞/收藏
         try {
@@ -243,8 +245,7 @@ public class NoteServiceImpl implements NoteService {
         noteMapper.updateById(note);
 
         // 重建标签关联
-        noteTagMapper.delete(
-                new LambdaQueryWrapper<NoteTag>().eq(NoteTag::getNoteId, id));
+        noteTagMapper.delete(new LambdaQueryWrapper<NoteTag>().eq(NoteTag::getNoteId, id));
         if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
             saveNoteTags(id, request.getTagIds());
         }
@@ -325,13 +326,16 @@ public class NoteServiceImpl implements NoteService {
 
     private void saveNoteTags(Long noteId, List<Long> tagIds) {
         LocalDateTime now = LocalDateTime.now();
-        List<NoteTag> list = tagIds.stream()
-                .map(tagId -> NoteTag.builder()
-                        .noteId(noteId)
-                        .tagId(tagId)
-                        .createTime(now)
-                        .build())
-                .collect(Collectors.toList());
+        List<NoteTag> list =
+                tagIds.stream()
+                        .map(
+                                tagId ->
+                                        NoteTag.builder()
+                                                .noteId(noteId)
+                                                .tagId(tagId)
+                                                .createTime(now)
+                                                .build())
+                        .collect(Collectors.toList());
         noteTagMapper.insert(list);
     }
 }
