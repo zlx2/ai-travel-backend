@@ -1,5 +1,6 @@
 package com.sora.aitravel.dto.response;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
  * @param destination 目的地
  * @param days 行程天数
  * @param budget 预算金额
+ * @param preferences 偏好标签列表
  * @param summary 行程摘要
  * @param coverUrl 封面图片 URL
  * @param createTime 创建时间
@@ -28,6 +30,7 @@ public class TripListItemResponse {
     private String destination;
     private Integer days;
     private Integer budget;
+    private List<String> preferences;
     private String summary;
     private String coverUrl;
     private String createTime;
