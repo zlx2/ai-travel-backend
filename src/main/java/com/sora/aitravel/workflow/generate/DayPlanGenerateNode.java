@@ -79,13 +79,31 @@ public class DayPlanGenerateNode {
 
     public void execute(GenerateWorkflowContext context) {
         List<TripPlanDTO.DailyPlan> dailyPlans = new ArrayList<>();
-        Set<String> usedPoiKeys = new HashSet<>();
+        Set<String> usedPoiKeys = usedPoiKeys(context.getLockedDailyPlans());
         for (DayDataPackage dataPackage : context.getRankedDayDataPackages()) {
             DayContext dayContext = findDayContext(context, dataPackage.getDay());
             dailyPlans.add(buildDailyPlan(context, dayContext, dataPackage, usedPoiKeys));
         }
         context.setLockedDailyPlans(dailyPlans);
         log.info("节点[day-plan-generate]：已生成逐日结构化行程，days={}", dailyPlans.size());
+    }
+
+    private Set<String> usedPoiKeys(List<TripPlanDTO.DailyPlan> existingPlans) {
+        Set<String> keys = new HashSet<>();
+        if (existingPlans == null) {
+            return keys;
+        }
+        for (TripPlanDTO.DailyPlan plan : existingPlans) {
+            if (plan.getSpots() == null) {
+                continue;
+            }
+            plan.getSpots().stream()
+                    .map(TripPlanDTO.Spot::getName)
+                    .map(this::normalizePoiName)
+                    .filter(key -> !key.isBlank())
+                    .forEach(keys::add);
+        }
+        return keys;
     }
 
     private TripPlanDTO.DailyPlan buildDailyPlan(

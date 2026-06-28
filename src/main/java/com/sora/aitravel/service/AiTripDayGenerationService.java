@@ -1,11 +1,14 @@
 package com.sora.aitravel.service;
 
 import com.sora.aitravel.entity.AiTripDayGeneration;
+import java.util.List;
 
 /** AI 行程按天生成服务。 */
 public interface AiTripDayGenerationService {
 
     AiTripDayGeneration getLatest(String sessionId, Integer dayNo);
+
+    List<AiTripDayGeneration> listCurrentGeneratedBefore(String sessionId, Integer dayNo);
 
     AiTripDayGeneration createPending(
             String sessionId,

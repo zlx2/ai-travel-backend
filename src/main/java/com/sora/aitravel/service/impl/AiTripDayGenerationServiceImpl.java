@@ -6,6 +6,7 @@ import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.mapper.AiTripDayGenerationMapper;
 import com.sora.aitravel.service.AiTripDayGenerationService;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,17 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
                         .eq(AiTripDayGeneration::getDayNo, dayNo)
                         .orderByDesc(AiTripDayGeneration::getGenerationVersion)
                         .last("LIMIT 1"));
+    }
+
+    @Override
+    public List<AiTripDayGeneration> listCurrentGeneratedBefore(String sessionId, Integer dayNo) {
+        return mapper.selectList(
+                new LambdaQueryWrapper<AiTripDayGeneration>()
+                        .eq(AiTripDayGeneration::getSessionId, sessionId)
+                        .eq(AiTripDayGeneration::getIsCurrent, 1)
+                        .eq(AiTripDayGeneration::getStatus, STATUS_GENERATED)
+                        .lt(AiTripDayGeneration::getDayNo, dayNo)
+                        .orderByAsc(AiTripDayGeneration::getDayNo));
     }
 
     @Override

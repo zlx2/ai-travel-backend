@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.AiTripDayGenerateService;
@@ -67,7 +68,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
         try {
             dayGenerationService.markGenerating(day.getId());
-            GenerateWorkflowContext context = restoreContext(session);
+            GenerateWorkflowContext context = restoreContext(session, dayNo);
             runDayNodes(context, dayNo);
             dayGenerationService.markGenerated(
                     day.getId(), writeJson(context.getLockedDailyPlans().get(0)));
@@ -89,7 +90,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return session;
     }
 
-    private GenerateWorkflowContext restoreContext(AiTripGenerationSession session) {
+    private GenerateWorkflowContext restoreContext(AiTripGenerationSession session, Integer dayNo) {
         GenerateWorkflowContext context = new GenerateWorkflowContext();
         context.setUserId(session.getUserId());
         context.setRequirement(read(session.getRequirementJson(), TravelRequirementDTO.class));
@@ -97,9 +98,23 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         context.setCityProfile(read(session.getCityProfileJson(), CityProfile.class));
         context.setWeatherForecast(read(session.getWeatherJson(), String.class));
         context.setHotelSearchResult(read(session.getHotelJson(), String.class));
-        context.setLockedDailyPlans(new java.util.ArrayList<>());
+        context.setLockedDailyPlans(readGeneratedPreviousDays(session.getSessionId(), dayNo));
         context.setSingleDayGeneration(true);
         return context;
+    }
+
+    private List<TripPlanDTO.DailyPlan> readGeneratedPreviousDays(String sessionId, Integer dayNo) {
+        return dayGenerationService.listCurrentGeneratedBefore(sessionId, dayNo).stream()
+                .map(this::readGeneratedDay)
+                .toList();
+    }
+
+    private TripPlanDTO.DailyPlan readGeneratedDay(AiTripDayGeneration day) {
+        try {
+            return objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+        } catch (Exception exception) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "已生成单日行程数据解析失败");
+        }
     }
 
     private void runDayNodes(GenerateWorkflowContext context, Integer dayNo) {
