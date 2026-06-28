@@ -22,6 +22,9 @@ public class RentalOrderResponse {
     private String orderStatus;
     private String paymentStatus;
     private Integer totalPriceCent;
+    private String protectionPackageCode;
+    private String protectionPackageName;
+    private Integer protectionFeeCent;
     private RentalFeeBreakdownDTO feeBreakdown;
     private Map<String, Object> pickupPoiSnapshot;
     private Map<String, Object> returnPoiSnapshot;

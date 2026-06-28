@@ -19,6 +19,9 @@ public class RentalOrderPersistNode {
                             request.getRequirement(),
                             request.getTripPlan(),
                             context.getRecalculatedQuote(),
+                            request.getProtectionPackageCode(),
+                            request.getProtectionPackageName(),
+                            request.getProtectionFeeCent(),
                             request.getContactName(),
                             request.getContactPhone(),
                             request.getRemark());

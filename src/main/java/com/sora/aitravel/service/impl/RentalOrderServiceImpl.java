@@ -169,11 +169,14 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .rentalDepositCent(fee.getRentalDepositCent())
                 .violationDepositCent(fee.getViolationDepositCent())
                 .depositFreeThresholdScore(fee.getDepositFreeThresholdScore())
-                .totalPriceCent(fee.getTotalPriceCent())
+                .totalPriceCent(value(fee.getTotalPriceCent()) + value(request.getProtectionFeeCent()))
                 .priceTemplateId(quote.getPriceTemplateId())
                 .priceSnapshot(toJson(quote.getPriceSnapshot()))
                 .contactName(request.getContactName())
                 .contactPhone(request.getContactPhone())
+                .protectionPackageCode(request.getProtectionPackageCode())
+                .protectionPackageName(request.getProtectionPackageName())
+                .protectionFeeCent(value(request.getProtectionFeeCent()))
                 .orderStatus("pending")
                 .paymentStatus("unpaid")
                 .remark(request.getRemark())
@@ -231,6 +234,9 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .orderStatus(order.getOrderStatus())
                 .paymentStatus(order.getPaymentStatus())
                 .totalPriceCent(order.getTotalPriceCent())
+                .protectionPackageCode(order.getProtectionPackageCode())
+                .protectionPackageName(order.getProtectionPackageName())
+                .protectionFeeCent(order.getProtectionFeeCent())
                 .feeBreakdown(fee)
                 .pickupPoiSnapshot(fromJsonMap(order.getPickupPoiSnapshot()))
                 .returnPoiSnapshot(fromJsonMap(order.getReturnPoiSnapshot()))
@@ -314,6 +320,10 @@ public class RentalOrderServiceImpl implements RentalOrderService {
 
     private Integer totalPrice(RentalQuoteOptionDTO quote) {
         return quote.getFeeBreakdown() == null ? null : quote.getFeeBreakdown().getTotalPriceCent();
+    }
+
+    private int value(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private boolean equalsValue(Object left, Object right) {

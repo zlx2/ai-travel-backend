@@ -30,6 +30,8 @@ public class RentalVehicleModel {
     private Integer guidePriceMaxCent;
     private String imageUrl;
     private String sourceUrl;
+    private String summary;
+    private String featureTags;
     private String confidence;
     private String note;
     private Integer status;

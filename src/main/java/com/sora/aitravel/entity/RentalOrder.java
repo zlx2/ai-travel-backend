@@ -52,6 +52,9 @@ public class RentalOrder {
     private String priceSnapshot;
     private String contactName;
     private String contactPhone;
+    private String protectionPackageCode;
+    private String protectionPackageName;
+    private Integer protectionFeeCent;
     private String orderStatus;
     private String paymentStatus;
     private String remark;

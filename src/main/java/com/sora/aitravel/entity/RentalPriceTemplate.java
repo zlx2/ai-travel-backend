@@ -29,6 +29,9 @@ public class RentalPriceTemplate {
     private Integer oneWayPerKmFeeCent;
     private BigDecimal oneWayDiscountRate;
     private Integer availableCount;
+    private Integer dailyMileageLimitKm;
+    private Integer extraMileageFeeCent;
+    private String includedServices;
     private String sourcePlatform;
     private String sourceNote;
     private LocalDateTime sampledAt;

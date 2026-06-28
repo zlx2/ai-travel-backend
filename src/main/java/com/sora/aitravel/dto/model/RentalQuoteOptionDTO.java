@@ -25,6 +25,23 @@ public class RentalQuoteOptionDTO {
     private String energyType;
     private Integer seatsMin;
     private Integer seatsMax;
+    private String recommendedPeople;
+    private String recommendedLuggage;
+    private String travelTags;
+    private String exampleModels;
+    private String description;
+    private String iconUrl;
+    private Long vehicleModelId;
+    private String brand;
+    private String series;
+    private String seriesFullName;
+    private Integer modelYear;
+    private String bodyType;
+    private String transmission;
+    private Integer seats;
+    private String imageUrl;
+    private String summary;
+    private String featureTags;
     private Long pickupPoiId;
     private String pickupPoiName;
     private String pickupAddress;
@@ -36,6 +53,10 @@ public class RentalQuoteOptionDTO {
     private Integer rentalDays;
     private Boolean isOneWay;
     private Long priceTemplateId;
+    private Integer availableCount;
+    private Integer dailyMileageLimitKm;
+    private Integer extraMileageFeeCent;
+    private String includedServices;
     private RentalFeeBreakdownDTO feeBreakdown;
     private Map<String, Object> priceSnapshot;
 }

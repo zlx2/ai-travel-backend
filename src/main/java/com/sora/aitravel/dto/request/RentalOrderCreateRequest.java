@@ -18,6 +18,9 @@ public class RentalOrderCreateRequest {
     @NotNull @Valid private TravelRequirementDTO requirement;
     @NotNull @Valid private TripPlanDTO tripPlan;
     @NotNull private RentalQuoteOptionDTO selectedQuote;
+    private String protectionPackageCode;
+    private String protectionPackageName;
+    private Integer protectionFeeCent;
     private String contactName;
     private String contactPhone;
     private String remark;
