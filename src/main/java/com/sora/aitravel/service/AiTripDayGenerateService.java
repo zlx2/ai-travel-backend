@@ -7,4 +7,11 @@ public interface AiTripDayGenerateService {
 
     AiTripDayGeneration generateDay(
             String sessionId, Integer dayNo, String requestMode, boolean forceRegenerate);
+
+    AiTripDayGeneration generateDay(
+            String sessionId,
+            Integer dayNo,
+            String requestMode,
+            boolean forceRegenerate,
+            String revisionText);
 }

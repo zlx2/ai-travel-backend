@@ -47,13 +47,15 @@ public class DayPlanGenerateNode {
             期望景点数：%d
             用户偏好：%s
             租车/交通约束：%s
+            本次用户追加调整：%s
             候选景点：
             %s
 
             任务：
             1. 从候选景点中选择 %d 个，优先兼顾看点质量、当天主题、不要重复、同一天路线不要太散；
             2. 必须使用候选里的 id，不允许编造候选外景点；
-            3. 为每个被选景点写一段“为什么推荐”。
+            3. 如果“本次用户追加调整”不为空，必须优先满足；如要求减少步行、减少跨区、指定餐饮偏好，应体现在选点和理由中；
+            4. 为每个被选景点写一段“为什么推荐”。
 
             推荐理由写作要求：
             * 像真人旅行顾问推荐，不要像百科或广告；
@@ -943,6 +945,11 @@ public class DayPlanGenerateNode {
                 : dayContext.getRentalInstruction();
     }
 
+    private String revisionInstruction(DayContext dayContext) {
+        String revision = dayContext.getRevisionText();
+        return revision == null || revision.isBlank() ? "无" : revision;
+    }
+
     private AiDayPlan generateAiDayPlan(
             GenerateWorkflowContext context,
             DayContext dayContext,
@@ -966,6 +973,7 @@ public class DayPlanGenerateNode {
                         spotCount,
                         preferenceText(requirement),
                         rentalInstruction(dayContext),
+                        revisionInstruction(dayContext),
                         aiCandidateText(refs, city),
                         spotCount);
         try {

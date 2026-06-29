@@ -30,7 +30,8 @@ public class DayContextBuildNode {
                                     : context.getRentalTripContext().getRouteStructure(),
                             context.getRentalTripContext() == null
                                     ? null
-                                    : context.getRentalTripContext().getDailyDrivingLimit()));
+                                    : context.getRentalTripContext().getDailyDrivingLimit(),
+                            context.getRevisionText()));
             usedPlaces.add(skeleton.targetArea());
         }
 

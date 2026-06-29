@@ -50,6 +50,16 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
     @Override
     public AiTripDayGeneration generateDay(
             String sessionId, Integer dayNo, String requestMode, boolean forceRegenerate) {
+        return generateDay(sessionId, dayNo, requestMode, forceRegenerate, null);
+    }
+
+    @Override
+    public AiTripDayGeneration generateDay(
+            String sessionId,
+            Integer dayNo,
+            String requestMode,
+            boolean forceRegenerate,
+            String revisionText) {
         // 1. 校验会话状态：必须为已准备（PREPARED）状态才能生成行程
         AiTripGenerationSession session = requirePreparedSession(sessionId);
         AiTripDayGeneration latest = dayGenerationService.getLatest(sessionId, dayNo);
@@ -95,6 +105,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             dayGenerationService.markGenerating(day.getId());
             // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
             GenerateWorkflowContext context = restoreContext(session, dayNo);
+            context.setRevisionText(normalizeRevisionText(revisionText));
             // 依次执行7个生成节点：上下文构建→查询计划→美食推荐→数据抓取→排序→计划生成→校验
             runDayNodes(context, dayNo);
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
@@ -106,6 +117,14 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             dayGenerationService.markFailed(day.getId(), exception.getMessage());
             throw exception;
         }
+    }
+
+    private String normalizeRevisionText(String revisionText) {
+        if (revisionText == null || revisionText.isBlank()) {
+            return null;
+        }
+        String text = revisionText.trim().replaceAll("\\s+", " ");
+        return text.length() > 500 ? text.substring(0, 500) : text;
     }
 
     /**

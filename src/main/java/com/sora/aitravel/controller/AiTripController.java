@@ -102,10 +102,11 @@ public class AiTripController {
             @PathVariable Integer dayNo,
             @RequestParam(defaultValue = "USER") String requestMode,
             @RequestParam(defaultValue = "false") boolean forceRegenerate,
-            @RequestParam(defaultValue = "false") boolean prefetchNext) {
+            @RequestParam(defaultValue = "false") boolean prefetchNext,
+            @RequestParam(required = false) String revisionText) {
         AiTripDayGeneration day =
                 aiTripDayGenerateService.generateDay(
-                        sessionId, dayNo, requestMode, forceRegenerate);
+                        sessionId, dayNo, requestMode, forceRegenerate, revisionText);
         if (prefetchNext) {
             enqueueNextDay(sessionId, dayNo);
         }
