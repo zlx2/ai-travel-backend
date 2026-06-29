@@ -64,6 +64,10 @@ class DayContext {
     private List<String> usedPlaces;
     private String hotelArea;
     private String pace;
+    private Boolean rentalEnabled;
+    private String rentalInstruction;
+    private String routeStructure;
+    private String dailyDrivingLimit;
 
     Integer day() {
         return day;
@@ -75,6 +79,10 @@ class DayContext {
 
     String hotelArea() {
         return hotelArea;
+    }
+
+    boolean rentalEnabled() {
+        return Boolean.TRUE.equals(rentalEnabled);
     }
 }
 

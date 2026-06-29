@@ -29,6 +29,7 @@ public class DayPlanGenerateNode {
     private static final String INTENSITY_LIGHT = "LIGHT";
     private static final String MODE_WALK = "WALK";
     private static final String MODE_TAXI = "TAXI";
+    private static final String MODE_DRIVING = "DRIVING";
     private static final String SOURCE_AMAP = "AMAP";
     private static final String SOURCE_ESTIMATED = "ESTIMATED";
     private static final double WALKING_ROUTE_MAX_KM = 2.0;
@@ -45,6 +46,7 @@ public class DayPlanGenerateNode {
             第 %d 天主题：%s
             期望景点数：%d
             用户偏好：%s
+            租车/交通约束：%s
             候选景点：
             %s
 
@@ -72,6 +74,10 @@ public class DayPlanGenerateNode {
             """;
     private static final RoutePolicy LIGHT_ROUTE_POLICY = new RoutePolicy(8.0, 14.0);
     private static final RoutePolicy DEFAULT_ROUTE_POLICY = new RoutePolicy(14.0, 24.0);
+    private static final RoutePolicy RENTAL_CITY_ROUTE_POLICY = new RoutePolicy(18.0, 35.0);
+    private static final RoutePolicy RENTAL_SUBURB_ROUTE_POLICY = new RoutePolicy(55.0, 120.0);
+    private static final RoutePolicy RENTAL_INTERCITY_ROUTE_POLICY = new RoutePolicy(120.0, 260.0);
+    private static final RoutePolicy RENTAL_LONG_ROUTE_POLICY = new RoutePolicy(220.0, 480.0);
 
     private final AmapApiService amapApiService;
     private final AiGateway aiGateway;
@@ -147,7 +153,7 @@ public class DayPlanGenerateNode {
         }
 
         PoiCandidate food = first(dataPackage.foodCandidates());
-        List<TripPlanDTO.RouteLeg> routeLegs = routeLegs(spots);
+        List<TripPlanDTO.RouteLeg> routeLegs = routeLegs(spots, dayContext.rentalEnabled());
         TripPlanDTO.EstimatedCost estimatedCost = estimateCost(requirement, spots, routeLegs, food);
         return new TripPlanDTO.DailyPlan(
                 dayContext.getDay(),
@@ -212,18 +218,24 @@ public class DayPlanGenerateNode {
         return spot;
     }
 
-    private List<TripPlanDTO.RouteLeg> routeLegs(List<TripPlanDTO.Spot> spots) {
+    private List<TripPlanDTO.RouteLeg> routeLegs(List<TripPlanDTO.Spot> spots, boolean rentalEnabled) {
         List<TripPlanDTO.RouteLeg> legs = new ArrayList<>();
         for (int index = 0; index < spots.size() - 1; index++) {
             TripPlanDTO.Spot from = spots.get(index);
             TripPlanDTO.Spot to = spots.get(index + 1);
-            RouteMetric metric = fetchRouteMetric(location(from), location(to));
+            RouteMetric metric = fetchRouteMetric(location(from), location(to), rentalEnabled);
             TripPlanDTO.RouteLeg leg = new TripPlanDTO.RouteLeg();
             leg.setFromOrder(from.getOrder());
             leg.setToOrder(to.getOrder());
             leg.setMode(metric.getMode());
             leg.setSuggestion(
-                    "从" + from.getName() + "前往" + to.getName() + "，" + metric.getDescription());
+                    "从"
+                            + from.getName()
+                            + "前往"
+                            + to.getName()
+                            + "，"
+                            + (rentalEnabled ? "建议自驾，" : "")
+                            + metric.getDescription());
             leg.setDistanceMeters(metric.getDistanceMeters());
             leg.setDurationMinutes(metric.getDurationMinutes());
             leg.setEstimatedCost(metric.getEstimatedCost());
@@ -255,6 +267,9 @@ public class DayPlanGenerateNode {
         if (dataPackage.scenicCandidates().stream()
                 .anyMatch(item -> !SOURCE_AMAP.equals(item.getSource()))) {
             tips.add("部分地点建议出行前再确认开放信息。");
+        }
+        if (dayContext.rentalEnabled()) {
+            tips.add("本日按租车自驾规划，出发前建议确认停车场、限行和实时路况。");
         }
         return tips;
     }
@@ -337,19 +352,19 @@ public class DayPlanGenerateNode {
                 Math.round(coordinateDistanceKm(routeLocation(from), routeLocation(to)) * 1000);
     }
 
-    private RouteMetric fetchRouteMetric(String origin, String destination) {
+    private RouteMetric fetchRouteMetric(String origin, String destination, boolean rentalEnabled) {
         if (origin == null || destination == null) {
             return new RouteMetric(
                     Integer.MAX_VALUE / 4,
                     null,
                     null,
                     "UNKNOWN",
-                    "建议按当天实际位置灵活选择步行或打车。",
+                    rentalEnabled ? "坐标不足，自驾路线待前端地图计算。" : "建议按当天实际位置灵活选择步行或打车。",
                     SOURCE_ESTIMATED);
         }
         double directKm = coordinateDistanceKm(origin, destination);
         try {
-            if (directKm <= WALKING_ROUTE_MAX_KM) {
+            if (!rentalEnabled && directKm <= WALKING_ROUTE_MAX_KM) {
                 var response = amapApiService.walkingRoute(origin, destination);
                 RouteMetric metric =
                         routeMetric(response == null ? null : response.getData(), MODE_WALK);
@@ -359,7 +374,9 @@ public class DayPlanGenerateNode {
             }
             var response = amapApiService.drivingRoute(origin, destination);
             RouteMetric metric =
-                    routeMetric(response == null ? null : response.getData(), MODE_TAXI);
+                    routeMetric(
+                            response == null ? null : response.getData(),
+                            rentalEnabled ? MODE_DRIVING : MODE_TAXI);
             if (metric != null) {
                 return metric;
             }
@@ -371,8 +388,12 @@ public class DayPlanGenerateNode {
                 fallbackDistance,
                 null,
                 null,
-                MODE_TAXI,
-                directKm <= WALKING_ROUTE_MAX_KM ? "距离较近，建议步行或短途打车。" : "建议打车衔接，出发前按实时路况调整。",
+                rentalEnabled ? MODE_DRIVING : MODE_TAXI,
+                rentalEnabled
+                        ? "建议自驾衔接，出发前按实时路况和停车条件调整。"
+                        : directKm <= WALKING_ROUTE_MAX_KM
+                                ? "距离较近，建议步行或短途打车。"
+                                : "建议打车衔接，出发前按实时路况调整。",
                 SOURCE_ESTIMATED);
     }
 
@@ -390,14 +411,27 @@ public class DayPlanGenerateNode {
         if (distance == null || durationMinutes == null) {
             return null;
         }
-        Integer cost = MODE_WALK.equals(mode) ? 0 : parseDecimalInteger(route.getTaxiCost());
+        Integer cost =
+                MODE_WALK.equals(mode)
+                        ? 0
+                        : MODE_DRIVING.equals(mode)
+                                ? estimateDrivingCost(distance)
+                                : parseDecimalInteger(route.getTaxiCost());
         String description =
                 formatDistance(distance)
                         + "，约 "
                         + durationMinutes
                         + " 分钟"
-                        + (MODE_TAXI.equals(mode) && cost != null ? "，打车约 ¥" + cost : "");
+                        + (MODE_TAXI.equals(mode) && cost != null ? "，打车约 ¥" + cost : "")
+                        + (MODE_DRIVING.equals(mode) && cost != null ? "，自驾能耗/油费约 ¥" + cost : "");
         return new RouteMetric(distance, durationMinutes, cost, mode, description, SOURCE_AMAP);
+    }
+
+    private Integer estimateDrivingCost(Integer distanceMeters) {
+        if (distanceMeters == null) {
+            return null;
+        }
+        return Math.max(3, (int) Math.ceil(distanceMeters / 1000.0 * 0.8));
     }
 
     private String routeLocation(PoiCandidate candidate) {
@@ -820,6 +854,19 @@ public class DayPlanGenerateNode {
     }
 
     private RoutePolicy routePolicy(DayContext dayContext) {
+        if (dayContext.rentalEnabled()) {
+            String drivingLimit = dayContext.getDailyDrivingLimit() == null ? "" : dayContext.getDailyDrivingLimit();
+            if (drivingLimit.contains("长途") || drivingLimit.contains("6小时")) {
+                return RENTAL_LONG_ROUTE_POLICY;
+            }
+            if (drivingLimit.contains("跨城") || drivingLimit.contains("4-6")) {
+                return RENTAL_INTERCITY_ROUTE_POLICY;
+            }
+            if (drivingLimit.contains("城市短途") || drivingLimit.contains("1-2")) {
+                return RENTAL_CITY_ROUTE_POLICY;
+            }
+            return RENTAL_SUBURB_ROUTE_POLICY;
+        }
         return INTENSITY_LIGHT.equals(dayContext.skeleton().getIntensity())
                 ? LIGHT_ROUTE_POLICY
                 : DEFAULT_ROUTE_POLICY;
@@ -887,6 +934,15 @@ public class DayPlanGenerateNode {
         return String.join(" -> ", spots.stream().map(TripPlanDTO.Spot::getName).toList());
     }
 
+    private String rentalInstruction(DayContext dayContext) {
+        if (!dayContext.rentalEnabled()) {
+            return "非租车行程，优先控制步行和打车衔接。";
+        }
+        return dayContext.getRentalInstruction() == null
+                ? "租车自驾行程，优先选择自驾顺路、停车便利的地点。"
+                : dayContext.getRentalInstruction();
+    }
+
     private AiDayPlan generateAiDayPlan(
             GenerateWorkflowContext context,
             DayContext dayContext,
@@ -909,6 +965,7 @@ public class DayPlanGenerateNode {
                         dayContext.skeleton().getTheme(),
                         spotCount,
                         preferenceText(requirement),
+                        rentalInstruction(dayContext),
                         aiCandidateText(refs, city),
                         spotCount);
         try {
@@ -1087,10 +1144,10 @@ public class DayPlanGenerateNode {
         }
         return switch (order) {
             case 1 -> "09:30";
-            case 2 -> "11:00";
-            case 3 -> "13:30";
-            case 4 -> "15:00";
-            case 5 -> "16:30";
+            case 2 -> "11:20";
+            case 3 -> "14:10";
+            case 4 -> "16:10";
+            case 5 -> "18:00";
             default -> "19:00";
         };
     }

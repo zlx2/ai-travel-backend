@@ -20,7 +20,7 @@ public class DayPlanValidateNode {
         Set<String> usedSpotNames = new HashSet<>();
         for (TripPlanDTO.DailyPlan dailyPlan : context.getLockedDailyPlans()) {
             DayDataPackage dataPackage = findDataPackage(context, dailyPlan.getDay());
-            List<String> warnings = validateDay(dailyPlan, dataPackage, usedSpotNames);
+            List<String> warnings = validateDay(context, dailyPlan, dataPackage, usedSpotNames);
             reports.add(
                     new DayPlanValidationReport(dailyPlan.getDay(), warnings.isEmpty(), warnings));
             log.info(
@@ -62,10 +62,12 @@ public class DayPlanValidateNode {
                                 !warning.startsWith("每天应安排 2-4 个景点")
                                         && !warning.startsWith("景点在多天行程中重复")
                                         && !warning.startsWith("景点不在候选 POI 中")
-                                        && !warning.startsWith("景点缺少经纬度"));
+                                        && !warning.startsWith("景点缺少经纬度")
+                                        && !warning.startsWith("租车行程存在非自驾路线段"));
     }
 
     private List<String> validateDay(
+            GenerateWorkflowContext context,
             TripPlanDTO.DailyPlan dailyPlan,
             DayDataPackage dataPackage,
             Set<String> usedSpotNames) {
@@ -107,6 +109,18 @@ public class DayPlanValidateNode {
             }
             if (!normalizedName.isBlank() && !usedSpotNames.add(normalizedName)) {
                 warnings.add("景点在多天行程中重复：" + spot.getName());
+            }
+        }
+        if (context.getSelectedQuote() != null && dailyPlan.getRouteLegs() != null) {
+            boolean hasNonDriving =
+                    dailyPlan.getRouteLegs().stream()
+                            .anyMatch(
+                                    leg ->
+                                            leg.getMode() != null
+                                                    && !"DRIVING".equals(leg.getMode())
+                                                    && !"UNKNOWN".equals(leg.getMode()));
+            if (hasNonDriving) {
+                warnings.add("租车行程存在非自驾路线段");
             }
         }
         return warnings;

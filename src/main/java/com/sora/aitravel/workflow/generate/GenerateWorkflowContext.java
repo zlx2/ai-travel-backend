@@ -2,6 +2,7 @@ package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
@@ -43,6 +44,9 @@ public class GenerateWorkflowContext {
 
     /** 行程生成使用的租车报价；仅使用用户已确认并传入的报价。 */
     private RentalQuoteOptionDTO selectedQuote;
+
+    /** 租车行程上下文，包含接车点、送车方案、路线结构和驾驶偏好。 */
+    private RentalTripContextDTO rentalTripContext;
 
     /** 整体行程骨架，只描述每天主题和区域，不代表最终地点推荐。 */
     private List<DaySkeleton> daySkeletons;

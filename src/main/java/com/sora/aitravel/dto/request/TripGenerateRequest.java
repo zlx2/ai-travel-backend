@@ -2,6 +2,7 @@ package com.sora.aitravel.dto.request;
 
 import com.sora.aitravel.dto.model.ConflictDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -29,5 +30,6 @@ public class TripGenerateRequest {
     private Boolean confirmedConflict;
     @NotNull @Valid private TravelRequirementDTO requirement;
     private RentalQuoteOptionDTO selectedQuote;
+    private RentalTripContextDTO rentalTripContext;
     private List<ConflictDTO> conflicts;
 }

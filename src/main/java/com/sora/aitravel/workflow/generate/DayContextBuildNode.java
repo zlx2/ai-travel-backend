@@ -22,7 +22,15 @@ public class DayContextBuildNode {
                             skeleton,
                             List.copyOf(usedPlaces),
                             hotelArea,
-                            context.getRequirement().getPace()));
+                            context.getRequirement().getPace(),
+                            context.getSelectedQuote() != null,
+                            rentalInstruction(context),
+                            context.getRentalTripContext() == null
+                                    ? null
+                                    : context.getRentalTripContext().getRouteStructure(),
+                            context.getRentalTripContext() == null
+                                    ? null
+                                    : context.getRentalTripContext().getDailyDrivingLimit()));
             usedPlaces.add(skeleton.targetArea());
         }
 
@@ -53,5 +61,34 @@ public class DayContextBuildNode {
 
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
+    }
+
+    private String rentalInstruction(GenerateWorkflowContext context) {
+        if (context.getSelectedQuote() == null || context.getRentalTripContext() == null) {
+            return null;
+        }
+        String vehicle =
+                firstNonBlank(
+                        context.getSelectedQuote().getDisplayName(),
+                        context.getSelectedQuote().getGroupName());
+        String pickup =
+                context.getRentalTripContext().getPickupPlan() == null
+                        ? null
+                        : context.getRentalTripContext().getPickupPlan().getDisplayText();
+        String arrival =
+                context.getRentalTripContext().getArrivalPoint() == null
+                        ? null
+                        : context.getRentalTripContext().getArrivalPoint().getName();
+        return "本次为租车自驾行程，已选车辆："
+                + firstNonBlank(vehicle, "租车套餐")
+                + "；到达/接车点："
+                + firstNonBlank(arrival, "目的地到达点")
+                + "；接车安排："
+                + firstNonBlank(pickup, "送车接人后开始自驾")
+                + "；游玩范围："
+                + firstNonBlank(context.getRentalTripContext().getRouteStructure(), "城市+周边")
+                + "；驾驶强度："
+                + firstNonBlank(context.getRentalTripContext().getDailyDrivingLimit(), "近郊自驾（单日累计约2-4小时）")
+                + "。选点应优先考虑自驾顺路、停车便利、城市周边自然/古镇等有车更方便到达的地点。";
     }
 }

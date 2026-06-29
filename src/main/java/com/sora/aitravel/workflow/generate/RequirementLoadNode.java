@@ -13,6 +13,7 @@ public class RequirementLoadNode {
         TravelRequirementDTO requirement = context.getRequest().getRequirement();
         context.setRequirement(requirement);
         context.setSelectedQuote(context.getRequest().getSelectedQuote());
+        context.setRentalTripContext(context.getRequest().getRentalTripContext());
         log.info(
                 "节点[requirement-load]：读取已确认需求，departure={}, destination={}, days={}, peopleCount={}, preferences={}",
                 requirement.getDeparture(),

@@ -147,6 +147,13 @@
             </exclusions>
         </dependency>
 
+        <!-- 支付宝开放平台 Java SDK，用于沙箱电脑网站支付和异步通知验签。 -->
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>4.40.33.ALL</version>
+        </dependency>
+
         <!-- 项目通用工具库，保留给后续业务实现使用。 -->
         <dependency>
             <groupId>cn.hutool</groupId>
