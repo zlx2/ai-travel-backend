@@ -7,9 +7,11 @@ import com.sora.aitravel.common.utils.LoginUserUtils;
 import com.sora.aitravel.dto.request.RentalOrderCreateRequest;
 import com.sora.aitravel.dto.request.RentalOrderPayRequest;
 import com.sora.aitravel.dto.request.RentalQuotePreviewRequest;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.response.RentalOrderResponse;
 import com.sora.aitravel.dto.response.RentalQuotePreviewResponse;
 import com.sora.aitravel.service.RentalOrderService;
+import com.sora.aitravel.service.RentalQuoteService;
 import com.sora.aitravel.workflow.rentalorder.RentalOrderCreateWorkflow;
 import com.sora.aitravel.workflow.rentalorder.RentalOrderCreateWorkflowContext;
 import com.sora.aitravel.workflow.rentalpay.RentalPayWorkflow;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/rental")
 public class RentalController {
     private final RentalOrderService rentalOrderService;
+    private final RentalQuoteService rentalQuoteService;
     private final RentalQuotePreviewWorkflow rentalQuotePreviewWorkflow;
     private final RentalOrderCreateWorkflow rentalOrderCreateWorkflow;
     private final RentalPayWorkflow rentalPayWorkflow;
@@ -43,6 +46,11 @@ public class RentalController {
         context.setUserId(LoginUserUtils.getUserId());
         context.setRequirement(request.getRequirement());
         return R.ok(rentalQuotePreviewWorkflow.execute(context).getResult());
+    }
+
+    @GetMapping("/quotes/latest-ordered")
+    public R<List<RentalQuoteOptionDTO>> latestOrderedQuotes() {
+        return R.ok(rentalQuoteService.latestOrderedOptions(4));
     }
 
     @PostMapping("/orders")

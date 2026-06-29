@@ -9,10 +9,12 @@ import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.response.RentalQuotePreviewResponse;
 import com.sora.aitravel.entity.RentalPickupPoi;
+import com.sora.aitravel.entity.RentalOrder;
 import com.sora.aitravel.entity.RentalPriceTemplate;
 import com.sora.aitravel.entity.RentalVehicleGroup;
 import com.sora.aitravel.entity.RentalVehicleModel;
 import com.sora.aitravel.mapper.RentalPickupPoiMapper;
+import com.sora.aitravel.mapper.RentalOrderMapper;
 import com.sora.aitravel.mapper.RentalPriceTemplateMapper;
 import com.sora.aitravel.mapper.RentalVehicleGroupMapper;
 import com.sora.aitravel.mapper.RentalVehicleModelMapper;
@@ -40,6 +42,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private static final int DELIVERY_FEE_CENT = 3000;
 
     private final RentalPickupPoiMapper pickupPoiMapper;
+    private final RentalOrderMapper rentalOrderMapper;
     private final RentalPriceTemplateMapper priceTemplateMapper;
     private final RentalVehicleGroupMapper vehicleGroupMapper;
     private final RentalVehicleModelMapper vehicleModelMapper;
@@ -99,6 +102,44 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "所选车型不可用");
         }
         return buildQuote(requirement, rentalCity, cityMatch, group, template);
+    }
+
+    @Override
+    public List<RentalQuoteOptionDTO> latestOrderedOptions(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 8));
+        List<RentalOrder> orders =
+                rentalOrderMapper.selectList(
+                        new LambdaQueryWrapper<RentalOrder>()
+                                .eq(RentalOrder::getOrderStatus, "confirmed")
+                                .orderByDesc(RentalOrder::getCreateTime)
+                                .last("limit " + safeLimit * 3));
+        if (orders.isEmpty()) {
+            orders =
+                    rentalOrderMapper.selectList(
+                            new LambdaQueryWrapper<RentalOrder>()
+                                    .orderByDesc(RentalOrder::getCreateTime)
+                                    .last("limit " + safeLimit * 3));
+        }
+        List<RentalQuoteOptionDTO> result = new ArrayList<>();
+        for (RentalOrder order : orders) {
+            if (result.stream()
+                    .anyMatch(item -> Objects.equals(item.getVehicleGroupId(), order.getVehicleGroupId()))) {
+                continue;
+            }
+            RentalVehicleGroup group = vehicleGroupMapper.selectById(order.getVehicleGroupId());
+            if (group == null || !Integer.valueOf(1).equals(group.getStatus())) {
+                continue;
+            }
+            RentalPriceTemplate template =
+                    order.getPriceTemplateId() == null
+                            ? null
+                            : priceTemplateMapper.selectById(order.getPriceTemplateId());
+            result.add(buildOrderQuote(order, group, template));
+            if (result.size() >= safeLimit) {
+                break;
+            }
+        }
+        return result;
     }
 
     private void validateRentalRequirement(TravelRequirementDTO requirement) {
@@ -380,6 +421,73 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             query.eq(RentalVehicleModel::getGroupCode, group.getGroupCode());
         }
         return vehicleModelMapper.selectOne(query);
+    }
+
+    private RentalQuoteOptionDTO buildOrderQuote(
+            RentalOrder order, RentalVehicleGroup group, RentalPriceTemplate template) {
+        RentalVehicleModel model = chooseRepresentativeModel(group);
+        RentalFeeBreakdownDTO fee =
+                RentalFeeBreakdownDTO.builder()
+                        .rentalFeeCent(order.getRentalFeeCent())
+                        .baseServiceFeeCent(order.getBaseServiceFeeCent())
+                        .vehiclePrepareFeeCent(order.getVehiclePrepareFeeCent())
+                        .oneWayFeeCent(order.getOneWayFinalFeeCent())
+                        .deliveryFeeCent(order.getDeliveryFeeCent())
+                        .totalPriceCent(order.getTotalPriceCent())
+                        .rentalDepositCent(order.getRentalDepositCent())
+                        .violationDepositCent(order.getViolationDepositCent())
+                        .depositFreeThresholdScore(order.getDepositFreeThresholdScore())
+                        .build();
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("source", "rental_order");
+        snapshot.put("orderId", order.getId());
+        snapshot.put("vehicleGroupId", group.getId());
+        snapshot.put("groupCode", group.getGroupCode());
+        snapshot.put("vehicleModelId", model == null ? null : model.getId());
+        snapshot.put("vehicleModelName", modelName(model, group));
+        snapshot.put("rentalDays", order.getRentalDays() == null ? null : order.getRentalDays().intValue());
+        snapshot.put("feeBreakdown", fee);
+        return RentalQuoteOptionDTO.builder()
+                .quoteId("O-" + order.getId() + "-" + group.getId())
+                .vehicleGroupId(group.getId())
+                .groupCode(group.getGroupCode())
+                .groupName(group.getGroupName())
+                .displayName(group.getDisplayName())
+                .vehicleClass(group.getVehicleClass())
+                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
+                .seatsMin(group.getSeatsMin())
+                .seatsMax(group.getSeatsMax())
+                .recommendedPeople(group.getRecommendedPeople())
+                .recommendedLuggage(group.getRecommendedLuggage())
+                .travelTags(group.getTravelTags())
+                .exampleModels(group.getExampleModels())
+                .description(group.getDescription())
+                .iconUrl(group.getIconUrl())
+                .vehicleModelId(model == null ? null : model.getId())
+                .brand(model == null ? null : model.getBrand())
+                .series(model == null ? null : model.getSeries())
+                .seriesFullName(modelName(model, group))
+                .modelYear(model == null ? null : model.getModelYear())
+                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
+                .transmission(model == null ? group.getTransmission() : model.getTransmission())
+                .seats(model == null ? group.getSeatsMax() : model.getSeats())
+                .imageUrl(model == null ? null : model.getImageUrl())
+                .summary(model == null ? group.getDescription() : model.getSummary())
+                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags())
+                .pickupPoiId(order.getPickupPoiId())
+                .returnPoiId(order.getReturnPoiId())
+                .pickupMode(order.getPickupMode())
+                .returnMode(order.getReturnMode())
+                .rentalDays(order.getRentalDays() == null ? null : order.getRentalDays().intValue())
+                .isOneWay(Integer.valueOf(1).equals(order.getIsOneWay()))
+                .priceTemplateId(order.getPriceTemplateId())
+                .availableCount(template == null ? null : template.getAvailableCount())
+                .dailyMileageLimitKm(template == null ? null : template.getDailyMileageLimitKm())
+                .extraMileageFeeCent(template == null ? null : template.getExtraMileageFeeCent())
+                .includedServices(template == null ? null : template.getIncludedServices())
+                .feeBreakdown(fee)
+                .priceSnapshot(snapshot)
+                .build();
     }
 
     private String modelName(RentalVehicleModel model, RentalVehicleGroup group) {
