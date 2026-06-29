@@ -35,14 +35,40 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
     private final DayPlanValidateNode dayPlanValidateNode;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 生成指定天数的行程数据。
+     * @param sessionId
+     * @param dayNo
+     * @param requestMode
+     * @param forceRegenerate
+     * @return
+     */
+    /**
+     * 生成指定日期的行程计划。
+     *
+     * <p>整体流程：幂等检查 → 创建/复用生成记录 → 执行工作流节点 → 持久化结果。
+     * 支持强制重新生成（forceRegenerate=true）和异步复用（ASYNC模式）两种策略。</p>
+     *
+     * @param sessionId       生成会话ID
+     * @param dayNo           第几天（从1开始）
+     * @param requestMode     请求模式，如 "SYNC"（同步）、"ASYNC"（异步）
+     * @param forceRegenerate 是否强制重新生成，忽略已有结果
+     * @return 生成记录（包含状态和结果JSON）
+     */
     @Override
     public AiTripDayGeneration generateDay(
             String sessionId, Integer dayNo, String requestMode, boolean forceRegenerate) {
+        // 1. 校验会话状态：必须为已准备（PREPARED）状态才能生成行程
         AiTripGenerationSession session = requirePreparedSession(sessionId);
         AiTripDayGeneration latest = dayGenerationService.getLatest(sessionId, dayNo);
+
+        // 2. 快速返回：已生成完成且非强制重新生成 → 直接返回已有结果
         if (!forceRegenerate && latest != null && "GENERATED".equals(latest.getStatus())) {
             return latest;
         }
+
+        // 3. 进行中的幂等保护：正在排队或生成中时，
+        //    仅当「排队中 + ASYNC模式」才允许继续（复用该记录），其余情况直接返回
         if (!forceRegenerate
                 && latest != null
                 && ("QUEUED".equals(latest.getStatus())
@@ -51,34 +77,50 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
                 return latest;
             }
         }
+
+        // 4. 确定生成记录：复用 or 新建
         AiTripDayGeneration day;
         if (!forceRegenerate
                 && latest != null
                 && "QUEUED".equals(latest.getStatus())
                 && "ASYNC".equals(requestMode)) {
+            // ASYNC模式下，复用已有的QUEUED记录，避免重复创建
             day = latest;
         } else {
+            // 强制重新生成 或 旧记录为失败/已废弃状态 → 版本递增，创建新记录
             int version = latest == null ? 1 : latest.getGenerationVersion() + 1;
             if (latest != null) {
+                // 将旧记录标记为已废弃（is_current=0）
                 dayGenerationService.supersedeDay(sessionId, dayNo);
             }
             day =
                     dayGenerationService.createPending(
                             sessionId, session.getUserId(), dayNo, version, requestMode);
         }
+
+        // 5. 执行生成流程：恢复上下文 → 运行工作流节点 → 持久化结果
         try {
             dayGenerationService.markGenerating(day.getId());
+            // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
             GenerateWorkflowContext context = restoreContext(session, dayNo);
+            // 依次执行7个生成节点：上下文构建→查询计划→美食推荐→数据抓取→排序→计划生成→校验
             runDayNodes(context, dayNo);
+            // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
             dayGenerationService.markGenerated(
                     day.getId(), writeJson(context.getLockedDailyPlans().get(0)));
             return dayGenerationService.getLatest(sessionId, dayNo);
         } catch (RuntimeException exception) {
+            // 生成失败，记录错误信息并向上抛出
             dayGenerationService.markFailed(day.getId(), exception.getMessage());
             throw exception;
         }
     }
 
+    /**
+     * 获取已准备好的生成会话。
+     * @param sessionId
+     * @return
+     */
     private AiTripGenerationSession requirePreparedSession(String sessionId) {
         AiTripGenerationSession session = sessionService.getBySessionId(sessionId);
         if (session == null) {
@@ -90,25 +132,42 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return session;
     }
 
+    /**
+     * 恢复生成工作流上下文。
+     * @param session
+     * @param dayNo
+     * @return
+     */
     private GenerateWorkflowContext restoreContext(AiTripGenerationSession session, Integer dayNo) {
-        GenerateWorkflowContext context = new GenerateWorkflowContext();
-        context.setUserId(session.getUserId());
-        context.setRequirement(read(session.getRequirementJson(), TravelRequirementDTO.class));
-        context.setDaySkeletons(read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST));
-        context.setCityProfile(read(session.getCityProfileJson(), CityProfile.class));
-        context.setWeatherForecast(read(session.getWeatherJson(), String.class));
-        context.setHotelSearchResult(read(session.getHotelJson(), String.class));
-        context.setLockedDailyPlans(readGeneratedPreviousDays(session.getSessionId(), dayNo));
-        context.setSingleDayGeneration(true);
-        return context;
+        return GenerateWorkflowContext.builder()
+                .userId(session.getUserId())
+                .requirement(read(session.getRequirementJson(), TravelRequirementDTO.class))
+                .daySkeletons(read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST))
+                .cityProfile(read(session.getCityProfileJson(), CityProfile.class))
+                .weatherForecast(session.getWeatherJson())
+                .hotelSearchResult(session.getHotelJson())
+                .lockedDailyPlans(readGeneratedPreviousDays(session.getSessionId(), dayNo))
+                .singleDayGeneration(true)
+                .build();
     }
 
+    /**
+     * 读取已生成的前一天行程数据。
+     * @param sessionId
+     * @param dayNo
+     * @return
+     */
     private List<TripPlanDTO.DailyPlan> readGeneratedPreviousDays(String sessionId, Integer dayNo) {
         return dayGenerationService.listCurrentGeneratedBefore(sessionId, dayNo).stream()
                 .map(this::readGeneratedDay)
                 .toList();
     }
 
+    /**
+     * 读取已生成的单日行程数据。
+     * @param day
+     * @return
+     */
     private TripPlanDTO.DailyPlan readGeneratedDay(AiTripDayGeneration day) {
         try {
             return objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
@@ -117,6 +176,11 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
     }
 
+    /**
+     * 运行单日行程生成节点。
+     * @param context
+     * @param dayNo
+     */
     private void runDayNodes(GenerateWorkflowContext context, Integer dayNo) {
         dayContextBuildNode.execute(context);
         context.setDayContexts(
@@ -134,6 +198,13 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         dayPlanValidateNode.execute(context);
     }
 
+    /**
+     * 从JSON字符串读取数据。
+     * @param json
+     * @param type
+     * @param <T>
+     * @return
+     */
     private <T> T read(String json, Class<T> type) {
         try {
             return objectMapper.readValue(json, type);
@@ -142,6 +213,13 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
     }
 
+    /**
+     * 从JSON字符串读取数据。
+     * @param json
+     * @param type
+     * @param <T>
+     * @return
+     */
     private <T> T read(String json, TypeReference<T> type) {
         try {
             return objectMapper.readValue(json, type);
@@ -150,6 +228,11 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
     }
 
+    /**
+     * 将数据写入JSON字符串。
+     * @param value
+     * @return
+     */
     private String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);

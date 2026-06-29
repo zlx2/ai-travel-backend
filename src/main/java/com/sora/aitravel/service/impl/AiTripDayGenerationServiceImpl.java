@@ -133,7 +133,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-     * 状态生成中
+     * 修改状态为生成中
      * @param id
      */
     @Override
@@ -142,7 +142,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-     * 状态为生成成功
+     * 修改状态为生成成功
      * @param id
      * @param resultJson
      */
@@ -159,7 +159,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-     * 状态为生成失败
+     * 更新状态为生成失败
      * @param id
      * @param errorMessage
      */
@@ -175,7 +175,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-      * 状态为过期
+      * 更新状态为过期
      * @param sessionId
      * @param dayNo
      */
@@ -192,7 +192,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-      * 切换当前版本为指定版本
+      * 更新状态为切换当前版本为指定版本
      * @param sessionId
      * @param dayNo
      * @param generationVersion

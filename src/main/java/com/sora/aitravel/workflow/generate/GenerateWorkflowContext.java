@@ -9,7 +9,10 @@ import com.sora.aitravel.dto.response.FoodRecommendResponse;
 import com.sora.aitravel.dto.response.TripGenerateResponse;
 import java.util.List;
 import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 生成工作流上下文。
@@ -24,6 +27,9 @@ import lombok.Data;
  * <p>输入：{@link #userId}（用户ID）、{@link #request}（生成请求 DTO）。 输出：{@link #result}（生成结果 DTO）。
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class GenerateWorkflowContext {
 
     /** 当前操作用户的 ID，用于权限校验和后续行程归属。 */
