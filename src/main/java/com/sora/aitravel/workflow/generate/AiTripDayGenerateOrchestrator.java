@@ -36,14 +36,6 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
     private final ObjectMapper objectMapper;
 
     /**
-     * 生成指定天数的行程数据。
-     * @param sessionId
-     * @param dayNo
-     * @param requestMode
-     * @param forceRegenerate
-     * @return
-     */
-    /**
      * 生成指定日期的行程计划。
      *
      * <p>整体流程：幂等检查 → 创建/复用生成记录 → 执行工作流节点 → 持久化结果。
