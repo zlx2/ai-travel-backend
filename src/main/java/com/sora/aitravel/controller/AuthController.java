@@ -76,4 +76,18 @@ public class AuthController {
         authService.logout();
         return R.ok();
     }
+
+    /**
+     * 重置密码。
+     *
+     * <p>不需要登录态，通过邮箱验证码验证身份。
+     *
+     * @param request 包含邮箱、验证码和新密码的请求体
+     * @return 无返回内容，重置成功即返回成功响应
+     */
+    @PostMapping("/password-reset")
+    public R<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return R.ok();
+    }
 }

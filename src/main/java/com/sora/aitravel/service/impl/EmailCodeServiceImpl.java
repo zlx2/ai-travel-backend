@@ -22,6 +22,7 @@ public class EmailCodeServiceImpl implements EmailCodeService {
 
     private static final String REGISTER_SCENE = "register";
     private static final String CHANGE_EMAIL_SCENE = "change_email";
+    private static final String RESET_PASSWORD_SCENE = "reset_password";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final StringRedisTemplate redisTemplate;
@@ -34,6 +35,7 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         validateScene(scene);
 
         // 注册或修改邮箱场景：发送验证码前先校验邮箱是否已被注册，避免无效请求占用限流窗口。
+        // 找回密码场景：邮箱必须已注册。
         if (REGISTER_SCENE.equals(scene) || CHANGE_EMAIL_SCENE.equals(scene)) {
             Long count =
                     userMapper.selectCount(
@@ -41,6 +43,14 @@ public class EmailCodeServiceImpl implements EmailCodeService {
                                     .eq(SysUser::getEmail, normalizedEmail));
             if (count != null && count > 0) {
                 throw new BusinessException(ErrorCode.EMAIL_EXISTS);
+            }
+        } else if (RESET_PASSWORD_SCENE.equals(scene)) {
+            Long count =
+                    userMapper.selectCount(
+                            new LambdaQueryWrapper<SysUser>()
+                                    .eq(SysUser::getEmail, normalizedEmail));
+            if (count == null || count == 0) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "该邮箱未注册");
             }
         }
 
@@ -92,7 +102,7 @@ public class EmailCodeServiceImpl implements EmailCodeService {
     }
 
     private void validateScene(String scene) {
-        if (!REGISTER_SCENE.equals(scene) && !CHANGE_EMAIL_SCENE.equals(scene)) {
+        if (!REGISTER_SCENE.equals(scene) && !CHANGE_EMAIL_SCENE.equals(scene) && !RESET_PASSWORD_SCENE.equals(scene)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "不支持的验证码场景：" + scene);
         }
     }

@@ -2,6 +2,7 @@ package com.sora.aitravel.service;
 
 import com.sora.aitravel.dto.request.LoginRequest;
 import com.sora.aitravel.dto.request.RegisterRequest;
+import com.sora.aitravel.dto.request.ResetPasswordRequest;
 import com.sora.aitravel.dto.response.LoginResponse;
 
 /**
@@ -32,4 +33,11 @@ public interface AuthService {
      * <p>清除当前用户的登录状态和 Token。
      */
     void logout();
+
+    /**
+     * 重置密码。
+     *
+     * @param request 重置密码请求，包含邮箱、验证码和新密码
+     */
+    void resetPassword(ResetPasswordRequest request);
 }

@@ -8,6 +8,7 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.common.utils.DateTimeUtils;
 import com.sora.aitravel.dto.request.LoginRequest;
 import com.sora.aitravel.dto.request.RegisterRequest;
+import com.sora.aitravel.dto.request.ResetPasswordRequest;
 import com.sora.aitravel.dto.response.LoginResponse;
 import com.sora.aitravel.dto.response.UserInfoResponse;
 import com.sora.aitravel.entity.SysUser;
@@ -96,6 +97,28 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout() {
         StpUtil.logout();
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        // 先校验验证码，再查用户、改密码。
+        emailCodeService.verify(email, "reset_password", request.getEmailCode());
+
+        SysUser user =
+                userMapper.selectOne(
+                        new LambdaQueryWrapper<SysUser>().eq(SysUser::getEmail, email).last("LIMIT 1"));
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "该邮箱未注册");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+        // 强制该用户所有会话下线，旧 Token 立即失效。
+        StpUtil.logout(user.getId());
+        // 核销验证码，使其成为一次性凭证。
+        emailCodeService.remove(email, "reset_password");
     }
 
     private void ensureUsernameAvailable(String username) {
