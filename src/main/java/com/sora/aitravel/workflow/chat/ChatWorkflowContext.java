@@ -2,7 +2,10 @@ package com.sora.aitravel.workflow.chat;
 
 import com.sora.aitravel.dto.request.AiChatRequest;
 import com.sora.aitravel.dto.response.AiChatResponse;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 聊天工作流上下文。
@@ -18,6 +21,9 @@ import lombok.Data;
  * JSON）、{@link #prompt}（构建的提示词）、 {@link #rawModelResponse}（模型原始响应）。 输出：{@link #result}（聊天响应结果 DTO）。
  */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatWorkflowContext {
 
     /** 当前操作用户的 ID，用于权限校验和行程归属确认。 */

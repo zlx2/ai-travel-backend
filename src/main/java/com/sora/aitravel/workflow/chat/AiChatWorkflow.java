@@ -44,10 +44,26 @@ public class AiChatWorkflow {
                         resultFormatNode);
     }
 
+    /**
+     * 执行工作流
+     * @param context
+     * @return
+     */
     public ChatWorkflowContext execute(ChatWorkflowContext context) {
-        return graph.invoke(toState(context)).map(AiChatWorkflow::readContext).orElse(context);
+        return graph.invoke(toState(context))// 将上下文转成Map
+                .map(AiChatWorkflow::readContext)// 执行完毕后从状态中取出上下文
+                .orElse(context); // 兜底策略，返回原始上下文
     }
 
+    /**
+     * 构建工作流
+     * @param contextLoadNode
+     * @param tripContextPrepareNode
+     * @param promptBuildNode
+     * @param modelCallNode
+     * @param resultFormatNode
+     * @return
+     */
     private CompiledGraph compile(
             ChatContextLoadNode contextLoadNode,
             TripContextPrepareNode tripContextPrepareNode,
@@ -86,6 +102,11 @@ public class AiChatWorkflow {
         }
     }
 
+    /**
+     * 包装成异步节点工具
+     * @param executor
+     * @return
+     */
     private AsyncNodeAction node(NodeExecutor executor) {
         return AsyncNodeAction.node_async(
                 state -> {
@@ -95,16 +116,22 @@ public class AiChatWorkflow {
                 });
     }
 
+    /**
+     * OverAllState中取出上下文
+     * @param state
+     * @return
+     */
     private static ChatWorkflowContext readContext(OverAllState state) {
         return (ChatWorkflowContext)
                 state.value(CONTEXT)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "Spring AI Alibaba Graph state is missing "
-                                                        + CONTEXT));
+                        .orElseThrow(() -> new IllegalStateException("Spring AI Alibaba Graph state is missing " + CONTEXT));
     }
 
+    /**
+     * 将上下文转成状态
+     * @param context
+     * @return
+     */
     private static Map<String, Object> toState(ChatWorkflowContext context) {
         Map<String, Object> state = new LinkedHashMap<>();
         state.put(CONTEXT, context);
@@ -117,6 +144,9 @@ public class AiChatWorkflow {
         return state;
     }
 
+    /**
+     * 节点执行器
+     */
     @FunctionalInterface
     private interface NodeExecutor {
         void execute(ChatWorkflowContext context) throws Exception;
