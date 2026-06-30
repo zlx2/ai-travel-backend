@@ -1,7 +1,18 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CANDIDATE_POOL;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.MACRO_ROUTE_PLANS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.ROUTE_CRITIC_RESULT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SELECTED_QUOTE;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,10 +24,37 @@ import org.springframework.stereotype.Component;
 @Component
 public class MacroRouteContractValidateNode {
     public void execute(GenerateWorkflowContext context) {
-        MacroRoutePlan plan = selectedPlan(context);
-        Map<String, AreaAnchorCandidate> anchors = anchorMap(context.getCandidatePool());
+        List<DaySkeleton> skeletons =
+                validateAndBuildSkeletons(
+                        context.getRouteCriticResult(),
+                        context.getMacroRoutePlans(),
+                        context.getCandidatePool(),
+                        context.getRequirement(),
+                        context.getSelectedQuote());
+        context.setDaySkeletons(skeletons);
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        List<DaySkeleton> skeletons =
+                validateAndBuildSkeletons(
+                        TripGraphStateCodec.optional(state, ROUTE_CRITIC_RESULT, RouteCriticResult.class).orElse(null),
+                        TripGraphStateCodec.optionalList(state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
+                        TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class),
+                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null));
+        return TripGraphStateCodec.patch(DAY_SKELETONS, skeletons);
+    }
+
+    private List<DaySkeleton> validateAndBuildSkeletons(
+            RouteCriticResult critic,
+            List<MacroRoutePlan> macroRoutePlans,
+            CandidatePool candidatePool,
+            TravelRequirementDTO requirement,
+            RentalQuoteOptionDTO selectedQuote) {
+        MacroRoutePlan plan = selectedPlan(critic, macroRoutePlans);
+        Map<String, AreaAnchorCandidate> anchors = anchorMap(candidatePool);
         AreaAnchorResolver.canonicalizePlan(plan, anchors);
-        if (plan.getDays() == null || plan.getDays().size() != context.getRequirement().getDays()) {
+        if (plan.getDays() == null || plan.getDays().size() != requirement.getDays()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线骨架天数不完整");
         }
         for (MacroRouteDay day : plan.getDays()) {
@@ -28,33 +66,33 @@ public class MacroRouteContractValidateNode {
             }
             day.getFocusAreaIds().forEach(id -> requireAnchor(anchors, id, "focusAreaIds"));
         }
-        validateDailyHandoff(context, plan, anchors);
-        applySkeletons(context, plan, anchors);
+        validateDailyHandoff(selectedQuote, plan, anchors);
+        List<DaySkeleton> skeletons = buildSkeletons(plan, anchors, requirement);
         log.info("节点[macro-route-contract-validate]：路线骨架合同校验通过，plan={}", plan.getId());
+        return skeletons;
     }
 
-    private MacroRoutePlan selectedPlan(GenerateWorkflowContext context) {
-        RouteCriticResult critic = context.getRouteCriticResult();
+    private MacroRoutePlan selectedPlan(RouteCriticResult critic, List<MacroRoutePlan> macroRoutePlans) {
         if (critic != null && critic.getRevisedPlan() != null) {
             return critic.getRevisedPlan();
         }
         String selectedId = critic == null ? null : critic.getSelectedPlanId();
-        return context.getMacroRoutePlans().stream()
+        return macroRoutePlans.stream()
                 .filter(plan -> selectedId == null || plan.getId().equals(selectedId))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线审稿未选中有效方案"));
     }
 
-    private void applySkeletons(
-            GenerateWorkflowContext context, MacroRoutePlan plan, Map<String, AreaAnchorCandidate> anchors) {
-        List<DaySkeleton> skeletons = plan.getDays().stream()
+    private List<DaySkeleton> buildSkeletons(
+            MacroRoutePlan plan, Map<String, AreaAnchorCandidate> anchors, TravelRequirementDTO requirement) {
+        return plan.getDays().stream()
                 .map(day -> {
                     AreaAnchorCandidate focus = anchors.get(day.getFocusAreaIds().get(0));
                     DaySkeleton skeleton = new DaySkeleton();
                     skeleton.setDay(day.getDay());
                     skeleton.setTheme(firstNonBlank(day.getTheme(), focus.getName() + "慢游"));
                     skeleton.setTargetArea(focus.getName());
-                    skeleton.setIntensity(context.getRequirement().getPace());
+                    skeleton.setIntensity(requirement.getPace());
                     skeleton.setStartAreaId(day.getStartAreaId());
                     skeleton.setFocusAreaId(day.getFocusAreaIds().get(0));
                     skeleton.setEndAreaId(day.getEndAreaId());
@@ -66,7 +104,6 @@ public class MacroRouteContractValidateNode {
                     return skeleton;
                 })
                 .toList();
-        context.setDaySkeletons(skeletons);
     }
 
     private AreaAnchorSnapshot snapshot(AreaAnchorCandidate anchor) {
@@ -93,8 +130,8 @@ public class MacroRouteContractValidateNode {
     }
 
     private void validateDailyHandoff(
-            GenerateWorkflowContext context, MacroRoutePlan plan, Map<String, AreaAnchorCandidate> anchors) {
-        if (context.getSelectedQuote() != null && !plan.getDays().isEmpty()) {
+            RentalQuoteOptionDTO selectedQuote, MacroRoutePlan plan, Map<String, AreaAnchorCandidate> anchors) {
+        if (selectedQuote != null && !plan.getDays().isEmpty()) {
             AreaAnchorCandidate firstStart = anchors.get(plan.getDays().get(0).getStartAreaId());
             if (firstStart == null || !"PICKUP".equals(firstStart.getRole())) {
                 throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "租车行程第 1 天必须从取车区域开始");

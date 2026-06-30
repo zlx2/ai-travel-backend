@@ -1,14 +1,23 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CANDIDATE_POOL;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.MACRO_ROUTE_PLANS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SELECTED_QUOTE;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.ai.AiGateway;
 import com.sora.aitravel.ai.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -71,40 +80,125 @@ public class AiMacroRoutePlanNode {
     private final ObjectMapper objectMapper;
 
     public void execute(GenerateWorkflowContext context) {
-        CandidatePool pool = context.getCandidatePool();
+        context.setMacroRoutePlans(
+                generatePlans(context.getCandidatePool(), context.getRequirement(), context.getSelectedQuote()));
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        List<MacroRoutePlan> plans =
+                generatePlans(
+                        TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class),
+                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null));
+        return TripGraphStateCodec.patch(MACRO_ROUTE_PLANS, plans);
+    }
+
+    private List<MacroRoutePlan> generatePlans(
+            CandidatePool pool, TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
         if (pool == null || pool.getAreaAnchors() == null || pool.getAreaAnchors().isEmpty()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少可用于路线骨架的区域候选");
         }
-        TravelRequirementDTO requirement = context.getRequirement();
         List<AreaAnchorCandidate> macroAnchors = selectedMacroAnchors(pool);
-        String prompt =
-                PROMPT.formatted(
-                        requirement.getDestination(),
-                        value(requirement.getDays(), 1),
-                        value(requirement.getPeopleCount(), 1),
-                        requirement.getPace(),
-                        String.join("、", requirement.getPreferences() == null ? List.of() : requirement.getPreferences()),
-                        context.getSelectedQuote() == null ? "否" : "是",
-                        anchorText(macroAnchors));
         log.info(
-                "节点[ai-macro-route-plan]：宏观路线候选区域已精简，anchors={}, pickup={}, scenic={}, stay={}",
+                "节点[ai-macro-route-plan]：使用规则生成宏观路线骨架，anchors={}, pickup={}, scenic={}, stay={}",
                 macroAnchors.size(),
                 countRole(macroAnchors, "PICKUP"),
                 countRole(macroAnchors, "SCENIC_CLUSTER"),
                 countRole(macroAnchors, "STAY_AREA"));
-        String json = aiGateway.callJsonObject(AiScene.TRIP_GENERATE, prompt);
-        List<MacroRoutePlan> plans = parsePlans(json, value(requirement.getDays(), 1));
-        normalizeHardRouteContracts(context, plans);
-        context.setMacroRoutePlans(plans);
-        log.info("节点[ai-macro-route-plan]：AI 已生成路线骨架候选，plans={}", plans.size());
+        List<MacroRoutePlan> plans = generateRulePlans(pool, macroAnchors, requirement, selectedQuote);
+        normalizeHardRouteContracts(pool, selectedQuote, plans);
+        log.info("节点[ai-macro-route-plan]：已生成路线骨架候选，plans={}", plans.size());
+        return plans;
     }
 
-    private void normalizeHardRouteContracts(GenerateWorkflowContext context, List<MacroRoutePlan> plans) {
+    private List<MacroRoutePlan> generateRulePlans(
+            CandidatePool pool,
+            List<AreaAnchorCandidate> anchors,
+            TravelRequirementDTO requirement,
+            RentalQuoteOptionDTO selectedQuote) {
+        int days = value(requirement.getDays(), 1);
+        List<AreaAnchorCandidate> scenicAnchors = anchors.stream()
+                .filter(anchor -> "SCENIC_CLUSTER".equals(anchor.getRole()))
+                .toList();
+        List<AreaAnchorCandidate> stayAnchors = anchors.stream()
+                .filter(anchor -> "STAY_AREA".equals(anchor.getRole()))
+                .toList();
+        if (scenicAnchors.isEmpty()) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少可用于路线骨架的景点区域候选");
+        }
+        List<MacroRoutePlan> plans = new ArrayList<>();
+        plans.add(rulePlan("plan_a", "LOOP", days, scenicAnchors, stayAnchors, pool, selectedQuote, 0));
+        if (scenicAnchors.size() > 1) {
+            plans.add(rulePlan("plan_b", "LOOP", days, scenicAnchors, stayAnchors, pool, selectedQuote, 1));
+        }
+        return plans;
+    }
+
+    private MacroRoutePlan rulePlan(
+            String id,
+            String shape,
+            int days,
+            List<AreaAnchorCandidate> scenicAnchors,
+            List<AreaAnchorCandidate> stayAnchors,
+            CandidatePool pool,
+            RentalQuoteOptionDTO selectedQuote,
+            int offset) {
+        List<MacroRouteDay> routeDays = new ArrayList<>();
+        String previousStayId =
+                selectedQuote != null && pool.getPickupAnchor() != null ? pool.getPickupAnchor().getId() : null;
+        for (int index = 0; index < days; index++) {
+            AreaAnchorCandidate focus = scenicAnchors.get((index + offset) % scenicAnchors.size());
+            AreaAnchorCandidate stay = nearestStayAnchor(focus, stayAnchors);
+            String startId = index == 0
+                    ? firstNonBlank(previousStayId, focus.getId())
+                    : firstNonBlank(previousStayId, focus.getId());
+            String stayId = stay == null ? focus.getId() : stay.getId();
+            routeDays.add(new MacroRouteDay(
+                    index + 1,
+                    startId,
+                    List.of(focus.getId()),
+                    focus.getId(),
+                    stayId,
+                    firstNonBlank(focus.getName(), focus.getArea()) + "轻松游",
+                    "按候选区域和跨天住宿衔接生成"));
+            previousStayId = stayId;
+        }
+        return new MacroRoutePlan(id, shape, routeDays, List.of(), "规则生成，减少 AI 调用");
+    }
+
+    private AreaAnchorCandidate nearestStayAnchor(
+            AreaAnchorCandidate focus, List<AreaAnchorCandidate> stayAnchors) {
+        if (focus == null || stayAnchors == null || stayAnchors.isEmpty()) {
+            return null;
+        }
+        double[] focusLocation = parseLocation(focus.getLocation());
+        if (focusLocation == null) {
+            return stayAnchors.get(0);
+        }
+        return stayAnchors.stream()
+                .filter(anchor -> parseLocation(anchor.getLocation()) != null)
+                .min(java.util.Comparator.comparingDouble(anchor -> {
+                    double[] location = parseLocation(anchor.getLocation());
+                    return com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.distanceKm(
+                            focusLocation[0], focusLocation[1], location[0], location[1]);
+                }))
+                .orElse(stayAnchors.get(0));
+    }
+
+    private double[] parseLocation(String location) {
+        return com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.parseLocation(location);
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
+    }
+
+    private void normalizeHardRouteContracts(
+            CandidatePool pool, RentalQuoteOptionDTO selectedQuote, List<MacroRoutePlan> plans) {
         if (plans == null || plans.isEmpty()) {
             return;
         }
-        CandidatePool pool = context.getCandidatePool();
-        boolean rentalEnabled = context.getSelectedQuote() != null;
+        boolean rentalEnabled = selectedQuote != null;
         String pickupId =
                 pool == null || pool.getPickupAnchor() == null ? null : pool.getPickupAnchor().getId();
         for (MacroRoutePlan plan : plans) {

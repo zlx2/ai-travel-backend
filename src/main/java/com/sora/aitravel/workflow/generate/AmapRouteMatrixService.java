@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
 public class AmapRouteMatrixService implements RouteMatrixService {
     private static final String SOURCE_AMAP = "AMAP_DISTANCE";
     private static final int MAX_ORIGINS_PER_REQUEST = 8;
-    private static final int MAX_RETRY = 4;
-    private static final long MIN_REQUEST_INTERVAL_MS = 280L;
+    private static final int MAX_RETRY = 2;
+    private static final long MIN_REQUEST_INTERVAL_MS = 1100L;
     private static final Object RATE_LIMIT_LOCK = new Object();
     private static long lastRequestAt;
 
@@ -164,7 +164,7 @@ public class AmapRouteMatrixService implements RouteMatrixService {
             if (!isQpsLimit(info, infocode) || attempt == MAX_RETRY) {
                 throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "高德距离矩阵请求失败：" + info);
             }
-            sleepQuietly(700L * attempt);
+            sleepQuietly(1500L * attempt);
         }
         throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "高德距离矩阵请求失败：unknown");
     }
@@ -182,7 +182,10 @@ public class AmapRouteMatrixService implements RouteMatrixService {
 
     private boolean isQpsLimit(String info, String infocode) {
         String text = (info == null ? "" : info) + " " + (infocode == null ? "" : infocode);
-        return text.contains("CUQPS") || text.contains("QPS") || text.contains("10020");
+        return text.contains("CUQPS")
+                || text.contains("QPS")
+                || text.contains("10020")
+                || text.contains("10021");
     }
 
     private void sleepQuietly(long millis) {

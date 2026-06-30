@@ -1,8 +1,15 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_QUERY_PLANS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.FOOD_RECOMMENDATIONS_BY_DAY;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;
 import com.sora.aitravel.service.FoodRecommendService;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,26 +38,41 @@ public class FoodRecommendNode {
      * <p>节点只负责调用美食服务和保存结果，不修改 DayDataFetchNode，也不参与后续候选排序和行程生成。
      */
     public void execute(GenerateWorkflowContext context) {
+        context.setFoodRecommendationsByDay(
+                recommendByDay(
+                        context.getDayQueryPlans(),
+                        context.getCityProfile()));
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        Map<Integer, FoodRecommendResponse> recommendationsByDay =
+                recommendByDay(
+                        TripGraphStateCodec.optionalList(state, DAY_QUERY_PLANS, DayQueryPlan.class),
+                        TripGraphStateCodec.optional(state, CITY_PROFILE, CityProfile.class).orElse(null));
+        return TripGraphStateCodec.patch(FOOD_RECOMMENDATIONS_BY_DAY, recommendationsByDay);
+    }
+
+    private Map<Integer, FoodRecommendResponse> recommendByDay(
+            List<DayQueryPlan> dayQueryPlans, CityProfile cityProfile) {
         Map<Integer, FoodRecommendResponse> recommendationsByDay = new LinkedHashMap<>();
-        if (context.getDayQueryPlans() == null || context.getDayQueryPlans().isEmpty()) {
-            context.setFoodRecommendationsByDay(recommendationsByDay);
+        if (dayQueryPlans == null || dayQueryPlans.isEmpty()) {
             log.warn("节点[food-recommend]：没有逐日查询计划，跳过美食查询");
-            return;
+            return recommendationsByDay;
         }
 
-        for (DayQueryPlan plan : context.getDayQueryPlans()) {
+        for (DayQueryPlan plan : dayQueryPlans) {
             QueryItem foodQuery = findFoodQuery(plan);
             if (foodQuery == null) {
                 log.info("节点[food-recommend]：第 {} 天没有 FOOD 查询，跳过", plan.day());
                 continue;
             }
 
-            String query = buildQuery(foodQuery, context);
+            String query = buildQuery(foodQuery, cityProfile);
             FoodRecommendResponse response = queryFood(plan.day(), query);
             recommendationsByDay.put(plan.day(), response);
         }
 
-        context.setFoodRecommendationsByDay(recommendationsByDay);
+        return recommendationsByDay;
     }
 
     /** 查找当天第一个 FOOD 查询计划。 */
@@ -67,15 +89,15 @@ public class FoodRecommendNode {
     }
 
     /** 优先使用查询计划中的关键词，缺失时使用“城市 + 美食推荐”。 */
-    private String buildQuery(QueryItem foodQuery, GenerateWorkflowContext context) {
+    private String buildQuery(QueryItem foodQuery, CityProfile cityProfile) {
         if (StringUtils.hasText(foodQuery.keyword())) {
             return foodQuery.keyword();
         }
         String city = foodQuery.getCity();
         if (!StringUtils.hasText(city)
-                && context.getCityProfile() != null
-                && StringUtils.hasText(context.getCityProfile().destination())) {
-            city = context.getCityProfile().destination();
+                && cityProfile != null
+                && StringUtils.hasText(cityProfile.destination())) {
+            city = cityProfile.destination();
         }
         return StringUtils.hasText(city) ? city + "美食推荐" : "美食推荐";
     }

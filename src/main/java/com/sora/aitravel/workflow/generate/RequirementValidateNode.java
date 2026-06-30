@@ -1,8 +1,14 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUEST;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.request.TripGenerateRequest;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -17,11 +23,20 @@ public class RequirementValidateNode {
      * @param context 工作流上下文，从中读取生成请求参数并执行校验
      */
     public void execute(GenerateWorkflowContext context) {
-        if (context.getRequest() == null || context.getRequest().getRequirement() == null) {
+        validate(context.getRequest());
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        validate(TripGraphStateCodec.optional(state, REQUEST, TripGenerateRequest.class).orElse(null));
+        return Map.of();
+    }
+
+    private void validate(TripGenerateRequest request) {
+        if (request == null || request.getRequirement() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "行程生成需求不能为空");
         }
 
-        TravelRequirementDTO requirement = context.getRequest().getRequirement();
+        TravelRequirementDTO requirement = request.getRequirement();
         if (requirement.getDeparture() == null || requirement.getDeparture().isBlank()) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "出发地不能为空");
         }
@@ -36,7 +51,7 @@ public class RequirementValidateNode {
                         || "RENTAL_CAR".equals(requirement.getTransportMode())
                         || "SELF_DRIVE".equals(requirement.getTransportMode())
                         || "USER_REQUIRED".equals(requirement.getRentalIntent());
-        if (rentalTrip && context.getRequest().getSelectedQuote() == null) {
+        if (rentalTrip && request.getSelectedQuote() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车行程需要先确认租车报价");
         }
         boolean roadTrip = "ROAD_TRIP".equals(requirement.getRouteMode());

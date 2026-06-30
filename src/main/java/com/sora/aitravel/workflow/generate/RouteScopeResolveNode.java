@@ -1,7 +1,12 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -14,8 +19,16 @@ public class RouteScopeResolveNode {
     private final RegionRoutePresetProperties regionRoutePresetProperties;
 
     public void execute(GenerateWorkflowContext context) {
-        TravelRequirementDTO requirement = context.getRequirement();
+        resolve(context.getRequirement());
+    }
 
+    public Map<String, Object> execute(OverAllState state) {
+        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        resolve(requirement);
+        return TripGraphStateCodec.patch(REQUIREMENT, requirement);
+    }
+
+    private void resolve(TravelRequirementDTO requirement) {
         if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
             fillFromRouteCities(requirement);
             log.info(

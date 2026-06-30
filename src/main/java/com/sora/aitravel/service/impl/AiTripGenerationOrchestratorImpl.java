@@ -34,12 +34,13 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
                         writeJson(request.getRequirement()),
                         writeJsonOrNull(request.getSelectedQuote()),
                         writeJsonOrNull(request.getRentalTripContext()));
-        GenerateWorkflowContext context = new GenerateWorkflowContext();
-        context.setUserId(userId);
-        context.setRequest(request);
+        GenerateWorkflowContext initialContext = new GenerateWorkflowContext();
+        initialContext.setUserId(userId);
+        initialContext.setRequest(request);
         long start = WorkflowTiming.start();
         try {
-            timed("trip-prepare-workflow", () -> tripPrepareWorkflow.execute(context));
+            GenerateWorkflowContext context =
+                    timed("trip-prepare-workflow", () -> tripPrepareWorkflow.execute(initialContext));
             timed(
                     "session-requirement-update",
                     () ->

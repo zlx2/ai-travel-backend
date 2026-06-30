@@ -1,7 +1,14 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_CONTEXTS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_QUERY_PLANS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RANKED_DAY_DATA_PACKAGES;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.poi.Poi;
 import com.sora.aitravel.service.AmapPoiCacheService;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,10 +27,29 @@ public class DayDataFetchNode {
     private static final String POI_SHOW_FIELDS = "business,navi,photos";
 
     private final AmapPoiCacheService amapPoiCacheService;
+    private final PoiIdentityService poiIdentityService;
 
     public void execute(GenerateWorkflowContext context) {
+        context.setRankedDayDataPackages(
+                fetchDataPackages(
+                        context.getDayQueryPlans(),
+                        context.getDayContexts(),
+                        context.getCityProfile()));
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        List<DayDataPackage> packages =
+                fetchDataPackages(
+                        TripGraphStateCodec.optionalList(state, DAY_QUERY_PLANS, DayQueryPlan.class),
+                        TripGraphStateCodec.optionalList(state, DAY_CONTEXTS, DayContext.class),
+                        TripGraphStateCodec.required(state, CITY_PROFILE, CityProfile.class));
+        return TripGraphStateCodec.patch(RANKED_DAY_DATA_PACKAGES, packages);
+    }
+
+    private List<DayDataPackage> fetchDataPackages(
+            List<DayQueryPlan> dayQueryPlans, List<DayContext> dayContexts, CityProfile cityProfile) {
         List<DayDataPackage> packages = new ArrayList<>();
-        for (DayQueryPlan plan : context.getDayQueryPlans()) {
+        for (DayQueryPlan plan : dayQueryPlans) {
             List<List<PoiCandidate>> scenicBatches = new ArrayList<>();
             List<PoiCandidate> night = new ArrayList<>();
             List<PoiCandidate> food = new ArrayList<>();
@@ -39,20 +65,20 @@ public class DayDataFetchNode {
             List<PoiCandidate> scenic = new ArrayList<>();
             scenic.addAll(roundRobin(scenicBatches).stream().limit(42).toList());
             scenic.addAll(deduplicate(night).stream().limit(8).toList());
-            String dayCity = dayCity(context, plan.getDay());
+            String dayCity = dayCity(dayContexts, plan.getDay());
             packages.add(
                     new DayDataPackage(
                             plan.getDay(),
-                            merge(scenic, cityCandidates(context.getCityProfile().scenicCandidates(), dayCity)),
-                            merge(food, cityCandidates(context.getCityProfile().foodCandidates(), dayCity)),
-                            cityCandidates(context.getCityProfile().hotelCandidates(), dayCity),
+                            merge(scenic, cityCandidates(cityProfile.scenicCandidates(), dayCity)),
+                            merge(food, cityCandidates(cityProfile.foodCandidates(), dayCity)),
+                            cityCandidates(cityProfile.hotelCandidates(), dayCity),
                             List.of()));
         }
-        context.setRankedDayDataPackages(packages);
         log.info(
                 "节点[day-data-fetch]：已执行每天 POI 查询，days={}, scenicCounts={}",
                 packages.size(),
                 packages.stream().map(item -> item.scenicCandidates().size()).toList());
+        return packages;
     }
 
     private List<PoiCandidate> roundRobin(List<List<PoiCandidate>> batches) {
@@ -133,8 +159,8 @@ public class DayDataFetchNode {
                 || normalizeCity(candidate.getArea()).contains(normalizedCity);
     }
 
-    private String dayCity(GenerateWorkflowContext context, Integer day) {
-        return context.getDayContexts().stream()
+    private String dayCity(List<DayContext> dayContexts, Integer day) {
+        return dayContexts.stream()
                 .filter(item -> item.getDay().equals(day))
                 .map(item -> item.skeleton().targetArea())
                 .map(this::cityFromTargetArea)
@@ -221,14 +247,7 @@ public class DayDataFetchNode {
     }
 
     private String dedupKey(PoiCandidate candidate) {
-        String name = candidate.getName() == null ? "" : candidate.getName();
-        return name.replaceAll("[（(].*?[）)]", "")
-                .replaceAll("[-—·].*$", "")
-                .replace("景区", "")
-                .replace("风景区", "")
-                .replace("步行街", "")
-                .replaceAll("\\s+", "")
-                .trim();
+        return poiIdentityService.dedupKey(candidate);
     }
 
     private Integer parseInteger(String value) {

@@ -172,7 +172,55 @@ public class RouteOrderOptimizer {
         return 0;
     }
 
-    private record State(int mask, int lastIndex) {}
+    private static final class State {
+        private final int mask;
+        private final int lastIndex;
 
-    private record Score(int cost, int previousLastIndex) {}
+        private State(int mask, int lastIndex) {
+            this.mask = mask;
+            this.lastIndex = lastIndex;
+        }
+
+        private int mask() {
+            return mask;
+        }
+
+        private int lastIndex() {
+            return lastIndex;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof State state)) {
+                return false;
+            }
+            return mask == state.mask && lastIndex == state.lastIndex;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(mask, lastIndex);
+        }
+    }
+
+    private static final class Score {
+        private final int cost;
+        private final int previousLastIndex;
+
+        private Score(int cost, int previousLastIndex) {
+            this.cost = cost;
+            this.previousLastIndex = previousLastIndex;
+        }
+
+        private int cost() {
+            return cost;
+        }
+
+        private int previousLastIndex() {
+            return previousLastIndex;
+        }
+    }
 }

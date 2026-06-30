@@ -1,7 +1,23 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_CONTEXTS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REVISION_TEXT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SELECTED_QUOTE;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.sora.aitravel.common.enums.ErrorCode;
+import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +27,9 @@ import org.springframework.stereotype.Component;
 public class DayContextBuildNode {
 
     public void execute(GenerateWorkflowContext context) {
+        if (context.getDaySkeletons() == null || context.getDaySkeletons().isEmpty()) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少逐日行程骨架，无法生成单日行程");
+        }
         List<DayContext> dayContexts = new ArrayList<>();
         List<String> usedPlaces = new ArrayList<>();
         String hotelArea = resolveHotelArea(context);
@@ -39,8 +58,48 @@ public class DayContextBuildNode {
         log.info("节点[day-context-build]：已构建每天上下文，count={}", dayContexts.size());
     }
 
+    public Map<String, Object> execute(OverAllState state) {
+        List<DaySkeleton> daySkeletons = TripGraphStateCodec.optionalList(state, DAY_SKELETONS, DaySkeleton.class);
+        if (daySkeletons.isEmpty()) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少逐日行程骨架，无法生成单日行程");
+        }
+        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        RentalQuoteOptionDTO selectedQuote =
+                TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null);
+        RentalTripContextDTO rentalTripContext =
+                TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class).orElse(null);
+        CityProfile cityProfile = TripGraphStateCodec.optional(state, CITY_PROFILE, CityProfile.class).orElse(null);
+        String revisionText = TripGraphStateCodec.optional(state, REVISION_TEXT, String.class).orElse(null);
+
+        List<DayContext> dayContexts = new ArrayList<>();
+        List<String> usedPlaces = new ArrayList<>();
+        String hotelArea = resolveHotelArea(cityProfile, requirement);
+
+        for (DaySkeleton skeleton : daySkeletons) {
+            dayContexts.add(
+                    new DayContext(
+                            skeleton.getDay(),
+                            skeleton,
+                            List.copyOf(usedPlaces),
+                            hotelArea,
+                            requirement.getPace(),
+                            selectedQuote != null,
+                            rentalInstruction(selectedQuote, rentalTripContext),
+                            rentalTripContext == null ? null : rentalTripContext.getRouteStructure(),
+                            rentalTripContext == null ? null : rentalTripContext.getDailyDrivingLimit(),
+                            revisionText));
+            usedPlaces.add(skeleton.targetArea());
+        }
+
+        log.info("节点[day-context-build]：已构建每天上下文，count={}", dayContexts.size());
+        return TripGraphStateCodec.patch(DAY_CONTEXTS, dayContexts);
+    }
+
     private String resolveHotelArea(GenerateWorkflowContext context) {
-        CityProfile profile = context.getCityProfile();
+        return resolveHotelArea(context.getCityProfile(), context.getRequirement());
+    }
+
+    private String resolveHotelArea(CityProfile profile, TravelRequirementDTO requirement) {
         if (profile != null
                 && profile.hotelCandidates() != null
                 && !profile.hotelCandidates().isEmpty()) {
@@ -52,10 +111,10 @@ public class DayContextBuildNode {
                 && !profile.getPopularAreas().isEmpty()) {
             return profile.getPopularAreas().get(0);
         }
-        if (context.getRequirement() != null) {
+        if (requirement != null) {
             return firstNonBlank(
-                    context.getRequirement().getDestination(),
-                    context.getRequirement().getRouteRegion());
+                    requirement.getDestination(),
+                    requirement.getRouteRegion());
         }
         return null;
     }
@@ -65,21 +124,26 @@ public class DayContextBuildNode {
     }
 
     private String rentalInstruction(GenerateWorkflowContext context) {
-        if (context.getSelectedQuote() == null || context.getRentalTripContext() == null) {
+        return rentalInstruction(context.getSelectedQuote(), context.getRentalTripContext());
+    }
+
+    private String rentalInstruction(
+            RentalQuoteOptionDTO selectedQuote, RentalTripContextDTO rentalTripContext) {
+        if (selectedQuote == null || rentalTripContext == null) {
             return null;
         }
         String vehicle =
                 firstNonBlank(
-                        context.getSelectedQuote().getDisplayName(),
-                        context.getSelectedQuote().getGroupName());
+                        selectedQuote.getDisplayName(),
+                        selectedQuote.getGroupName());
         String pickup =
-                context.getRentalTripContext().getPickupPlan() == null
+                rentalTripContext.getPickupPlan() == null
                         ? null
-                        : context.getRentalTripContext().getPickupPlan().getDisplayText();
+                        : rentalTripContext.getPickupPlan().getDisplayText();
         String arrival =
-                context.getRentalTripContext().getArrivalPoint() == null
+                rentalTripContext.getArrivalPoint() == null
                         ? null
-                        : context.getRentalTripContext().getArrivalPoint().getName();
+                        : rentalTripContext.getArrivalPoint().getName();
         return "本次为租车自驾行程，已选车辆："
                 + firstNonBlank(vehicle, "租车套餐")
                 + "；到达/接车点："
@@ -87,9 +151,9 @@ public class DayContextBuildNode {
                 + "；接车安排："
                 + firstNonBlank(pickup, "送车接人后开始自驾")
                 + "；游玩范围："
-                + firstNonBlank(context.getRentalTripContext().getRouteStructure(), "城市+周边")
+                + firstNonBlank(rentalTripContext.getRouteStructure(), "城市+周边")
                 + "；驾驶强度："
-                + firstNonBlank(context.getRentalTripContext().getDailyDrivingLimit(), "近郊自驾（单日累计约2-4小时）")
+                + firstNonBlank(rentalTripContext.getDailyDrivingLimit(), "近郊自驾（单日累计约2-4小时）")
                 + "。选点应优先考虑自驾顺路、停车便利、城市周边自然/古镇等有车更方便到达的地点。";
     }
 }

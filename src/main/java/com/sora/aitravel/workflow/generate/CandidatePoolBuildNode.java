@@ -1,9 +1,16 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CANDIDATE_POOL;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -12,12 +19,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class CandidatePoolBuildNode {
     public void execute(GenerateWorkflowContext context) {
-        CityProfile profile = context.getCityProfile();
+        context.setCandidatePool(buildPool(context.getCityProfile(), context.getRentalTripContext()));
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        CandidatePool pool =
+                buildPool(
+                        TripGraphStateCodec.required(state, CITY_PROFILE, CityProfile.class),
+                        TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class).orElse(null));
+        return TripGraphStateCodec.patch(CANDIDATE_POOL, pool);
+    }
+
+    private CandidatePool buildPool(CityProfile profile, RentalTripContextDTO rentalTripContext) {
         List<PoiCandidate> scenic = profile == null || profile.getScenicCandidates() == null
                 ? List.of()
                 : profile.getScenicCandidates();
         LinkedHashMap<String, AreaAnchorCandidate> anchors = new LinkedHashMap<>();
-        AreaAnchorCandidate pickup = pickupAnchor(context.getRentalTripContext());
+        AreaAnchorCandidate pickup = pickupAnchor(rentalTripContext);
         if (pickup != null) {
             anchors.putIfAbsent(pickup.getId(), pickup);
         }
@@ -25,11 +43,11 @@ public class CandidatePoolBuildNode {
         addPoiAreas(anchors, profile == null ? null : profile.getHotelCandidates(), "STAY_AREA");
         addScenicClusterAreas(anchors, scenic);
         CandidatePool pool = new CandidatePool(scenic, new ArrayList<>(anchors.values()), pickup);
-        context.setCandidatePool(pool);
         log.info(
                 "节点[candidate-pool-build]：候选池构建完成，scenic={}, anchors={}",
                 pool.getScenicCandidates().size(),
                 pool.getAreaAnchors().size());
+        return pool;
     }
 
     private void addPoiAreas(

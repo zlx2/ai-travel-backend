@@ -106,13 +106,15 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             GenerateWorkflowContext context = timed("restore-context", () -> restoreContext(session, dayNo));
             context.setRevisionText(normalizeRevisionText(revisionText));
             context.setTargetDayNo(dayNo);
-            timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(context));
+            GenerateWorkflowContext workflowInput = context;
+            context = timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(workflowInput));
+            TripPlanDTO.DailyPlan generatedPlan = currentGeneratedPlan(context, dayNo);
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
             timed(
                     "day-mark-generated",
                     () ->
                             dayGenerationService.markGenerated(
-                                    day.getId(), writeJson(context.getLockedDailyPlans().get(0))));
+                                    day.getId(), writeJson(generatedPlan)));
             AiTripDayGeneration generated =
                     timed("day-load-generated", () -> dayGenerationService.getLatest(sessionId, dayNo));
             log.info(
@@ -139,6 +141,21 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
         String text = revisionText.trim().replaceAll("\\s+", " ");
         return text.length() > 500 ? text.substring(0, 500) : text;
+    }
+
+    private TripPlanDTO.DailyPlan currentGeneratedPlan(GenerateWorkflowContext context, Integer dayNo) {
+        if (context.getLockedDailyPlans() == null || context.getLockedDailyPlans().isEmpty()) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成结果为空，day=" + dayNo);
+        }
+        return context.getLockedDailyPlans().stream()
+                .filter(plan -> dayNo.equals(plan.getDay()))
+                .findFirst()
+                .orElseGet(() -> {
+                    if (context.getLockedDailyPlans().size() == 1) {
+                        return context.getLockedDailyPlans().get(0);
+                    }
+                    throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "未找到当前天行程结果，day=" + dayNo);
+                });
     }
 
     /**

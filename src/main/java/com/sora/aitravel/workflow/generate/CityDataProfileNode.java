@@ -1,8 +1,13 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.poi.Poi;
 import com.sora.aitravel.service.AmapPoiCacheService;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,9 +28,19 @@ public class CityDataProfileNode {
     private static final String POI_SHOW_FIELDS = "business,navi,photos";
 
     private final AmapPoiCacheService amapPoiCacheService;
+    private final PoiIdentityService poiIdentityService;
 
     public void execute(GenerateWorkflowContext context) {
-        TravelRequirementDTO requirement = context.getRequirement();
+        context.setCityProfile(buildProfile(context.getRequirement()));
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        CityProfile profile =
+                buildProfile(TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class));
+        return TripGraphStateCodec.patch(CITY_PROFILE, profile);
+    }
+
+    private CityProfile buildProfile(TravelRequirementDTO requirement) {
         String destination = displayDestination(requirement);
         List<String> searchCities = resolveSearchCities(requirement, destination);
 
@@ -59,7 +74,6 @@ public class CityDataProfileNode {
                         ensureCandidates(destination, "SCENIC", mergedScenic),
                         ensureCandidates(destination, "FOOD", mergedFood),
                         ensureCandidates(destination, "HOTEL", mergedHotel));
-        context.setCityProfile(profile);
         log.info(
                 "节点[city-data-profile]：城市数据准备完成，destination={}, searchCities={}, scenic={}, food={}, hotel={}",
                 destination,
@@ -67,6 +81,7 @@ public class CityDataProfileNode {
                 profile.scenicCandidates().size(),
                 profile.foodCandidates().size(),
                 profile.hotelCandidates().size());
+        return profile;
     }
 
     private List<String> resolveSearchCities(
@@ -345,12 +360,7 @@ public class CityDataProfileNode {
     }
 
     private String dedupKey(PoiCandidate candidate) {
-        String name = candidate.getName() == null ? "" : candidate.getName();
-        return name.replace("景区", "")
-                .replace("风景区", "")
-                .replace("步行街", "")
-                .replace("历史文化特色街区", "历史街区")
-                .toLowerCase(Locale.ROOT);
+        return poiIdentityService.dedupKey(candidate);
     }
 
     private List<PoiCandidate> ensureCandidates(
