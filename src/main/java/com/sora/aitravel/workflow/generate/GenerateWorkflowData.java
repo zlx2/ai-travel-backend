@@ -7,12 +7,19 @@ import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 class DaySkeleton {
     private Integer day;
     private String theme;
     private String targetArea;
     private String intensity;
+    private String startAreaId;
+    private String focusAreaId;
+    private String endAreaId;
+    private String stayAreaId;
+    private AreaAnchorSnapshot startArea;
+    private AreaAnchorSnapshot focusArea;
+    private AreaAnchorSnapshot endArea;
+    private AreaAnchorSnapshot stayArea;
 
     Integer day() {
         return day;
@@ -25,6 +32,100 @@ class DaySkeleton {
     String targetArea() {
         return targetArea;
     }
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class AreaAnchorSnapshot {
+    private String id;
+    private String name;
+    private String role;
+    private String city;
+    private String area;
+    private String address;
+    private String location;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class AreaAnchorCandidate {
+    private String id;
+    private String name;
+    private String role;
+    private String city;
+    private String area;
+    private String address;
+    private String location;
+    private String source;
+    private String sourcePoiId;
+    private List<String> tags;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class CandidatePool {
+    private List<PoiCandidate> scenicCandidates;
+    private List<AreaAnchorCandidate> areaAnchors;
+    private AreaAnchorCandidate pickupAnchor;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class MacroRoutePlan {
+    private String id;
+    private String routeShape;
+    private List<MacroRouteDay> days;
+    private List<String> warnings;
+    private String reason;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class MacroRouteDay {
+    private Integer day;
+    private String startAreaId;
+    private List<String> focusAreaIds;
+    private String endAreaId;
+    private String stayAreaId;
+    private String theme;
+    private String reason;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class MacroRouteFact {
+    private String planId;
+    private List<MacroRouteDayFact> dayFacts;
+    private Integer totalDrivingMinutes;
+    private Integer totalDistanceMeters;
+    private List<String> backtrackingSignals;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class MacroRouteDayFact {
+    private Integer day;
+    private Integer drivingMinutes;
+    private Integer distanceMeters;
+    private String summary;
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+class RouteCriticResult {
+    private String selectedPlanId;
+    private MacroRoutePlan revisedPlan;
+    private Integer score;
+    private List<String> warnings;
+    private String reason;
 }
 
 @Data

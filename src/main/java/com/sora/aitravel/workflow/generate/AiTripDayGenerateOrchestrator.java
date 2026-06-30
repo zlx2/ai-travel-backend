@@ -16,9 +16,11 @@ import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /** 按天生成行程编排。 */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
@@ -104,20 +106,36 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
 
         // 5. 执行生成流程：恢复上下文 → 运行工作流节点 → 持久化结果
+        long start = WorkflowTiming.start();
         try {
-            dayGenerationService.markGenerating(day.getId());
+            timed("day-mark-generating", () -> dayGenerationService.markGenerating(day.getId()));
             // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
-            GenerateWorkflowContext context = restoreContext(session, dayNo);
+            GenerateWorkflowContext context = timed("restore-context", () -> restoreContext(session, dayNo));
             context.setRevisionText(normalizeRevisionText(revisionText));
             // 依次执行7个生成节点：上下文构建→查询计划→美食推荐→数据抓取→排序→计划生成→校验
             runDayNodes(context, dayNo);
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
-            dayGenerationService.markGenerated(
-                    day.getId(), writeJson(context.getLockedDailyPlans().get(0)));
-            return dayGenerationService.getLatest(sessionId, dayNo);
+            timed(
+                    "day-mark-generated",
+                    () ->
+                            dayGenerationService.markGenerated(
+                                    day.getId(), writeJson(context.getLockedDailyPlans().get(0))));
+            AiTripDayGeneration generated =
+                    timed("day-load-generated", () -> dayGenerationService.getLatest(sessionId, dayNo));
+            log.info(
+                    "行程生成总耗时 workflow=generate-day sessionId={} day={} elapsedMs={}",
+                    sessionId,
+                    dayNo,
+                    WorkflowTiming.elapsedMs(start));
+            return generated;
         } catch (RuntimeException exception) {
             // 生成失败，记录错误信息并向上抛出
             dayGenerationService.markFailed(day.getId(), exception.getMessage());
+            log.info(
+                    "行程生成总耗时 workflow=generate-day sessionId={} day={} status=failed elapsedMs={}",
+                    sessionId,
+                    dayNo,
+                    WorkflowTiming.elapsedMs(start));
             throw exception;
         }
     }
@@ -198,23 +216,36 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
      * @param dayNo
      */
     private void runDayNodes(GenerateWorkflowContext context, Integer dayNo) {
-        dayContextBuildNode.execute(context);
-        context.setDayContexts(
-                context.getDayContexts().stream()
-                        .filter(dayContext -> dayContext.getDay().equals(dayNo))
-                        .toList());
+        timed("day-context-build", () -> dayContextBuildNode.execute(context));
+        timed(
+                "day-context-filter",
+                () ->
+                        context.setDayContexts(
+                                context.getDayContexts().stream()
+                                        .filter(dayContext -> dayContext.getDay().equals(dayNo))
+                                        .toList()));
         if (context.getDayContexts().isEmpty()) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数不存在：" + dayNo);
         }
-        dayQueryPlanNode.execute(context);
-        foodRecommendNode.execute(context);
-        dayDataFetchNode.execute(context);
-        dayDataRankNode.execute(context);
+        timed("day-query-plan", () -> dayQueryPlanNode.execute(context));
+        timed("food-recommend", () -> foodRecommendNode.execute(context));
+        timed("day-data-fetch", () -> dayDataFetchNode.execute(context));
+        timed("day-data-rank", () -> dayDataRankNode.execute(context));
         List<TripPlanDTO.DailyPlan> previousDays =
                 context.getLockedDailyPlans() == null ? List.of() : context.getLockedDailyPlans();
-        dayPlanGenerateNode.execute(context);
-        tripTimelineAssembler.assemble(previousDays, context.getLockedDailyPlans(), context);
-        dayPlanValidateNode.execute(context);
+        timed("day-plan-generate", () -> dayPlanGenerateNode.execute(context));
+        timed(
+                "trip-timeline-assemble",
+                () -> tripTimelineAssembler.assemble(previousDays, context.getLockedDailyPlans(), context));
+        timed("day-plan-validate", () -> dayPlanValidateNode.execute(context));
+    }
+
+    private void timed(String node, Runnable action) {
+        WorkflowTiming.run("generate-day", node, action);
+    }
+
+    private <T> T timed(String node, java.util.function.Supplier<T> action) {
+        return WorkflowTiming.call("generate-day", node, action);
     }
 
     /**

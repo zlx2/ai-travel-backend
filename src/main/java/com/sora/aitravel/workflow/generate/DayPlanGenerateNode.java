@@ -82,6 +82,8 @@ public class DayPlanGenerateNode {
     private static final RoutePolicy RENTAL_LONG_ROUTE_POLICY = new RoutePolicy(220.0, 480.0);
 
     private final AmapApiService amapApiService;
+    private final RouteMatrixService routeMatrixService;
+    private final RouteOrderOptimizer routeOrderOptimizer;
     private final AiGateway aiGateway;
     private final ObjectMapper objectMapper;
 
@@ -131,7 +133,6 @@ public class DayPlanGenerateNode {
                         usedPoiKeys,
                         wantsNightExperience(requirement, dayContext));
         selected = supplementMinimumSpots(context, selected, dayContext, usedPoiKeys);
-        selected = optimizeOrder(selected);
         selected =
                 preferWorkflowCompactRoute(
                         context, dataPackage, selected, dayContext, usedPoiKeys, spotCount);
@@ -139,7 +140,7 @@ public class DayPlanGenerateNode {
                 generateAiDayPlan(
                         context, dayContext, dataPackage, selected, usedPoiKeys, spotCount);
         selected = aiDayPlan.selected();
-        selected = optimizeOrder(selected);
+        selected = optimizeRouteOrder(selected, dayContext);
         selected.forEach(candidate -> usedPoiKeys.add(dedupKey(candidate)));
         List<TripPlanDTO.Spot> spots = new ArrayList<>();
         for (int index = 0; index < selected.size(); index++) {
@@ -333,37 +334,110 @@ public class DayPlanGenerateNode {
         return result;
     }
 
-    private List<PoiCandidate> optimizeOrder(List<PoiCandidate> selected) {
-        if (selected.size() < 2) {
+    private List<PoiCandidate> optimizeRouteOrder(List<PoiCandidate> selected, DayContext dayContext) {
+        if (selected == null || selected.size() < 2) {
             return selected;
         }
-        List<PoiCandidate> remaining = new ArrayList<>(selected);
-        List<PoiCandidate> ordered = new ArrayList<>();
-        PoiCandidate current =
-                remaining.stream()
-                        .filter(candidate -> !isNightCandidate(candidate))
-                        .min(
-                                Comparator.comparingInt(this::closingMinute)
-                                        .thenComparing(
-                                                candidate -> parseRating(candidate.getRating()),
-                                                Comparator.reverseOrder()))
-                        .orElse(remaining.get(0));
-        ordered.add(current);
-        remaining.remove(current);
-        while (!remaining.isEmpty()) {
-            PoiCandidate from = current;
-            PoiCandidate next =
-                    remaining.stream()
-                            .min(
-                                    Comparator.comparing(this::isNightCandidate)
-                                            .thenComparingInt(
-                                                    candidate -> routeDistance(from, candidate)))
-                            .orElseThrow();
-            ordered.add(next);
-            remaining.remove(next);
-            current = next;
+        if (selected.stream().anyMatch(candidate -> parseLocation(routeLocation(candidate))[0] == null)) {
+            throw new IllegalStateException("景点候选缺少坐标，无法进行高德顺路排序");
         }
-        return ordered;
+        List<RouteAnchor> spotAnchors = selected.stream().map(this::routeAnchor).toList();
+        RouteAnchor fixedStart = snapshotAnchor(dayContext, dayContext.skeleton().getStartArea(), "DAY_START");
+        RouteAnchor fixedEnd = snapshotAnchor(dayContext, dayContext.skeleton().getStayArea(), "STAY_AREA");
+        if (fixedStart != null && fixedEnd != null) {
+            List<RouteAnchor> matrixAnchors = new ArrayList<>();
+            matrixAnchors.add(fixedStart);
+            matrixAnchors.addAll(spotAnchors);
+            matrixAnchors.add(fixedEnd);
+            RouteMatrix matrix = routeMatrixService.buildDrivingMatrix(matrixAnchors);
+            List<RouteAnchor> ordered =
+                    routeOrderOptimizer.optimize(fixedStart, spotAnchors, fixedEnd, matrix);
+            LinkedHashMap<String, PoiCandidate> byKey = new LinkedHashMap<>();
+            selected.forEach(candidate -> byKey.put(dedupKey(candidate), candidate));
+            return ordered.stream()
+                    .map(anchor -> byKey.get(anchor.getId()))
+                    .filter(candidate -> candidate != null)
+                    .toList();
+        }
+
+        List<RouteAnchor> anchors = spotAnchors;
+        RouteMatrix matrix = routeMatrixService.buildDrivingMatrix(anchors);
+        List<RouteAnchor> best = null;
+        int bestCost = Integer.MAX_VALUE;
+        for (RouteAnchor start : anchors) {
+            for (RouteAnchor end : anchors) {
+                if (start.getId().equals(end.getId())) {
+                    continue;
+                }
+                List<RouteAnchor> middle = anchors.stream()
+                        .filter(anchor ->
+                                !anchor.getId().equals(start.getId()) && !anchor.getId().equals(end.getId()))
+                        .toList();
+                List<RouteAnchor> ordered = routeOrderOptimizer.optimize(start, middle, end, matrix);
+                int cost = routeCost(ordered, matrix);
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    best = ordered;
+                }
+            }
+        }
+        if (best == null) {
+            throw new IllegalStateException("高德顺路排序失败");
+        }
+        LinkedHashMap<String, PoiCandidate> byKey = new LinkedHashMap<>();
+        selected.forEach(candidate -> byKey.put(dedupKey(candidate), candidate));
+        return best.stream()
+                .map(anchor -> byKey.get(anchor.getId()))
+                .filter(candidate -> candidate != null)
+                .toList();
+    }
+
+    private RouteAnchor routeAnchor(PoiCandidate candidate) {
+        BigDecimal[] lngLat = parseLocation(routeLocation(candidate));
+        return RouteAnchor.builder()
+                .id(dedupKey(candidate))
+                .type("SCENIC")
+                .title(candidate.getName())
+                .city(candidate.getCity())
+                .area(candidate.getArea())
+                .address(candidate.getAddress())
+                .lng(lngLat[0] == null ? null : lngLat[0].doubleValue())
+                .lat(lngLat[1] == null ? null : lngLat[1].doubleValue())
+                .sourceId(candidate.getSourcePoiId())
+                .sourceType(candidate.getSource())
+                .tags(candidate.getBusinessTags())
+                .build();
+    }
+
+    private RouteAnchor snapshotAnchor(DayContext dayContext, AreaAnchorSnapshot snapshot, String type) {
+        if (snapshot == null || snapshot.getLocation() == null || snapshot.getLocation().isBlank()) {
+            return null;
+        }
+        BigDecimal[] lngLat = parseLocation(snapshot.getLocation());
+        if (lngLat[0] == null || lngLat[1] == null) {
+            return null;
+        }
+        return RouteAnchor.builder()
+                .id(type + "_DAY_" + dayContext.getDay())
+                .type(type)
+                .title(snapshot.getName())
+                .city(snapshot.getCity())
+                .area(snapshot.getArea())
+                .address(snapshot.getAddress())
+                .lng(lngLat[0].doubleValue())
+                .lat(lngLat[1].doubleValue())
+                .sourceId(snapshot.getId())
+                .sourceType("MACRO_ROUTE")
+                .tags(List.of(type))
+                .build();
+    }
+
+    private int routeCost(List<RouteAnchor> ordered, RouteMatrix matrix) {
+        int cost = 0;
+        for (int index = 0; index < ordered.size() - 1; index++) {
+            cost += matrix.durationSeconds(ordered.get(index).getId(), ordered.get(index + 1).getId());
+        }
+        return cost;
     }
 
     private int routeDistance(PoiCandidate from, PoiCandidate to) {
@@ -470,19 +544,6 @@ public class DayPlanGenerateNode {
             return 1000;
         }
         return distanceKm(from[0], from[1], to[0], to[1]);
-    }
-
-    private int closingMinute(PoiCandidate candidate) {
-        String openingHours = candidate.getOpeningHours();
-        if (openingHours == null) {
-            return isNightCandidate(candidate) ? 24 * 60 : 20 * 60;
-        }
-        java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("(\\d{1,2}):(\\d{2})\\s*$").matcher(openingHours);
-        if (!matcher.find()) {
-            return isNightCandidate(candidate) ? 24 * 60 : 20 * 60;
-        }
-        return Integer.parseInt(matcher.group(1)) * 60 + Integer.parseInt(matcher.group(2));
     }
 
     private BigDecimal parseRating(String value) {

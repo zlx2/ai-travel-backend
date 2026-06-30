@@ -54,6 +54,18 @@ public class GenerateWorkflowContext {
     /** 城市基础数据池，来源于真实 POI 查询结果。 */
     private CityProfile cityProfile;
 
+    /** 新版生成候选池，包含真实景点和区域锚点。 */
+    private CandidatePool candidatePool;
+
+    /** AI 生成的多日路线骨架候选方案。 */
+    private List<MacroRoutePlan> macroRoutePlans;
+
+    /** 高德补充的多日路线事实。 */
+    private List<MacroRouteFact> macroRouteFacts;
+
+    /** AI 审稿后选中的路线骨架。 */
+    private RouteCriticResult routeCriticResult;
+
     /** 目的地天气预报数据（由 WeatherTool 提供）。 */
     private String weatherForecast;
 

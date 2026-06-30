@@ -16,11 +16,10 @@ public class TripTimelineAssembler {
     private static final String TYPE_DAY_START = "DAY_START";
     private static final String TYPE_TRANSFER = "TRANSFER";
     private static final String TYPE_RENTAL_PICKUP = "RENTAL_PICKUP";
-    private static final String TYPE_RENTAL_RETURN = "RENTAL_RETURN";
-    private static final String TYPE_LUNCH = "LUNCH";
-    private static final String TYPE_DINNER = "DINNER";
-    private static final String TYPE_HOTEL = "HOTEL";
-    private static final String TYPE_HOTEL_AREA = "HOTEL_AREA";
+    private static final String TYPE_CAR_RETURN_SERVICE = "CAR_RETURN_SERVICE";
+    private static final String TYPE_LUNCH_AREA = "LUNCH_AREA";
+    private static final String TYPE_DINNER_AREA = "DINNER_AREA";
+    private static final String TYPE_STAY_AREA = "STAY_AREA";
     private static final String TYPE_SCENIC = "SCENIC";
 
     public void execute(GenerateWorkflowContext context) {
@@ -78,22 +77,30 @@ public class TripTimelineAssembler {
             clock.reset(Math.max(clock.minutes(), addMinutes(pickup.getStartTime(), 45)));
         }
 
-        if (!daytimeSpots.isEmpty()) {
-            timeline.add(spotNode(order++, clock.time(), daytimeSpots.get(0), routeSuggestion(day, null, daytimeSpots.get(0))));
-            clock.move(duration(daytimeSpots.get(0)) + routeBuffer(context));
+        int nextDaytimeIndex = 0;
+        if (!daytimeSpots.isEmpty() && clock.minutes() < 11 * 60 + 20) {
+            TripPlanDTO.Spot firstDaytimeSpot = daytimeSpots.get(0);
+            timeline.add(
+                    spotNode(
+                            order++,
+                            clock.time(),
+                            firstDaytimeSpot,
+                            routeSuggestion(day, null, firstDaytimeSpot)));
+            clock.move(duration(firstDaytimeSpot) + routeBuffer(context));
+            nextDaytimeIndex = 1;
         }
 
-        timeline.add(mealNode(order++, lunchTime(clock.minutes()), TYPE_LUNCH, day, context));
+        timeline.add(mealNode(order++, lunchTime(clock.minutes()), TYPE_LUNCH_AREA, day, context));
         clock.reset(Math.max(addMinutes(timeline.get(timeline.size() - 1).getStartTime(), 65), 13 * 60 + 20));
 
-        for (int index = 1; index < daytimeSpots.size(); index++) {
-            TripPlanDTO.Spot previous = daytimeSpots.get(index - 1);
+        for (int index = nextDaytimeIndex; index < daytimeSpots.size(); index++) {
+            TripPlanDTO.Spot previous = index == 0 ? null : daytimeSpots.get(index - 1);
             TripPlanDTO.Spot spot = daytimeSpots.get(index);
             timeline.add(spotNode(order++, clock.time(), spot, routeSuggestion(day, previous, spot)));
             clock.move(duration(spot) + routeBuffer(context));
         }
 
-        timeline.add(mealNode(order++, dinnerTime(clock.minutes()), TYPE_DINNER, day, context));
+        timeline.add(mealNode(order++, dinnerTime(clock.minutes()), TYPE_DINNER_AREA, day, context));
         clock.reset(Math.max(addMinutes(timeline.get(timeline.size() - 1).getStartTime(), 80), 19 * 60 + 20));
 
         for (TripPlanDTO.Spot nightSpot : nightSpots) {
@@ -178,39 +185,30 @@ public class TripTimelineAssembler {
     }
 
     private TripPlanDTO.TimelineNode returnNode(int order, String time, GenerateWorkflowContext context) {
-        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_RENTAL_RETURN, time, "还车");
+        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_CAR_RETURN_SERVICE, time, "上门取车");
         RentalTripContextDTO rental = context.getRentalTripContext();
-        String point = rental == null ? null : firstNonBlank(rental.getReturnPoint(), rental.getArrivalPoint() == null ? null : rental.getArrivalPoint().getName());
-        node.setSubtitle(firstNonBlank(point, "行程结束点附近还车"));
-        node.setDescription("预留验车和交接时间。");
-        if (rental != null && rental.getMatchedStore() != null) {
-            node.setArea(rental.getMatchedStore().getDisplayName());
-            node.setLng(decimal(rental.getMatchedStore().getLng()));
-            node.setLat(decimal(rental.getMatchedStore().getLat()));
-            node.setCity(rental.getMatchedStore().getCityName());
-        } else if (context.getSelectedQuote() != null) {
-            node.setArea(context.getSelectedQuote().getReturnPoiName());
-            node.setLng(context.getSelectedQuote().getReturnLng());
-            node.setLat(context.getSelectedQuote().getReturnLat());
-        }
-        node.setAddress(firstNonBlank(point, context.getSelectedQuote() == null ? null : context.getSelectedQuote().getReturnAddress()));
-        node.setCoordType("GCJ02");
+        String point = rental == null
+                ? null
+                : firstNonBlank(
+                        rental.getReturnPoint(),
+                        rental.getArrivalPoint() == null ? null : rental.getArrivalPoint().getName());
+        node.setSubtitle(firstNonBlank(point, "住宿区域附近交接"));
+        node.setDescription("工作人员将在住宿区域附近上门取车，具体交接时间以下单后确认为准。");
         node.setDurationMinutes(30);
         node.setDurationText("约30分钟");
         node.setSource("RENTAL_CONTEXT");
-        node.setTags(List.of("还车", "租车"));
+        node.setTags(List.of("上门取车", "租车"));
         return withEndTime(node);
     }
 
     private TripPlanDTO.TimelineNode mealNode(
             int order, String time, String type, TripPlanDTO.DailyPlan day, GenerateWorkflowContext context) {
         TripPlanDTO.FoodSuggestion food = foodSuggestion(day, type);
-        String title = TYPE_LUNCH.equals(type) ? "午餐" : "晚餐";
+        String title = TYPE_LUNCH_AREA.equals(type) ? "午餐区域" : "晚餐区域";
         TripPlanDTO.TimelineNode node = compactNode(order, type, time, title);
         String area = firstNonBlank(food == null ? null : food.getArea(), firstNonBlank(day.getDiningArea(), "就近用餐"));
-        String mealStyle = food == null ? "本地餐馆" : firstNonBlank(food.getName(), "本地餐馆");
-        node.setSubtitle(area + "附近 · " + mealStyle);
-        node.setDescription(node.getSubtitle());
+        node.setSubtitle(area + "附近");
+        node.setDescription("在" + area + "附近安排用餐，作为区域推荐点展示。");
         node.setArea(area);
         if (food != null) {
             node.setCity(food.getCity());
@@ -219,8 +217,8 @@ public class TripTimelineAssembler {
             node.setLat(food.getLat());
             node.setCoordType(firstNonBlank(food.getCoordType(), "GCJ02"));
         }
-        node.setDurationMinutes(TYPE_LUNCH.equals(type) ? 60 : 75);
-        node.setDurationText(TYPE_LUNCH.equals(type) ? "约1小时" : "约1小时15分钟");
+        node.setDurationMinutes(TYPE_LUNCH_AREA.equals(type) ? 60 : 75);
+        node.setDurationText(TYPE_LUNCH_AREA.equals(type) ? "约1小时" : "约1小时15分钟");
         int people = context.getRequirement() == null || context.getRequirement().getPeopleCount() == null
                 ? 1
                 : context.getRequirement().getPeopleCount();
@@ -236,14 +234,14 @@ public class TripTimelineAssembler {
 
     private TripPlanDTO.TimelineNode hotelNode(
             int order, String time, TripPlanDTO.DailyPlan day, TripPlanDTO.Anchor hotelAnchor) {
-        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_HOTEL, time, "入住酒店");
+        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_STAY_AREA, time, "住宿区域");
         node.setSubtitle("建议住在" + firstNonBlank(hotelAnchor.getArea(), hotelAnchor.getName()));
-        node.setDescription("回酒店休息。");
+        node.setDescription("今晚建议住在该区域，方便休息并衔接下一天出发。");
         applyAnchor(node, hotelAnchor);
         node.setDurationMinutes(30);
         node.setDurationText("约30分钟");
-        node.setSource("HOTEL_AREA");
-        node.setTags(List.of("住宿", "休息"));
+        node.setSource("STAY_AREA");
+        node.setTags(List.of("住宿区域", "休息"));
         return withEndTime(node);
     }
 
@@ -321,11 +319,16 @@ public class TripTimelineAssembler {
     }
 
     private TripPlanDTO.Anchor hotelAnchor(TripPlanDTO.DailyPlan day, GenerateWorkflowContext context) {
+        DaySkeleton skeleton = skeleton(day, context);
+        TripPlanDTO.Anchor plannedStay = snapshotAnchor(skeleton == null ? null : skeleton.getStayArea(), TYPE_STAY_AREA);
+        if (plannedStay != null) {
+            return plannedStay;
+        }
         PoiCandidate hotel = hotelCandidate(day, context);
         if (hotel != null) {
             BigDecimal[] location = parseLocation(hotel.getLocation());
             return new TripPlanDTO.Anchor(
-                    TYPE_HOTEL_AREA,
+                    TYPE_STAY_AREA,
                     firstNonBlank(hotel.getName(), firstNonBlank(hotel.getArea(), day.getCity() + "住宿区域")),
                     firstNonBlank(hotel.getCity(), day.getCity()),
                     firstNonBlank(hotel.getArea(), hotel.getBusinessArea()),
@@ -335,18 +338,47 @@ public class TripTimelineAssembler {
                     "GCJ02");
         }
         TripPlanDTO.Spot lastSpot = lastSpot(day);
-        TripPlanDTO.Anchor anchor = spotAnchor(lastSpot, TYPE_HOTEL_AREA);
+        TripPlanDTO.Anchor anchor = spotAnchor(lastSpot, TYPE_STAY_AREA);
         if (anchor == null) {
             anchor = new TripPlanDTO.Anchor();
-            anchor.setType(TYPE_HOTEL_AREA);
+            anchor.setType(TYPE_STAY_AREA);
             anchor.setName(firstNonBlank(day.getDiningArea(), firstNonBlank(day.getCity(), "住宿区域")));
             anchor.setCity(day.getCity());
             anchor.setArea(day.getDiningArea());
         } else {
-            anchor.setType(TYPE_HOTEL_AREA);
+            anchor.setType(TYPE_STAY_AREA);
             anchor.setName(firstNonBlank(anchor.getArea(), anchor.getName()) + "住宿区域");
         }
         return anchor;
+    }
+
+    private TripPlanDTO.Anchor snapshotAnchor(AreaAnchorSnapshot snapshot, String type) {
+        if (snapshot == null) {
+            return null;
+        }
+        BigDecimal[] location = parseLocation(snapshot.getLocation());
+        if (location[0] == null || location[1] == null) {
+            return null;
+        }
+        return new TripPlanDTO.Anchor(
+                type,
+                firstNonBlank(snapshot.getName(), snapshot.getArea()),
+                snapshot.getCity(),
+                snapshot.getArea(),
+                snapshot.getAddress(),
+                location[0],
+                location[1],
+                "GCJ02");
+    }
+
+    private DaySkeleton skeleton(TripPlanDTO.DailyPlan day, GenerateWorkflowContext context) {
+        if (day == null || context == null || context.getDaySkeletons() == null) {
+            return null;
+        }
+        return context.getDaySkeletons().stream()
+                .filter(item -> value(item.getDay()).equals(value(day.getDay())))
+                .findFirst()
+                .orElse(null);
     }
 
     private TripPlanDTO.Anchor endAnchor(TripPlanDTO.DailyPlan day) {
@@ -416,7 +448,7 @@ public class TripTimelineAssembler {
         if (day == null || day.getFoodSuggestions() == null) {
             return null;
         }
-        String meal = TYPE_LUNCH.equals(type) ? "LUNCH" : "DINNER";
+        String meal = TYPE_LUNCH_AREA.equals(type) ? "LUNCH" : "DINNER";
         return day.getFoodSuggestions().stream()
                 .filter(item -> meal.equalsIgnoreCase(item.getMeal()))
                 .findFirst()
@@ -472,15 +504,22 @@ public class TripTimelineAssembler {
     }
 
     private String lunchTime(int cursor) {
-        return formatTime(Math.min(Math.max(cursor, 11 * 60 + 40), 12 * 60 + 40));
+        return mealTime(cursor, 11 * 60 + 40, 12 * 60 + 40);
     }
 
     private String dinnerTime(int cursor) {
-        return formatTime(Math.min(Math.max(cursor, 17 * 60 + 40), 18 * 60 + 40));
+        return mealTime(cursor, 17 * 60 + 40, 18 * 60 + 40);
     }
 
     private String hotelTime(int cursor) {
-        return formatTime(Math.min(Math.max(cursor, 20 * 60), 21 * 60));
+        return mealTime(cursor, 20 * 60, 21 * 60);
+    }
+
+    private String mealTime(int cursor, int earliest, int latest) {
+        if (cursor <= latest) {
+            return formatTime(Math.max(cursor, earliest));
+        }
+        return formatTime(cursor);
     }
 
     private int transferMinutes(

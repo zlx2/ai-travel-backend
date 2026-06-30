@@ -47,23 +47,23 @@ class FoodRecommendNodeTest {
         checkValue("服务调用次数", 2, foodRecommendService.getCallCount());
     }
 
-    /** Service 明确返回失败时，应切换为 CityProfile 中的 mock 美食数据。 */
+    /** Service 明确返回失败时，节点保存失败结果，不编造餐饮数据。 */
     @Test
-    @DisplayName("服务失败时使用mock兜底")
-    void shouldFallbackWhenServiceReturnsFailure() {
+    @DisplayName("服务失败时不编造餐饮数据")
+    void shouldNotInventFoodWhenServiceReturnsFailure() {
         foodRecommendService.addResponse(FoodRecommendResponse.fail("高德调用失败"));
         GenerateWorkflowContext context = contextWithPlans(true);
 
         node.execute(context);
 
         FoodRecommendResponse response = context.getFoodRecommendationsByDay().get(1);
-        checkMockResponse(response);
+        checkFailedResponse(response);
     }
 
-    /** Service 调用成功但没有饭店时，也应使用 mock 数据保证后续工作流可继续。 */
+    /** Service 调用成功但没有饭店时，节点保存失败结果，不编造餐饮数据。 */
     @Test
-    @DisplayName("真实结果为空时使用mock兜底")
-    void shouldFallbackWhenRealListIsEmpty() {
+    @DisplayName("真实结果为空时不编造餐饮数据")
+    void shouldNotInventFoodWhenRealListIsEmpty() {
         foodRecommendService.addResponse(
                 new FoodRecommendResponse(
                         true, "未找到符合条件的饭店", "AMAP", "TEXT", null, null, 0, List.of()));
@@ -72,20 +72,20 @@ class FoodRecommendNodeTest {
         node.execute(context);
 
         FoodRecommendResponse response = context.getFoodRecommendationsByDay().get(1);
-        checkMockResponse(response);
+        checkFailedResponse(response);
     }
 
-    /** Service 抛出异常时节点不能继续向外抛错，必须保存 mock 响应。 */
+    /** Service 抛出异常时节点不能继续向外抛错，也不能编造餐饮数据。 */
     @Test
-    @DisplayName("服务异常时不中断工作流")
-    void shouldFallbackWhenServiceThrowsException() {
+    @DisplayName("服务异常时不中断工作流且不编造餐饮数据")
+    void shouldNotInventFoodWhenServiceThrowsException() {
         foodRecommendService.addException(new IllegalStateException("网络异常"));
         GenerateWorkflowContext context = contextWithPlans(true);
 
         node.execute(context);
 
         FoodRecommendResponse response = context.getFoodRecommendationsByDay().get(1);
-        checkMockResponse(response);
+        checkFailedResponse(response);
     }
 
     /** 当天没有 FOOD 查询时应跳过，不调用美食服务，也不为当天写入结果。 */
@@ -100,24 +100,17 @@ class FoodRecommendNodeTest {
         checkValue("服务调用次数", 0, foodRecommendService.getCallCount());
     }
 
-    /** mock 转换只能使用已有字段，不能生成评分、人均或营业时间。 */
+    /** 服务失败时不应把 CityProfile 里的候选当成 mock 推荐写回。 */
     @Test
-    @DisplayName("mock数据不编造评分人均和营业时间")
-    void shouldNotInventMockBusinessFields() {
+    @DisplayName("失败时不写入mock饭店列表")
+    void shouldNotWriteMockRestaurantList() {
         foodRecommendService.addResponse(FoodRecommendResponse.fail("使用兜底"));
         GenerateWorkflowContext context = contextWithPlans(true);
 
         node.execute(context);
 
-        FoodRestaurantItemDTO item = context.getFoodRecommendationsByDay().get(1).getList().get(0);
-        checkValue("POI ID", "MOCK_FOOD_1", item.getAmapPoiId());
-        checkValue("饭店名称", "重庆本地小吃街", item.getName());
-        checkValue("行政区域", "老城区域", item.getAdName());
-        checkValue("商圈", "老城区域", item.getBusinessArea());
-        checkValue("推荐理由", "选择多，适合午餐或下午茶。", item.getAiRecommendReason());
-        checkValue("评分", null, item.getRating());
-        checkValue("人均", null, item.getAvgCost());
-        checkValue("营业时间", null, item.getOpenTime());
+        FoodRecommendResponse response = context.getFoodRecommendationsByDay().get(1);
+        checkFailedResponse(response);
     }
 
     /** 构造带指定天数查询计划的工作流上下文。 */
@@ -135,6 +128,7 @@ class FoodRecommendNodeTest {
                                         "重庆本地小吃街",
                                         "老城区域模拟地址",
                                         "老城区域",
+                                        "重庆",
                                         "106.570000,29.550000",
                                         "SIMULATED_AMAP",
                                         "MOCK_FOOD_1",
@@ -183,16 +177,13 @@ class FoodRecommendNodeTest {
                 true, "success", "AMAP", "TEXT", null, null, 1, List.of(item));
     }
 
-    /** 检查降级响应的统一结构。 */
-    private void checkMockResponse(FoodRecommendResponse response) {
+    /** 检查失败响应不会携带伪造饭店列表。 */
+    private void checkFailedResponse(FoodRecommendResponse response) {
         if (response == null) {
-            throw new IllegalStateException("mock 兜底失败：响应为 null");
+            throw new IllegalStateException("失败响应缺失：响应为 null");
         }
-        checkValue("是否成功", true, response.getSuccess());
-        checkValue("数据来源", "MOCK", response.getSource());
-        checkValue("查询类型", "MOCK", response.getQueryType());
-        checkValue("mock 数量", 1, response.getTotal());
-        checkValue("mock 饭店名称", "重庆本地小吃街", response.getList().get(0).getName());
+        checkValue("是否成功", false, response.getSuccess());
+        checkValue("饭店列表是否为空", true, response.getList() == null || response.getList().isEmpty());
     }
 
     /** 使用普通条件判断检查结果，不一致时抛出中文异常。 */

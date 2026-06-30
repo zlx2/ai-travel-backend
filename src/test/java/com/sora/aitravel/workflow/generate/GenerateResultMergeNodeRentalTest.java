@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 class GenerateResultMergeNodeRentalTest {
 
     @Test
-    void shouldInjectRentalPickupAndReturnSpotsAndIncludeRentalCost() {
+    void shouldMergeLockedPlanAndIncludeRentalCostWithoutInjectingNodes() {
         TravelRequirementDTO requirement = new TravelRequirementDTO();
         requirement.setDeparture("上海");
         requirement.setDestination("杭州");
@@ -78,15 +78,9 @@ class GenerateResultMergeNodeRentalTest {
         new GenerateResultMergeNode().execute(context);
 
         TripPlanDTO result = context.getResult().getTripPlan();
-        assertThat(result.getDailyPlans().get(0).getSpots().get(0).getType())
-                .isEqualTo("RENTAL_PICKUP");
-        assertThat(result.getDailyPlans().get(0).getSpots().get(0).getName())
-                .isEqualTo("送车接人");
-        assertThat(result.getDailyPlans().get(0).getSpots().get(1).getOrder()).isEqualTo(2);
-        assertThat(result.getDailyPlans().get(0).getSpots().get(2).getType())
-                .isEqualTo("RENTAL_RETURN");
-        assertThat(result.getDailyPlans().get(0).getSpots().get(2).getName())
-                .isEqualTo("同城还车");
+        assertThat(result.getDailyPlans().get(0).getSpots()).hasSize(1);
+        assertThat(result.getDailyPlans().get(0).getSpots().get(0).getType()).isEqualTo("SCENIC");
+        assertThat(result.getDailyPlans().get(0).getSpots().get(0).getOrder()).isEqualTo(1);
         assertThat(result.getBudgetSummary().getTransportCost()).isEqualTo(506);
         assertThat(result.getBudgetSummary().getTotalEstimatedCost()).isEqualTo(626);
     }

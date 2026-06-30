@@ -4,8 +4,10 @@ import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.sora.aitravel.workflow.AlibabaGraphWorkflow;
 import java.util.List;
 import java.util.function.BiConsumer;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class TripGenerateWorkflow {
 
@@ -16,8 +18,12 @@ public class TripGenerateWorkflow {
     public TripGenerateWorkflow(
             RequirementValidateNode requirementValidateNode,
             RequirementLoadNode requirementLoadNode,
-            TripSkeletonNode tripSkeletonNode,
             CityDataProfileNode cityDataProfileNode,
+            CandidatePoolBuildNode candidatePoolBuildNode,
+            AiMacroRoutePlanNode aiMacroRoutePlanNode,
+            AmapMacroRouteFactNode amapMacroRouteFactNode,
+            AiRouteCriticNode aiRouteCriticNode,
+            MacroRouteContractValidateNode macroRouteContractValidateNode,
             WeatherFetchNode weatherFetchNode,
             HotelFetchNode hotelFetchNode,
             DayStateInitNode dayStateInitNode,
@@ -38,9 +44,18 @@ public class TripGenerateWorkflow {
                         AlibabaGraphWorkflow.step(
                                 "requirement-validate", requirementValidateNode::execute),
                         AlibabaGraphWorkflow.step("requirement-load", requirementLoadNode::execute),
-                        AlibabaGraphWorkflow.step("trip-skeleton", tripSkeletonNode::execute),
                         AlibabaGraphWorkflow.step(
                                 "city-data-profile", cityDataProfileNode::execute),
+                        AlibabaGraphWorkflow.step(
+                                "candidate-pool-build", candidatePoolBuildNode::execute),
+                        AlibabaGraphWorkflow.step(
+                                "ai-macro-route-plan", aiMacroRoutePlanNode::execute),
+                        AlibabaGraphWorkflow.step(
+                                "amap-macro-route-fact", amapMacroRouteFactNode::execute),
+                        AlibabaGraphWorkflow.step("ai-route-critic", aiRouteCriticNode::execute),
+                        AlibabaGraphWorkflow.step(
+                                "macro-route-contract-validate",
+                                macroRouteContractValidateNode::execute),
                         AlibabaGraphWorkflow.step("weather-fetch", weatherFetchNode::execute),
                         AlibabaGraphWorkflow.step("hotel-fetch", hotelFetchNode::execute),
                         AlibabaGraphWorkflow.step("day-state-init", dayStateInitNode::execute),
@@ -63,26 +78,65 @@ public class TripGenerateWorkflow {
     }
 
     public GenerateWorkflowContext execute(GenerateWorkflowContext context) {
-        GenerateWorkflowContext result = AlibabaGraphWorkflow.invoke(graph, context);
-        responseNormalizer.normalize(result);
-        return result;
+        long start = WorkflowTiming.start();
+        try {
+            GenerateWorkflowContext result = runSteps(context, null);
+            log.info(
+                    "行程生成总耗时 workflow=trip-generate-workflow elapsedMs={}",
+                    WorkflowTiming.elapsedMs(start));
+            return result;
+        } catch (RuntimeException exception) {
+            log.info(
+                    "行程生成总耗时 workflow=trip-generate-workflow status=failed elapsedMs={}",
+                    WorkflowTiming.elapsedMs(start));
+            throw exception;
+        }
     }
 
     public GenerateWorkflowContext executeWithProgress(
             GenerateWorkflowContext context, BiConsumer<String, Integer> progress) {
+        long start = WorkflowTiming.start();
+        try {
+            GenerateWorkflowContext result = runSteps(context, progress);
+            log.info(
+                    "行程生成总耗时 workflow=trip-generate-workflow elapsedMs={}",
+                    WorkflowTiming.elapsedMs(start));
+            return result;
+        } catch (RuntimeException exception) {
+            log.info(
+                    "行程生成总耗时 workflow=trip-generate-workflow status=failed elapsedMs={}",
+                    WorkflowTiming.elapsedMs(start));
+            throw exception;
+        }
+    }
+
+    private GenerateWorkflowContext runSteps(
+            GenerateWorkflowContext context, BiConsumer<String, Integer> progress) {
         int total = steps.size();
         for (int index = 0; index < total; index++) {
             AlibabaGraphWorkflow.Step<GenerateWorkflowContext> step = steps.get(index);
-            progress.accept(step.getName(), Math.max(1, (index * 100) / total));
+            if (progress != null) {
+                progress.accept(step.getName(), Math.max(1, (index * 100) / total));
+            }
             try {
-                step.getAction().execute(context);
+                long nodeStart = WorkflowTiming.start();
+                try {
+                    step.getAction().execute(context);
+                } finally {
+                    log.info(
+                            "行程生成耗时 workflow=trip-generate-workflow node={} elapsedMs={}",
+                            step.getName(),
+                            WorkflowTiming.elapsedMs(nodeStart));
+                }
             } catch (Exception ex) {
                 throw new IllegalStateException(
                         "Trip generate workflow node failed: " + step.getName(), ex);
             }
-            progress.accept(step.getName(), Math.min(99, ((index + 1) * 100) / total));
+            if (progress != null) {
+                progress.accept(step.getName(), Math.min(99, ((index + 1) * 100) / total));
+            }
         }
-        responseNormalizer.normalize(context);
+        WorkflowTiming.run("trip-generate-workflow", "response-normalize", () -> responseNormalizer.normalize(context));
         return context;
     }
 }
