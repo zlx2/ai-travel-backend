@@ -39,12 +39,13 @@ public class DayDataFetchNode {
             List<PoiCandidate> scenic = new ArrayList<>();
             scenic.addAll(roundRobin(scenicBatches).stream().limit(42).toList());
             scenic.addAll(deduplicate(night).stream().limit(8).toList());
+            String dayCity = dayCity(context, plan.getDay());
             packages.add(
                     new DayDataPackage(
                             plan.getDay(),
-                            merge(scenic, context.getCityProfile().scenicCandidates()),
-                            merge(food, context.getCityProfile().foodCandidates()),
-                            context.getCityProfile().hotelCandidates(),
+                            merge(scenic, cityCandidates(context.getCityProfile().scenicCandidates(), dayCity)),
+                            merge(food, cityCandidates(context.getCityProfile().foodCandidates(), dayCity)),
+                            cityCandidates(context.getCityProfile().hotelCandidates(), dayCity),
                             List.of()));
         }
         context.setRankedDayDataPackages(packages);
@@ -116,12 +117,49 @@ public class DayDataFetchNode {
         return merged.values().stream().limit(MAX_DAY_CANDIDATES).toList();
     }
 
+    private List<PoiCandidate> cityCandidates(List<PoiCandidate> candidates, String city) {
+        if (candidates == null || candidates.isEmpty() || city == null || city.isBlank()) {
+            return candidates == null ? List.of() : candidates;
+        }
+        List<PoiCandidate> filtered =
+                candidates.stream().filter(candidate -> sameCity(candidate, city)).toList();
+        return filtered.isEmpty() ? candidates : filtered;
+    }
+
+    private boolean sameCity(PoiCandidate candidate, String city) {
+        String normalizedCity = normalizeCity(city);
+        return normalizeCity(candidate.getCity()).equals(normalizedCity)
+                || normalizeCity(candidate.getAddress()).contains(normalizedCity)
+                || normalizeCity(candidate.getArea()).contains(normalizedCity);
+    }
+
+    private String dayCity(GenerateWorkflowContext context, Integer day) {
+        return context.getDayContexts().stream()
+                .filter(item -> item.getDay().equals(day))
+                .map(item -> item.skeleton().targetArea())
+                .map(this::cityFromTargetArea)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String cityFromTargetArea(String targetArea) {
+        if (targetArea == null) {
+            return null;
+        }
+        return targetArea.replaceAll("(核心城区|休闲街区|夜间活跃区域|自然景区周边|老城与美食街区|热门游览区域)$", "");
+    }
+
+    private String normalizeCity(String value) {
+        return value == null ? "" : value.replace("市", "").replaceAll("\\s+", "").trim();
+    }
+
     private PoiCandidate toCandidate(String category, Poi poi) {
         return new PoiCandidate(
                 category,
                 poi.getName(),
                 poi.getAddress(),
                 firstNonBlank(poi.getAdname(), poi.getCityname()),
+                poi.getCityname(),
                 poi.getLocation(),
                 "AMAP",
                 poi.getId(),

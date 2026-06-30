@@ -270,6 +270,7 @@ public class CityDataProfileNode {
                 poi.getName(),
                 poi.getAddress(),
                 firstNonBlank(poi.getAdname(), poi.getCityname()),
+                poi.getCityname(),
                 poi.getLocation(),
                 "AMAP",
                 poi.getId(),

@@ -144,6 +144,7 @@ class PoiCandidate {
     private String name;
     private String address;
     private String area;
+    private String city;
     private String location;
     private String source;
     private String sourcePoiId;

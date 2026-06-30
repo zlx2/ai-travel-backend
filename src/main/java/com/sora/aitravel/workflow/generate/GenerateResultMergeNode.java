@@ -42,6 +42,7 @@ public class GenerateResultMergeNode {
                         ? List.of()
                         : new ArrayList<>(context.getLockedDailyPlans());
         injectRentalPickupSpot(context, dailyPlans);
+        injectIntercityTransferSpots(dailyPlans);
         injectRentalReturnSpot(context, dailyPlans);
         TripPlanDTO.BudgetSummary budgetSummary = budgetSummary(context, dailyPlans, requirement);
         List<String> tips = buildTips(context);
@@ -117,6 +118,7 @@ public class GenerateResultMergeNode {
         boolean alreadyInjected =
                 spots.stream().anyMatch(spot -> "RENTAL_PICKUP".equals(spot.getType()));
         if (alreadyInjected) {
+            normalizeSpotOrders(firstDay, false);
             return;
         }
 
@@ -144,11 +146,9 @@ public class GenerateResultMergeNode {
             pickup.setCoordType("GCJ02");
         }
 
-        for (TripPlanDTO.Spot spot : spots) {
-            spot.setOrder(value(spot.getOrder()) + 1);
-        }
         spots.add(0, pickup);
         firstDay.setSpots(spots);
+        normalizeSpotOrders(firstDay, true);
         firstDay.setRouteSummary("接车交付 → " + firstNonBlank(firstDay.getRouteSummary(), "开始自驾游玩"));
     }
 
@@ -212,7 +212,119 @@ public class GenerateResultMergeNode {
 
         spots.add(returnSpot);
         lastDay.setSpots(spots);
+        normalizeSpotOrders(lastDay, false);
         lastDay.setRouteSummary(firstNonBlank(lastDay.getRouteSummary(), "当天游玩") + " → 还车交接");
+    }
+
+    private void injectIntercityTransferSpots(List<TripPlanDTO.DailyPlan> dailyPlans) {
+        for (int index = 1; index < dailyPlans.size(); index++) {
+            TripPlanDTO.DailyPlan previousDay = dailyPlans.get(index - 1);
+            TripPlanDTO.DailyPlan currentDay = dailyPlans.get(index);
+            String previousCity = normalizedCity(previousDay.getCity());
+            String currentCity = normalizedCity(currentDay.getCity());
+            if (previousCity.isBlank() || currentCity.isBlank() || previousCity.equals(currentCity)) {
+                continue;
+            }
+            List<TripPlanDTO.Spot> spots =
+                    currentDay.getSpots() == null
+                            ? new ArrayList<>()
+                            : new ArrayList<>(currentDay.getSpots());
+            if (spots.stream().anyMatch(spot -> "INTERCITY_TRANSFER".equals(spot.getType()))) {
+                normalizeSpotOrders(currentDay, false);
+                continue;
+            }
+            TripPlanDTO.Spot firstSpot = firstRouteAnchor(spots);
+            TripPlanDTO.Spot previousAnchor = lastRouteAnchor(previousDay.getSpots());
+            TripPlanDTO.Spot transfer = new TripPlanDTO.Spot();
+            transfer.setName(
+                    firstNonBlank(previousAnchor == null ? null : previousAnchor.getName(), previousDay.getCity() + "住宿点")
+                            + " → "
+                            + firstNonBlank(firstSpot == null ? null : firstSpot.getName(), currentDay.getCity() + "首站")
+                            + "路程");
+            transfer.setType("INTERCITY_TRANSFER");
+            transfer.setOrder(1);
+            transfer.setStartTime("08:30");
+            transfer.setSuggestedDurationMinutes(120);
+            transfer.setSuggestedDurationText("约2小时");
+            transfer.setReason(
+                    "跨城市行程按顺路推进处理：前一天住在"
+                            + previousDay.getCity()
+                            + "，第二天早上从住宿点出发前往"
+                            + currentDay.getCity()
+                            + firstNonBlank(firstSpot == null ? null : firstSpot.getName(), "首个景点")
+                            + "，不在同一天来回跨城。");
+            transfer.setTips("实际跨城耗时以当天高德实时路况为准，建议预留加油、停车和休息缓冲。");
+            transfer.setSource("INTERCITY_RULE");
+            transfer.setCity(currentDay.getCity());
+            transfer.setTags(List.of("跨城路程", "自驾", "换城市"));
+            if (previousAnchor != null) {
+                transfer.setAddress(previousAnchor.getAddress());
+                transfer.setArea(previousAnchor.getArea());
+                transfer.setLng(previousAnchor.getLng());
+                transfer.setLat(previousAnchor.getLat());
+                transfer.setEntranceLng(previousAnchor.getEntranceLng());
+                transfer.setEntranceLat(previousAnchor.getEntranceLat());
+                transfer.setCoordType(previousAnchor.getCoordType());
+            }
+            spots.add(0, transfer);
+            currentDay.setSpots(spots);
+            normalizeSpotOrders(currentDay, true);
+            currentDay.setRouteSummary(
+                    previousDay.getCity()
+                            + "住宿点 → "
+                            + firstNonBlank(currentDay.getRouteSummary(), currentDay.getCity() + "首站"));
+        }
+    }
+
+    private String normalizedCity(String value) {
+        return value == null ? "" : value.replace("市", "").replaceAll("\\s+", "").trim();
+    }
+
+    private TripPlanDTO.Spot firstRouteAnchor(List<TripPlanDTO.Spot> spots) {
+        if (spots == null) {
+            return null;
+        }
+        return spots.stream()
+                .filter(this::hasLocation)
+                .filter(spot -> !"INTERCITY_TRANSFER".equals(spot.getType()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private TripPlanDTO.Spot lastRouteAnchor(List<TripPlanDTO.Spot> spots) {
+        if (spots == null) {
+            return null;
+        }
+        for (int index = spots.size() - 1; index >= 0; index--) {
+            TripPlanDTO.Spot spot = spots.get(index);
+            if (hasLocation(spot)
+                    && !"RENTAL_RETURN".equals(spot.getType())
+                    && !"INTERCITY_TRANSFER".equals(spot.getType())) {
+                return spot;
+            }
+        }
+        return null;
+    }
+
+    private boolean hasLocation(TripPlanDTO.Spot spot) {
+        return spot != null && spot.getLng() != null && spot.getLat() != null;
+    }
+
+    private void normalizeSpotOrders(TripPlanDTO.DailyPlan day, boolean shiftExistingRouteLegs) {
+        if (day == null || day.getSpots() == null) {
+            return;
+        }
+        for (int index = 0; index < day.getSpots().size(); index++) {
+            day.getSpots().get(index).setOrder(index + 1);
+        }
+        if (shiftExistingRouteLegs && day.getRouteLegs() != null) {
+            day.getRouteLegs()
+                    .forEach(
+                            leg -> {
+                                leg.setFromOrder(value(leg.getFromOrder()) + 1);
+                                leg.setToOrder(value(leg.getToOrder()) + 1);
+                            });
+        }
     }
 
     private String returnTitle(GenerateWorkflowContext context) {

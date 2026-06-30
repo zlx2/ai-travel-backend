@@ -162,7 +162,7 @@ public class DayPlanGenerateNode {
                 dayContext.skeleton().getTheme(),
                 dayContext.skeleton().getIntensity(),
                 intensityLabel(dayContext.skeleton().getIntensity()),
-                displayDestination(requirement),
+                dayCity(dayContext, requirement),
                 food == null ? null : firstNonBlank(food.getArea(), food.getName()),
                 routeSummary(spots),
                 spots,
@@ -186,7 +186,7 @@ public class DayPlanGenerateNode {
         spot.setPoiId(candidate.getSourcePoiId());
         spot.setName(candidate.getName());
         spot.setType(spotType(candidate));
-        spot.setCity(displayDestination(requirement));
+        spot.setCity(dayCity(dayContext, requirement));
         spot.setArea(candidate.getArea());
         spot.setAddress(candidate.getAddress());
         spot.setLng(lngLat[0]);
@@ -964,7 +964,7 @@ public class DayPlanGenerateNode {
             throw new IllegalStateException("第 " + dayContext.getDay() + " 天没有可用真实景点候选");
         }
         TravelRequirementDTO requirement = context.getRequirement();
-        String city = displayDestination(requirement);
+        String city = dayCity(dayContext, requirement);
         String prompt =
                 DAY_PLAN_AI_PROMPT.formatted(
                         city,
@@ -1268,6 +1268,22 @@ public class DayPlanGenerateNode {
             return requirement.getRouteRegion();
         }
         return String.join("-", requirement.getRouteCities());
+    }
+
+    private String dayCity(DayContext dayContext, TravelRequirementDTO requirement) {
+        String targetArea = dayContext == null || dayContext.skeleton() == null
+                ? null
+                : dayContext.skeleton().targetArea();
+        if (targetArea != null && !targetArea.isBlank()) {
+            String city =
+                    targetArea.replaceAll(
+                            "(核心城区|休闲街区|夜间活跃区域|自然景区周边|老城与美食街区|热门游览区域)$",
+                            "");
+            if (!city.isBlank()) {
+                return city;
+            }
+        }
+        return displayDestination(requirement);
     }
 
     private String firstNonBlank(String first, String second) {
