@@ -8,43 +8,21 @@ import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.AiTripGenerationOrchestrator;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
-import com.sora.aitravel.workflow.generate.AiMacroRoutePlanNode;
-import com.sora.aitravel.workflow.generate.AiRouteCriticNode;
-import com.sora.aitravel.workflow.generate.AmapMacroRouteFactNode;
-import com.sora.aitravel.workflow.generate.CandidatePoolBuildNode;
-import com.sora.aitravel.workflow.generate.CityDataProfileNode;
-import com.sora.aitravel.workflow.generate.DayStateInitNode;
 import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
-import com.sora.aitravel.workflow.generate.HotelFetchNode;
-import com.sora.aitravel.workflow.generate.MacroRouteContractValidateNode;
-import com.sora.aitravel.workflow.generate.RequirementLoadNode;
-import com.sora.aitravel.workflow.generate.RequirementValidateNode;
-import com.sora.aitravel.workflow.generate.RouteScopeResolveNode;
-import com.sora.aitravel.workflow.generate.WeatherFetchNode;
+import com.sora.aitravel.workflow.generate.TripPrepareWorkflow;
 import com.sora.aitravel.workflow.generate.WorkflowTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-/** AI 行程生成编排服务实现。 */
+/** 行程生成准备阶段编排器：负责需求、城市资料、宏观路线、天气酒店和会话初始化。 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchestrator {
 
     private final AiTripGenerationSessionService sessionService;
-    private final RequirementValidateNode requirementValidateNode;
-    private final RequirementLoadNode requirementLoadNode;
-    private final RouteScopeResolveNode routeScopeResolveNode;
-    private final CityDataProfileNode cityDataProfileNode;
-    private final CandidatePoolBuildNode candidatePoolBuildNode;
-    private final AiMacroRoutePlanNode aiMacroRoutePlanNode;
-    private final AmapMacroRouteFactNode amapMacroRouteFactNode;
-    private final AiRouteCriticNode aiRouteCriticNode;
-    private final MacroRouteContractValidateNode macroRouteContractValidateNode;
-    private final WeatherFetchNode weatherFetchNode;
-    private final HotelFetchNode hotelFetchNode;
-    private final DayStateInitNode dayStateInitNode;
+    private final TripPrepareWorkflow tripPrepareWorkflow;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -61,26 +39,12 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
         context.setRequest(request);
         long start = WorkflowTiming.start();
         try {
-            timed("requirement-validate", () -> requirementValidateNode.execute(context));
-            timed("requirement-load", () -> requirementLoadNode.execute(context));
-            timed("route-scope-resolve", () -> routeScopeResolveNode.execute(context));
+            timed("trip-prepare-workflow", () -> tripPrepareWorkflow.execute(context));
             timed(
                     "session-requirement-update",
                     () ->
                             sessionService.updateRequirementJson(
                                     session.getSessionId(), writeJson(context.getRequirement())));
-            timed("city-data-profile", () -> cityDataProfileNode.execute(context));
-            timed("candidate-pool-build", () -> candidatePoolBuildNode.execute(context));
-            timed("ai-macro-route-plan", () -> aiMacroRoutePlanNode.execute(context));
-            timed("amap-macro-route-fact", () -> amapMacroRouteFactNode.execute(context));
-            timed("ai-route-critic", () -> aiRouteCriticNode.execute(context));
-            timed(
-                    "macro-route-contract-validate",
-                    () -> macroRouteContractValidateNode.execute(context));
-            timed("prepared-context-validate", () -> validatePreparedContext(context));
-            timed("weather-fetch", () -> weatherFetchNode.execute(context));
-            timed("hotel-fetch", () -> hotelFetchNode.execute(context));
-            timed("day-state-init", () -> dayStateInitNode.execute(context));
             timed(
                     "session-mark-prepared",
                     () ->
@@ -115,16 +79,6 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
 
     private <T> T timed(String node, java.util.function.Supplier<T> action) {
         return WorkflowTiming.call("prepare-session", node, action);
-    }
-
-    private void validatePreparedContext(GenerateWorkflowContext context) {
-        int days = context.getRequirement().getDays();
-        if (context.getDaySkeletons() == null || context.getDaySkeletons().size() != days) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程骨架数量与天数不一致");
-        }
-        if (!context.hasScenicCandidates()) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "目的地景点候选为空");
-        }
     }
 
     private String writeJson(Object value) {

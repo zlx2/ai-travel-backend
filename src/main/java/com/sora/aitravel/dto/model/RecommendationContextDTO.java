@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 /**
  * 行程生成推荐上下文。
  *
- * <p>这是 TripGenerateWorkflow 准备的结构化资料包，包含景点、美食、住宿区域和交通建议。数据应来自真实查询或明确为空，不填充伪造候选。
+ * <p>这是行程生成准备阶段产出的结构化资料包，包含景点、美食、住宿区域和交通建议。数据应来自真实查询或明确为空，不填充伪造候选。
  *
  * @param scenicSpots 景点候选
  * @param foodSpots 美食候选

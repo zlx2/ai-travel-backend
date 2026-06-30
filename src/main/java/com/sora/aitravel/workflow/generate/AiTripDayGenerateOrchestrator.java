@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-/** 按天生成行程编排。 */
+/** 单日行程生成编排器：负责按天查询、选点、排序、组装 timeline 和持久化。 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,14 +30,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     private final AiTripGenerationSessionService sessionService;
     private final AiTripDayGenerationService dayGenerationService;
-    private final DayContextBuildNode dayContextBuildNode;
-    private final DayQueryPlanNode dayQueryPlanNode;
-    private final FoodRecommendNode foodRecommendNode;
-    private final DayDataFetchNode dayDataFetchNode;
-    private final DayDataRankNode dayDataRankNode;
-    private final DayPlanGenerateNode dayPlanGenerateNode;
-    private final TripTimelineAssembler tripTimelineAssembler;
-    private final DayPlanValidateNode dayPlanValidateNode;
+    private final TripDayGenerateWorkflow tripDayGenerateWorkflow;
     private final ObjectMapper objectMapper;
 
     /**
@@ -112,8 +105,8 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
             GenerateWorkflowContext context = timed("restore-context", () -> restoreContext(session, dayNo));
             context.setRevisionText(normalizeRevisionText(revisionText));
-            // 依次执行7个生成节点：上下文构建→查询计划→美食推荐→数据抓取→排序→计划生成→校验
-            runDayNodes(context, dayNo);
+            context.setTargetDayNo(dayNo);
+            timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(context));
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
             timed(
                     "day-mark-generated",
@@ -208,36 +201,6 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         } catch (Exception exception) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "已生成单日行程数据解析失败");
         }
-    }
-
-    /**
-     * 运行单日行程生成节点。
-     * @param context
-     * @param dayNo
-     */
-    private void runDayNodes(GenerateWorkflowContext context, Integer dayNo) {
-        timed("day-context-build", () -> dayContextBuildNode.execute(context));
-        timed(
-                "day-context-filter",
-                () ->
-                        context.setDayContexts(
-                                context.getDayContexts().stream()
-                                        .filter(dayContext -> dayContext.getDay().equals(dayNo))
-                                        .toList()));
-        if (context.getDayContexts().isEmpty()) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数不存在：" + dayNo);
-        }
-        timed("day-query-plan", () -> dayQueryPlanNode.execute(context));
-        timed("food-recommend", () -> foodRecommendNode.execute(context));
-        timed("day-data-fetch", () -> dayDataFetchNode.execute(context));
-        timed("day-data-rank", () -> dayDataRankNode.execute(context));
-        List<TripPlanDTO.DailyPlan> previousDays =
-                context.getLockedDailyPlans() == null ? List.of() : context.getLockedDailyPlans();
-        timed("day-plan-generate", () -> dayPlanGenerateNode.execute(context));
-        timed(
-                "trip-timeline-assemble",
-                () -> tripTimelineAssembler.assemble(previousDays, context.getLockedDailyPlans(), context));
-        timed("day-plan-validate", () -> dayPlanValidateNode.execute(context));
     }
 
     private void timed(String node, Runnable action) {

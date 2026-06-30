@@ -6,17 +6,7 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * 需求校验节点。
- *
- * <p>实现 Spring AI Alibaba Graph node 接口，是 {@link TripGenerateWorkflow} 工作流的第一个步骤。 负责在校验调用 AI
- * 模型之前，确保用户提供的行程生成参数完整且合法。 必填检查包括：出发地（departure）、目的地（destination）不为空； 出行天数（days）必须在 1-7 天的合理范围内。
- *
- * <p>在整个工作流中的位置：生成流程第 1 步（最先执行）。校验失败将直接抛出异常， 不会继续后续节点。
- *
- * <p>输入：{@link GenerateWorkflowContext#request}（行程生成请求，包含 departure/destination/days）。
- * 输出：校验通过则无副作用；校验失败时抛出 {@link com.sora.aitravel.common.exception.BusinessException}。
- */
+/** 行程生成需求校验节点，校验失败会直接中断准备阶段。 */
 @Slf4j
 @Component
 public class RequirementValidateNode {
