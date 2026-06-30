@@ -68,6 +68,7 @@ class DayContext {
     private String rentalInstruction;
     private String routeStructure;
     private String dailyDrivingLimit;
+    private String revisionText;
 
     Integer day() {
         return day;

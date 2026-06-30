@@ -87,6 +87,9 @@ public class GenerateWorkflowContext {
     /** 当前是否只生成单日行程。 */
     private Boolean singleDayGeneration;
 
+    /** 用户对当前单日行程的追加调整要求，仅按天重新生成时使用。 */
+    private String revisionText;
+
     public boolean hasScenicCandidates() {
         return cityProfile != null
                 && cityProfile.scenicCandidates() != null
