@@ -38,6 +38,55 @@ public class TripPlanDTO {
         private List<FoodSuggestion> foodSuggestions;
         private List<String> dayTips;
         private EstimatedCost estimatedCost;
+        private Anchor startAnchor;
+        private Anchor endAnchor;
+        private List<TimelineNode> timeline;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Anchor {
+        private String type;
+        private String name;
+        private String city;
+        private String area;
+        private String address;
+        private BigDecimal lng;
+        private BigDecimal lat;
+        private String coordType;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TimelineNode {
+        private Integer order;
+        private String type;
+        private String startTime;
+        private String endTime;
+        private String title;
+        private String subtitle;
+        private String description;
+        private String city;
+        private String area;
+        private String address;
+        private BigDecimal lng;
+        private BigDecimal lat;
+        private String coordType;
+        private Integer durationMinutes;
+        private String durationText;
+        private String transportSuggestion;
+        private Integer estimatedCost;
+        private String costText;
+        private String reason;
+        private List<String> tags;
+        private Boolean compact;
+        private String source;
+        private Integer fromOrder;
+        private Integer toOrder;
+        private String fromAnchor;
+        private String toAnchor;
     }
 
     @Data
@@ -103,6 +152,11 @@ public class TripPlanDTO {
         private Integer averageCost;
         private String openingHours;
         private String source;
+        private String city;
+        private String address;
+        private BigDecimal lng;
+        private BigDecimal lat;
+        private String coordType;
     }
 
     @Data

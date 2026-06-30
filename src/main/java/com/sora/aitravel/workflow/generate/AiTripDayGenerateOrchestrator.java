@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.entity.AiTripDayGeneration;
@@ -32,6 +34,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
     private final DayDataFetchNode dayDataFetchNode;
     private final DayDataRankNode dayDataRankNode;
     private final DayPlanGenerateNode dayPlanGenerateNode;
+    private final TripTimelineAssembler tripTimelineAssembler;
     private final DayPlanValidateNode dayPlanValidateNode;
     private final ObjectMapper objectMapper;
 
@@ -153,6 +156,8 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return GenerateWorkflowContext.builder()
                 .userId(session.getUserId())
                 .requirement(read(session.getRequirementJson(), TravelRequirementDTO.class))
+                .selectedQuote(readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class))
+                .rentalTripContext(readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class))
                 .daySkeletons(read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST))
                 .cityProfile(read(session.getCityProfileJson(), CityProfile.class))
                 .weatherForecast(session.getWeatherJson())
@@ -205,7 +210,10 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         foodRecommendNode.execute(context);
         dayDataFetchNode.execute(context);
         dayDataRankNode.execute(context);
+        List<TripPlanDTO.DailyPlan> previousDays =
+                context.getLockedDailyPlans() == null ? List.of() : context.getLockedDailyPlans();
         dayPlanGenerateNode.execute(context);
+        tripTimelineAssembler.assemble(previousDays, context.getLockedDailyPlans(), context);
         dayPlanValidateNode.execute(context);
     }
 
@@ -222,6 +230,13 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         } catch (Exception exception) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "生成会话数据解析失败");
         }
+    }
+
+    private <T> T readNullable(String json, Class<T> type) {
+        if (json == null || json.isBlank() || "null".equals(json)) {
+            return null;
+        }
+        return read(json, type);
     }
 
     /**

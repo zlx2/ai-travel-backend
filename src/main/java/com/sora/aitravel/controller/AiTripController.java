@@ -7,6 +7,7 @@ import com.sora.aitravel.common.utils.LoginUserUtils;
 import com.sora.aitravel.dto.message.TripDayGenerateMessage;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.request.*;
@@ -20,6 +21,8 @@ import com.sora.aitravel.service.AiTripGenerationSessionService;
 import com.sora.aitravel.service.TripDayGenerateMessageProducer;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
+import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
+import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.List;
@@ -54,6 +57,7 @@ public class AiTripController {
     private final AiTripDayGenerationService aiTripDayGenerationService;
     private final AiTripGenerationSessionService aiTripGenerationSessionService;
     private final TripDayGenerateMessageProducer tripDayGenerateMessageProducer;
+    private final TripTimelineAssembler tripTimelineAssembler;
     private final ObjectMapper objectMapper;
 
     /**
@@ -117,7 +121,7 @@ public class AiTripController {
                         day.getGenerationVersion(),
                         day.getIsCurrent(),
                         day.getStatus(),
-                        day.getResultJson(),
+                        normalizeDayResultJson(sessionId, day),
                         day.getErrorMessage()));
     }
 
@@ -206,6 +210,7 @@ public class AiTripController {
                             session.getRequirementJson(), TravelRequirementDTO.class);
             TripPlanDTO.DailyPlan dailyPlan =
                     objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+            assembleTimelineIfMissing(session, requirement, dailyPlan, selectedQuote);
             TripPlanDTO tripPlan =
                     new TripPlanDTO(
                             displayDestination(requirement) + requirement.getDays() + "日旅行方案",
@@ -232,6 +237,54 @@ public class AiTripController {
         } catch (Exception exception) {
             throw new IllegalStateException("组装单日生成响应失败", exception);
         }
+    }
+
+    private String normalizeDayResultJson(String sessionId, AiTripDayGeneration day) {
+        if (day == null || day.getResultJson() == null || !"GENERATED".equals(day.getStatus())) {
+            return day == null ? null : day.getResultJson();
+        }
+        try {
+            AiTripGenerationSession session =
+                    aiTripGenerationSessionService.getBySessionId(sessionId);
+            if (session == null) {
+                return day.getResultJson();
+            }
+            TravelRequirementDTO requirement =
+                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+            TripPlanDTO.DailyPlan dailyPlan =
+                    objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+            assembleTimelineIfMissing(
+                    session,
+                    requirement,
+                    dailyPlan,
+                    readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class));
+            return objectMapper.writeValueAsString(dailyPlan);
+        } catch (Exception exception) {
+            log.warn("单日旧结果补 timeline 失败，sessionId={}, dayNo={}", sessionId, day.getDayNo(), exception);
+            return day.getResultJson();
+        }
+    }
+
+    private void assembleTimelineIfMissing(
+            AiTripGenerationSession session,
+            TravelRequirementDTO requirement,
+            TripPlanDTO.DailyPlan dailyPlan,
+            RentalQuoteOptionDTO selectedQuote) {
+        if (dailyPlan.getTimeline() != null && !dailyPlan.getTimeline().isEmpty()) {
+            return;
+        }
+        GenerateWorkflowContext context =
+                GenerateWorkflowContext.builder()
+                        .userId(session.getUserId())
+                        .requirement(requirement)
+                        .selectedQuote(selectedQuote)
+                        .rentalTripContext(
+                                readNullable(
+                                        session.getRentalTripContextJson(), RentalTripContextDTO.class))
+                        .lockedDailyPlans(List.of(dailyPlan))
+                        .singleDayGeneration(true)
+                        .build();
+        tripTimelineAssembler.assemble(List.of(), context.getLockedDailyPlans(), context);
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(
@@ -282,6 +335,17 @@ public class AiTripController {
 
     private int value(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private <T> T readNullable(String json, Class<T> type) {
+        if (json == null || json.isBlank() || "null".equals(json)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, type);
+        } catch (Exception exception) {
+            throw new IllegalStateException("生成会话上下文解析失败", exception);
+        }
     }
 
     private String displayDestination(TravelRequirementDTO requirement) {

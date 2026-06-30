@@ -1,5 +1,6 @@
 package com.sora.aitravel.dto.model;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -45,9 +46,13 @@ public class RentalQuoteOptionDTO {
     private Long pickupPoiId;
     private String pickupPoiName;
     private String pickupAddress;
+    private BigDecimal pickupLng;
+    private BigDecimal pickupLat;
     private Long returnPoiId;
     private String returnPoiName;
     private String returnAddress;
+    private BigDecimal returnLng;
+    private BigDecimal returnLat;
     private String pickupMode;
     private String returnMode;
     private Integer rentalDays;

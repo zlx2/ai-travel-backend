@@ -40,7 +40,11 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
     public AiTripGenerationSession prepareSession(Long userId, TripGenerateRequest request) {
         AiTripGenerationSession session =
                 sessionService.createPreparing(
-                        userId, request.getConversationId(), writeJson(request.getRequirement()));
+                        userId,
+                        request.getConversationId(),
+                        writeJson(request.getRequirement()),
+                        writeJsonOrNull(request.getSelectedQuote()),
+                        writeJsonOrNull(request.getRentalTripContext()));
         GenerateWorkflowContext context = new GenerateWorkflowContext();
         context.setUserId(userId);
         context.setRequest(request);
@@ -85,5 +89,9 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
         } catch (JsonProcessingException exception) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程生成数据序列化失败");
         }
+    }
+
+    private String writeJsonOrNull(Object value) {
+        return value == null ? null : writeJson(value);
     }
 }

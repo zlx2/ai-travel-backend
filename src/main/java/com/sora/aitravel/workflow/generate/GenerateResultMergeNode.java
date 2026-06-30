@@ -41,9 +41,6 @@ public class GenerateResultMergeNode {
                 context.getLockedDailyPlans() == null
                         ? List.of()
                         : new ArrayList<>(context.getLockedDailyPlans());
-        injectRentalPickupSpot(context, dailyPlans);
-        injectIntercityTransferSpots(dailyPlans);
-        injectRentalReturnSpot(context, dailyPlans);
         TripPlanDTO.BudgetSummary budgetSummary = budgetSummary(context, dailyPlans, requirement);
         List<String> tips = buildTips(context);
         return new TripPlanDTO(

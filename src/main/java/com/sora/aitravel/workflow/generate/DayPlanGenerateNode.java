@@ -155,6 +155,7 @@ public class DayPlanGenerateNode {
         }
 
         PoiCandidate food = first(dataPackage.foodCandidates());
+        List<TripPlanDTO.FoodSuggestion> foodSuggestions = foodSuggestions(dataPackage.foodCandidates());
         List<TripPlanDTO.RouteLeg> routeLegs = routeLegs(spots, dayContext.rentalEnabled());
         TripPlanDTO.EstimatedCost estimatedCost = estimateCost(requirement, spots, routeLegs, food);
         return new TripPlanDTO.DailyPlan(
@@ -167,9 +168,12 @@ public class DayPlanGenerateNode {
                 routeSummary(spots),
                 spots,
                 routeLegs,
-                foodSuggestions(food),
+                foodSuggestions,
                 dayTips(dayContext, dataPackage),
-                estimatedCost);
+                estimatedCost,
+                null,
+                null,
+                null);
     }
 
     private TripPlanDTO.Spot toSpot(
@@ -247,20 +251,33 @@ public class DayPlanGenerateNode {
         return legs;
     }
 
-    private List<TripPlanDTO.FoodSuggestion> foodSuggestions(PoiCandidate food) {
-        if (food == null) {
+    private List<TripPlanDTO.FoodSuggestion> foodSuggestions(List<PoiCandidate> foods) {
+        if (foods == null || foods.isEmpty()) {
             return List.of();
         }
-        return List.of(
-                new TripPlanDTO.FoodSuggestion(
-                        food.getName(),
-                        food.getArea(),
-                        "LUNCH",
-                        null,
-                        parseDecimal(food.getRating()),
-                        food.getAverageCost(),
-                        food.getOpeningHours(),
-                        food.getSource()));
+        List<TripPlanDTO.FoodSuggestion> result = new ArrayList<>();
+        result.add(toFoodSuggestion(foods.get(0), "LUNCH"));
+        PoiCandidate dinner = foods.size() > 1 ? foods.get(1) : foods.get(0);
+        result.add(toFoodSuggestion(dinner, "DINNER"));
+        return result;
+    }
+
+    private TripPlanDTO.FoodSuggestion toFoodSuggestion(PoiCandidate food, String meal) {
+        BigDecimal[] lngLat = parseLocation(food.getLocation());
+        return new TripPlanDTO.FoodSuggestion(
+                food.getName(),
+                food.getArea(),
+                meal,
+                null,
+                parseDecimal(food.getRating()),
+                food.getAverageCost(),
+                food.getOpeningHours(),
+                food.getSource(),
+                food.getCity(),
+                food.getAddress(),
+                lngLat[0],
+                lngLat[1],
+                "GCJ02");
     }
 
     private List<String> dayTips(DayContext dayContext, DayDataPackage dataPackage) {

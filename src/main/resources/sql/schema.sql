@@ -148,6 +148,8 @@ CREATE TABLE IF NOT EXISTS ai_trip_generation_session (
   user_id BIGINT NOT NULL,
   conversation_id VARCHAR(64),
   requirement_json JSON NOT NULL,
+  selected_quote_json JSON,
+  rental_trip_context_json JSON,
   day_skeletons_json JSON,
   city_profile_json JSON,
   weather_json JSON,
@@ -159,6 +161,11 @@ CREATE TABLE IF NOT EXISTS ai_trip_generation_session (
   UNIQUE KEY uk_ai_trip_generation_session_id (session_id),
   KEY idx_ai_trip_generation_user_time (user_id, create_time)
 ) ENGINE=InnoDB;
+
+-- Existing databases created before this change need:
+-- ALTER TABLE ai_trip_generation_session
+--   ADD COLUMN selected_quote_json JSON NULL AFTER requirement_json,
+--   ADD COLUMN rental_trip_context_json JSON NULL AFTER selected_quote_json;
 
 CREATE TABLE IF NOT EXISTS ai_trip_day_generation (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,

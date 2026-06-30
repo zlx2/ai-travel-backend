@@ -27,6 +27,7 @@ public class TripGenerateWorkflow {
             DayDataFetchNode dayDataFetchNode,
             DayDataRankNode dayDataRankNode,
             DayPlanGenerateNode dayPlanGenerateNode,
+            TripTimelineAssembler tripTimelineAssembler,
             DayPlanValidateNode dayPlanValidateNode,
             TripSummaryNode tripSummaryNode,
             GenerateResultMergeNode generateResultMergeNode,
@@ -51,6 +52,8 @@ public class TripGenerateWorkflow {
                         AlibabaGraphWorkflow.step("day-data-rank", dayDataRankNode::execute),
                         AlibabaGraphWorkflow.step(
                                 "day-plan-generate", dayPlanGenerateNode::execute),
+                        AlibabaGraphWorkflow.step(
+                                "trip-timeline-assemble", tripTimelineAssembler::execute),
                         AlibabaGraphWorkflow.step(
                                 "day-plan-validate", dayPlanValidateNode::execute),
                         AlibabaGraphWorkflow.step("trip-summary", tripSummaryNode::execute),
