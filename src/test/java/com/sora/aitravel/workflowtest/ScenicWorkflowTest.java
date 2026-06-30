@@ -171,7 +171,6 @@ class ScenicWorkflowTest {
         graph.addEdge("format",       "result-merge");
         graph.addEdge("fallback",     "result-merge");
         graph.addEdge("result-merge", StateGraph.END);
-
         return graph;
     }
 
