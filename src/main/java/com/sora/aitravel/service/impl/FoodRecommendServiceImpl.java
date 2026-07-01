@@ -2,10 +2,11 @@ package com.sora.aitravel.service.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import com.sora.aitravel.client.AmapFoodClient;
 import com.sora.aitravel.common.enums.FoodSearchIntentTypeEnum;
+import com.sora.aitravel.config.AmapProperties;
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;
+import com.sora.aitravel.service.AmapApiService;
 import com.sora.aitravel.service.FoodRecommendService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -52,9 +53,11 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     /**
      * 美食模块依赖。
      *
-     * <p>通过 AmapFoodClient 调用高德周边搜索、关键词搜索和地理编码接口。当前实现类只负责编排业务，不直接构造 HTTP 请求。
+     * <p>通过 AmapApiService 调用高德周边搜索、关键词搜索和地理编码接口。当前实现类只负责编排业务。
      */
-    private final AmapFoodClient amapFoodClient;
+    private final AmapApiService amapApiService;
+
+    private final AmapProperties amapProperties;
 
     /**
      * 美食推荐主入口。
@@ -80,7 +83,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         if (!StringUtils.hasText(query)) {
             return FoodRecommendResponse.fail("请输入想查询的内容");
         }
-        if (amapFoodClient.missingApiKey()) {
+        if (missingApiKey()) {
             return FoodRecommendResponse.fail("高德 API Key 未配置，请先设置 AMAP_API_KEY");
         }
 
@@ -307,13 +310,17 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 throw new IllegalArgumentException("请先允许获取当前位置，或输入具体地点，例如：洪崖洞附近火锅");
             }
             JSONObject amapResponse =
-                    amapFoodClient.searchAround(
+                    amapApiService.searchPoiAroundRaw(
                             currentLocation,
                             intent.getKeywords(),
+                            "050000",
                             intent.getCity(),
+                            StringUtils.hasText(intent.getCity()),
                             radius,
+                            "distance",
                             pageSize,
-                            pageNum);
+                            pageNum,
+                            "business");
             return new SearchResult("AROUND", currentLocation, "当前位置", amapResponse);
         }
 
@@ -321,16 +328,19 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
             if (!StringUtils.hasText(intent.getAddress())) {
                 throw new IllegalArgumentException("请补充具体地点，例如：洪崖洞附近火锅");
             }
-            String centerLocation =
-                    amapFoodClient.geocodeToLocation(intent.getAddress(), intent.getCity());
+            String centerLocation = geocodeToLocation(intent.getAddress(), intent.getCity());
             JSONObject amapResponse =
-                    amapFoodClient.searchAround(
+                    amapApiService.searchPoiAroundRaw(
                             centerLocation,
                             intent.getKeywords(),
+                            "050000",
                             intent.getCity(),
+                            StringUtils.hasText(intent.getCity()),
                             radius,
+                            "distance",
                             pageSize,
-                            pageNum);
+                            pageNum,
+                            "business");
             return new SearchResult("AROUND", centerLocation, "搜索地点", amapResponse);
         }
 
@@ -340,8 +350,14 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
                 throw new IllegalArgumentException("请补充城市和美食关键词，例如：重庆火锅");
             }
             JSONObject amapResponse =
-                    amapFoodClient.searchText(
-                            intent.getCity(), intent.getKeywords(), pageSize, pageNum);
+                    amapApiService.searchPoiTextRaw(
+                            intent.getKeywords(),
+                            "050000",
+                            intent.getCity(),
+                            true,
+                            pageSize,
+                            pageNum,
+                            "business");
             return new SearchResult("TEXT", null, "搜索地点", amapResponse);
         }
 
@@ -365,7 +381,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
     private FoodRecommendResponse buildResponse(
             FoodSearchIntent intent, SearchResult searchResult) {
         JSONObject amapResponse = searchResult.getAmapResponse();
-        if (!amapFoodClient.isAmapSuccess(amapResponse)) {
+        if (!isAmapSuccess(amapResponse)) {
             return FoodRecommendResponse.fail("高德 API 调用失败：" + text(amapResponse, "info"));
         }
 
@@ -599,6 +615,29 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
         } catch (NumberFormatException exception) {
             return null;
         }
+    }
+
+    private boolean missingApiKey() {
+        return amapProperties.getApiKey() == null || amapProperties.getApiKey().isBlank();
+    }
+
+    private boolean isAmapSuccess(JSONObject json) {
+        return json != null
+                && "1".equals(text(json, "status"))
+                && "10000".equals(text(json, "infocode"));
+    }
+
+    private String geocodeToLocation(String address, String city) {
+        JSONObject result = amapApiService.geocodeRaw(address, city);
+        JSONArray geocodes = result.getJSONArray("geocodes");
+        if (geocodes == null || geocodes.isEmpty()) {
+            throw new IllegalStateException("未解析到地点坐标");
+        }
+        String location = text(geocodes.getJSONObject(0), "location");
+        if (!org.springframework.util.StringUtils.hasText(location)) {
+            throw new IllegalStateException("地点坐标为空");
+        }
+        return location;
     }
 
     /**

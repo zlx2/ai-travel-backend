@@ -38,6 +38,20 @@ public class AmapApiServiceImpl implements AmapApiService {
             Integer pageSize,
             Integer pageNum,
             String showFields) {
+        return parsePoiResponse(
+                searchPoiTextRaw(keywords, types, region, cityLimit, pageSize, pageNum, showFields)
+                        .toString());
+    }
+
+    @Override
+    public JSONObject searchPoiTextRaw(
+            String keywords,
+            String types,
+            String region,
+            Boolean cityLimit,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields) {
         if (StrUtil.isBlank(keywords) && StrUtil.isBlank(types)) {
             throw new IllegalArgumentException("keywords和types至少需要提供一个");
         }
@@ -56,7 +70,51 @@ public class AmapApiServiceImpl implements AmapApiService {
         if (pageNum != null) {
             params.put("page_num", Math.max(1, pageNum));
         }
-        return parsePoiResponse(executeGet(baseUrl() + "/v5/place/text", params));
+        return JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/text", params));
+    }
+
+    @Override
+    public JSONObject searchPoiAroundRaw(
+            String location,
+            String keywords,
+            String types,
+            String region,
+            Boolean cityLimit,
+            Integer radius,
+            String sortrule,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("key", apiKey());
+        putIfNotBlank(params, "location", location);
+        putIfNotBlank(params, "keywords", keywords);
+        putIfNotBlank(params, "types", types);
+        putIfNotBlank(params, "region", region);
+        putIfNotBlank(params, "show_fields", showFields);
+        putIfNotBlank(params, "sortrule", sortrule);
+        if (cityLimit != null) {
+            params.put("city_limit", String.valueOf(cityLimit));
+        }
+        if (radius != null) {
+            params.put("radius", radius);
+        }
+        if (pageSize != null) {
+            params.put("page_size", Math.max(1, Math.min(pageSize, 25)));
+        }
+        if (pageNum != null) {
+            params.put("page_num", Math.max(1, pageNum));
+        }
+        return JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/around", params));
+    }
+
+    @Override
+    public JSONObject geocodeRaw(String address, String city) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("key", apiKey());
+        putIfNotBlank(params, "address", address);
+        putIfNotBlank(params, "city", city);
+        return JSONUtil.parseObj(executeGet(baseUrl() + "/v3/geocode/geo", params));
     }
 
     private String baseUrl() {

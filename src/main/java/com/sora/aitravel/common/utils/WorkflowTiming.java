@@ -3,7 +3,6 @@ package com.sora.aitravel.common.utils;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
-/** Small timing helper for trip generation workflow nodes. */
 @Slf4j
 public final class WorkflowTiming {
 

@@ -1,4 +1,0 @@
-旅行需求：{{requirement}}
-冲突信息：{{conflicts}}
-用户是否确认冲突：{{confirmedConflict}}
-请生成符合系统约束的行程 JSON。

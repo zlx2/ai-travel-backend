@@ -2,12 +2,12 @@ package com.sora.aitravel.service.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import com.sora.aitravel.client.AmapPoiClient;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
 import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
+import com.sora.aitravel.service.AmapApiService;
 import com.sora.aitravel.service.RentalStoreService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,7 +35,7 @@ public class RentalStoreServiceImpl implements RentalStoreService {
     /** 当前只在目标地点 5 公里范围内找租车服务点，避免推荐过远地点。 */
     private static final int SEARCH_RADIUS_METERS = 5000;
 
-    private final AmapPoiClient amapPoiClient;
+    private final AmapApiService amapApiService;
 
     @Override
     public RentalStoreDTO resolveRentalStore(RentalStoreResolveCommand command) {
@@ -46,14 +46,25 @@ public class RentalStoreServiceImpl implements RentalStoreService {
     @Override
     public RentalStoreDTO resolveRentalStore(
             String targetName, String cityName, RentalStoreUsageEnum usage) {
-        JSONObject targetPoi = amapPoiClient.searchFirstPoi(targetName, cityName);
+        JSONObject targetPoi = searchFirstPoi(targetName, cityName);
         String location = text(targetPoi, "location");
         if (location.isBlank()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "目标地点缺少坐标：" + targetName);
         }
 
         JSONObject aroundResult =
-                amapPoiClient.searchAround(location, "租车", cityName, SEARCH_RADIUS_METERS, 10);
+                amapApiService.searchPoiAroundRaw(
+                        location,
+                        "租车",
+                        null,
+                        cityName,
+                        true,
+                        SEARCH_RADIUS_METERS,
+                        null,
+                        10,
+                        1,
+                        "business,navi");
+        checkAmapResult(aroundResult);
         JSONArray pois = aroundResult.getJSONArray("pois");
         if (pois == null || pois.isEmpty()) {
             return buildPlanGoServicePoint(targetPoi, targetName, usage);
@@ -258,6 +269,38 @@ public class RentalStoreServiceImpl implements RentalStoreService {
 
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
+    }
+
+    private JSONObject searchFirstPoi(String keywords, String cityName) {
+        JSONObject result =
+                amapApiService.searchPoiTextRaw(
+                        keywords, null, cityName, true, 5, 1, "business,navi");
+        checkAmapResult(result);
+        JSONArray pois = result.getJSONArray("pois");
+        if (pois == null || pois.isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "没有找到目标地点：" + keywords);
+        }
+        for (Object item : pois) {
+            JSONObject poi = (JSONObject) item;
+            if (text(poi, "parent").isBlank()) {
+                return poi;
+            }
+        }
+        return pois.getJSONObject(0);
+    }
+
+    private void checkAmapResult(JSONObject result) {
+        if (result == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "高德接口返回为空");
+        }
+        if (!"1".equals(text(result, "status"))) {
+            throw new BusinessException(
+                    ErrorCode.SYSTEM_ERROR,
+                    "高德接口调用失败，info="
+                            + text(result, "info")
+                            + ", infocode="
+                            + text(result, "infocode"));
+        }
     }
 
     private int intValue(String value, int defaultValue) {
