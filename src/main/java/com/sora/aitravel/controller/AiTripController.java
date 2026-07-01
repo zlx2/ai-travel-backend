@@ -400,13 +400,10 @@ public class AiTripController {
                         Map.entry("weather-fetch", "正在查询目的地天气"),
                         Map.entry("hotel-fetch", "正在准备住宿参考"),
                         Map.entry("day-state-init", "正在初始化每日行程状态"),
-                        Map.entry("day-context-build", "正在拆分每日游览区域"),
-                        Map.entry("day-query-plan", "正在规划景点查询关键词"),
-                        Map.entry("food-recommend", "正在匹配餐饮建议"),
-                        Map.entry("day-data-fetch", "正在查询景点与路线数据"),
-                        Map.entry("day-data-rank", "正在筛选更顺路的景点"),
+                        Map.entry("day-input-prepare", "正在准备每日行程输入"),
+                        Map.entry("day-candidate-prepare", "正在准备每日候选数据"),
                         Map.entry("day-plan-generate", "正在生成每日行程和推荐理由"),
-                        Map.entry("day-plan-validate", "正在校验路线强度"),
+                        Map.entry("day-plan-finalize", "正在校验并锁定每日行程"),
                         Map.entry("trip-summary", "正在整理行程摘要"),
                         Map.entry("result-merge", "正在合并最终行程"))
                 .getOrDefault(node, "正在生成行程");

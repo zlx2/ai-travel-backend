@@ -1,7 +1,6 @@
 package com.sora.aitravel.workflow.generate;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_CONTEXTS;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_VALIDATION_REPORTS;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
@@ -25,16 +24,11 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.workflow.generate.DayGenerateInput;
 import com.sora.aitravel.dto.workflow.generate.DayGenerateResult;
-import com.sora.aitravel.model.trip.generate.DayContext;
 import com.sora.aitravel.model.trip.generate.DayPlanValidationReport;
-import com.sora.aitravel.workflow.generate.node.day.DayContextBuildNode;
-import com.sora.aitravel.workflow.generate.node.day.DayDataFetchNode;
-import com.sora.aitravel.workflow.generate.node.day.DayDataRankNode;
+import com.sora.aitravel.workflow.generate.node.day.DayCandidatePrepareNode;
+import com.sora.aitravel.workflow.generate.node.day.DayInputPrepareNode;
+import com.sora.aitravel.workflow.generate.node.day.DayPlanFinalizeNode;
 import com.sora.aitravel.workflow.generate.node.day.DayPlanGenerateNode;
-import com.sora.aitravel.workflow.generate.node.day.DayPlanValidateNode;
-import com.sora.aitravel.workflow.generate.node.day.DayQueryPlanNode;
-import com.sora.aitravel.workflow.generate.node.day.FoodRecommendNode;
-import com.sora.aitravel.workflow.generate.node.day.TripTimelineAssembler;
 import com.sora.aitravel.workflow.generate.state.TripGraphNodeActions;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateStrategies;
@@ -50,14 +44,10 @@ import org.springframework.stereotype.Component;
 public class TripDayGenerateWorkflow {
     private static final String WORKFLOW_NAME = "trip-day-generate-workflow";
 
-    private final DayContextBuildNode dayContextBuildNode;
-    private final DayQueryPlanNode dayQueryPlanNode;
-    private final FoodRecommendNode foodRecommendNode;
-    private final DayDataFetchNode dayDataFetchNode;
-    private final DayDataRankNode dayDataRankNode;
+    private final DayInputPrepareNode dayInputPrepareNode;
+    private final DayCandidatePrepareNode dayCandidatePrepareNode;
     private final DayPlanGenerateNode dayPlanGenerateNode;
-    private final TripTimelineAssembler tripTimelineAssembler;
-    private final DayPlanValidateNode dayPlanValidateNode;
+    private final DayPlanFinalizeNode dayPlanFinalizeNode;
 
     private CompiledGraph graph;
 
@@ -111,42 +101,23 @@ public class TripDayGenerateWorkflow {
             StateGraph stateGraph = new StateGraph(WORKFLOW_NAME, TripGraphStateStrategies.build());
 
             stateGraph.addNode(
-                    "day-context-build",
-                    stateNode("day-context-build", dayContextBuildNode::execute));
+                    "day-input-prepare",
+                    stateNode("day-input-prepare", dayInputPrepareNode::execute));
             stateGraph.addNode(
-                    "day-context-filter", stateNode("day-context-filter", this::filterTargetDay));
-            stateGraph.addNode(
-                    "day-query-plan", stateNode("day-query-plan", dayQueryPlanNode::execute));
-            stateGraph.addNode(
-                    "food-recommend", stateNode("food-recommend", foodRecommendNode::execute));
-            stateGraph.addNode(
-                    "day-data-fetch", stateNode("day-data-fetch", dayDataFetchNode::execute));
-            stateGraph.addNode(
-                    "day-data-rank", stateNode("day-data-rank", dayDataRankNode::execute));
-            stateGraph.addNode(
-                    "previous-days-snapshot",
-                    stateNode("previous-days-snapshot", this::snapshotPreviousDays));
+                    "day-candidate-prepare",
+                    stateNode("day-candidate-prepare", dayCandidatePrepareNode::execute));
             stateGraph.addNode(
                     "day-plan-generate",
                     stateNode("day-plan-generate", dayPlanGenerateNode::execute));
             stateGraph.addNode(
-                    "trip-timeline-assemble",
-                    stateNode("trip-timeline-assemble", tripTimelineAssembler::execute));
-            stateGraph.addNode(
-                    "day-plan-validate",
-                    stateNode("day-plan-validate", dayPlanValidateNode::execute));
+                    "day-plan-finalize",
+                    stateNode("day-plan-finalize", dayPlanFinalizeNode::execute));
 
-            stateGraph.addEdge(StateGraph.START, "day-context-build");
-            stateGraph.addEdge("day-context-build", "day-context-filter");
-            stateGraph.addEdge("day-context-filter", "day-query-plan");
-            stateGraph.addEdge("day-query-plan", "food-recommend");
-            stateGraph.addEdge("food-recommend", "day-data-fetch");
-            stateGraph.addEdge("day-data-fetch", "day-data-rank");
-            stateGraph.addEdge("day-data-rank", "previous-days-snapshot");
-            stateGraph.addEdge("previous-days-snapshot", "day-plan-generate");
-            stateGraph.addEdge("day-plan-generate", "trip-timeline-assemble");
-            stateGraph.addEdge("trip-timeline-assemble", "day-plan-validate");
-            stateGraph.addEdge("day-plan-validate", StateGraph.END);
+            stateGraph.addEdge(StateGraph.START, "day-input-prepare");
+            stateGraph.addEdge("day-input-prepare", "day-candidate-prepare");
+            stateGraph.addEdge("day-candidate-prepare", "day-plan-generate");
+            stateGraph.addEdge("day-plan-generate", "day-plan-finalize");
+            stateGraph.addEdge("day-plan-finalize", StateGraph.END);
             return stateGraph.compile();
         } catch (GraphStateException exception) {
             throw new IllegalStateException("Failed to compile trip day generate graph", exception);
@@ -156,24 +127,5 @@ public class TripDayGenerateWorkflow {
     private AsyncNodeAction stateNode(
             String nodeName, TripGraphNodeActions.StateNodeExecutor executor) {
         return TripGraphNodeActions.stateNode(WORKFLOW_NAME, nodeName, executor::execute);
-    }
-
-    private Map<String, Object> filterTargetDay(OverAllState state) {
-        Integer dayNo = TripGraphStateCodec.required(state, TARGET_DAY_NO, Integer.class);
-        List<DayContext> filtered =
-                TripGraphStateCodec.optionalList(state, DAY_CONTEXTS, DayContext.class).stream()
-                        .filter(dayContext -> dayContext.getDay().equals(dayNo))
-                        .toList();
-        if (filtered.isEmpty()) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数不存在：" + dayNo);
-        }
-        return TripGraphStateCodec.patch(DAY_CONTEXTS, filtered);
-    }
-
-    private Map<String, Object> snapshotPreviousDays(OverAllState state) {
-        List<TripPlanDTO.DailyPlan> lockedDailyPlans =
-                TripGraphStateCodec.optionalList(
-                        state, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class);
-        return TripGraphStateCodec.patch(PREVIOUS_DAILY_PLANS, lockedDailyPlans);
     }
 }

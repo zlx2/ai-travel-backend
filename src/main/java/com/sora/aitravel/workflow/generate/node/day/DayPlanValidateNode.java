@@ -67,7 +67,7 @@ public class DayPlanValidateNode {
             reports.add(
                     new DayPlanValidationReport(dailyPlan.getDay(), warnings.isEmpty(), warnings));
             log.info(
-                    "节点[day-plan-validate]：第 {} 天校验完成，passed={}, warnings={}",
+                    "节点[day-plan-finalize]：第 {} 天校验完成，passed={}, warnings={}",
                     dailyPlan.getDay(),
                     warnings.isEmpty(),
                     warnings);
