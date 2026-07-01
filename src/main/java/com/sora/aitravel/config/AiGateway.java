@@ -1,4 +1,4 @@
-package com.sora.aitravel.ai;
+package com.sora.aitravel.config;
 
 import com.sora.aitravel.common.enums.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;

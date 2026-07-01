@@ -2,10 +2,10 @@ package com.sora.aitravel.workflow.analyze;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sora.aitravel.ai.AiGateway;
 import com.sora.aitravel.common.enums.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.config.AiGateway;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import java.util.ArrayList;

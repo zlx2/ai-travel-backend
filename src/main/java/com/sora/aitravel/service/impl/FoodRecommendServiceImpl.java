@@ -644,7 +644,7 @@ public class FoodRecommendServiceImpl implements FoodRecommendService {
      * 美食推荐实现类内部对象。
      *
      * <p>FoodSearchIntent 保存意图解析结果，SearchResult 保存高德查询上下文，LocationPair 保存解析后的经纬度。
-     * 这些对象只在当前实现类内部使用，不属于对外 DTO，也不会改变 FoodTool 或工作流的返回结构。
+     * 这些对象只在当前实现类内部使用，不属于对外 DTO，也不会改变工作流的返回结构。
      */
     @Data
     @AllArgsConstructor

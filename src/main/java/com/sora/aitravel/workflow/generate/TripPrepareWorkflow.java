@@ -21,7 +21,6 @@ import com.sora.aitravel.dto.workflow.generate.TripPrepareResult;
 import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.DaySkeleton;
 import jakarta.annotation.PostConstruct;
-import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

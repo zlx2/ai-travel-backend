@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 /**
  * 美食推荐工具统一返回结构。
  *
- * <p>FoodTool 直接返回该 DTO，方便工作流读取 total、list、centerLocation 等结构化字段。
+ * <p>美食推荐服务直接返回该 DTO，方便工作流读取 total、list、centerLocation 等结构化字段。
  */
 @Data
 @Builder
