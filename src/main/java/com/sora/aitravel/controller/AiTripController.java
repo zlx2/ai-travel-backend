@@ -25,7 +25,6 @@ import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -391,28 +390,6 @@ public class AiTripController {
             log.warn("SSE progress send failed, type={}, node={}", type, node, ex);
             return false;
         }
-    }
-
-    private String progressLabel(String node) {
-        return Map.ofEntries(
-                        Map.entry("requirement-validate", "正在校验旅行需求"),
-                        Map.entry("requirement-load", "正在读取目的地和人数信息"),
-                        Map.entry("city-data-profile", "正在整理城市景点资料"),
-                        Map.entry("candidate-pool-build", "正在整理路线候选区域"),
-                        Map.entry("ai-macro-route-plan", "正在规划多日路线方向"),
-                        Map.entry("amap-macro-route-fact", "正在核算路线距离和耗时"),
-                        Map.entry("ai-route-critic", "正在检查路线是否顺路"),
-                        Map.entry("macro-route-contract-validate", "正在锁定每日出发和住宿区域"),
-                        Map.entry("weather-fetch", "正在查询目的地天气"),
-                        Map.entry("hotel-fetch", "正在准备住宿参考"),
-                        Map.entry("day-state-init", "正在初始化每日行程状态"),
-                        Map.entry("day-input-prepare", "正在准备每日行程输入"),
-                        Map.entry("day-candidate-prepare", "正在准备每日候选数据"),
-                        Map.entry("day-plan-generate", "正在生成每日行程和推荐理由"),
-                        Map.entry("day-plan-finalize", "正在校验并锁定每日行程"),
-                        Map.entry("trip-summary", "正在整理行程摘要"),
-                        Map.entry("result-merge", "正在合并最终行程"))
-                .getOrDefault(node, "正在生成行程");
     }
 
     private void publishTripDayGenerateMessage(TripDayGenerateMessage message) {
