@@ -15,7 +15,7 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.model.DayDataPackage;
 import com.sora.aitravel.model.DayPlanValidationReport;
-import com.sora.aitravel.service.PoiIdentityService;
+import com.sora.aitravel.service.impl.PoiIdentityServiceImpl;
 import com.sora.aitravel.service.impl.RouteShapeValidatorImpl;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DayPlanValidateNode {
     private final RouteShapeValidatorImpl routeShapeValidator;
-    private final PoiIdentityService poiIdentityService;
+    private final PoiIdentityServiceImpl poiIdentityService;
 
     public Map<String, Object> execute(OverAllState state) {
         List<DayPlanValidationReport> reports =

@@ -8,7 +8,6 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
 import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 import com.sora.aitravel.service.AmapApiService;
-import com.sora.aitravel.service.RentalStoreService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -30,20 +29,18 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
-public class RentalStoreServiceImpl implements RentalStoreService {
+public class RentalStoreServiceImpl {
 
     /** 当前只在目标地点 5 公里范围内找租车服务点，避免推荐过远地点。 */
     private static final int SEARCH_RADIUS_METERS = 5000;
 
     private final AmapApiService amapApiService;
 
-    @Override
     public RentalStoreDTO resolveRentalStore(RentalStoreResolveCommand command) {
         return resolveRentalStore(
                 command.getTargetName(), command.getCityName(), command.getUsage());
     }
 
-    @Override
     public RentalStoreDTO resolveRentalStore(
             String targetName, String cityName, RentalStoreUsageEnum usage) {
         JSONObject targetPoi = searchFirstPoi(targetName, cityName);

@@ -5,7 +5,6 @@ import com.sora.aitravel.model.DayContext;
 import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.model.RouteAnchor;
 import com.sora.aitravel.model.RouteLegMetric;
-import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import com.sora.aitravel.service.route.RouteMatrix;
 import java.util.ArrayList;
@@ -21,7 +20,7 @@ public class DayRouteOrderServiceImpl {
     private static final String SOURCE_ESTIMATED = "ESTIMATED";
 
     private final RouteOrderOptimizerImpl routeOrderOptimizer;
-    private final PoiIdentityService poiIdentityService;
+    private final PoiIdentityServiceImpl poiIdentityService;
 
     public List<PoiCandidate> optimize(List<PoiCandidate> selected, DayContext dayContext) {
         if (selected == null || selected.size() < 2) {

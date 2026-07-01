@@ -14,7 +14,7 @@ import com.sora.aitravel.model.DayQueryPlan;
 import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.model.QueryItem;
 import com.sora.aitravel.service.AmapPoiCacheService;
-import com.sora.aitravel.service.PoiIdentityService;
+import com.sora.aitravel.service.impl.PoiIdentityServiceImpl;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -37,7 +37,7 @@ public class DayCandidatePrepareNode {
     private static final String POI_SHOW_FIELDS = "business,navi,photos";
 
     private final AmapPoiCacheService amapPoiCacheService;
-    private final PoiIdentityService poiIdentityService;
+    private final PoiIdentityServiceImpl poiIdentityService;
 
     public Map<String, Object> execute(OverAllState state) {
         Map<String, Object> patch = new LinkedHashMap<>();

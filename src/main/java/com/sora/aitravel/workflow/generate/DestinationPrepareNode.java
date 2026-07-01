@@ -14,7 +14,7 @@ import com.sora.aitravel.model.CandidatePool;
 import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.service.AmapPoiCacheService;
-import com.sora.aitravel.service.PoiIdentityService;
+import com.sora.aitravel.service.impl.PoiIdentityServiceImpl;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,7 +35,7 @@ public class DestinationPrepareNode {
     private static final String POI_SHOW_FIELDS = "business,navi,photos";
 
     private final AmapPoiCacheService amapPoiCacheService;
-    private final PoiIdentityService poiIdentityService;
+    private final PoiIdentityServiceImpl poiIdentityService;
 
     public Map<String, Object> execute(OverAllState state) {
         TravelRequirementDTO requirement =

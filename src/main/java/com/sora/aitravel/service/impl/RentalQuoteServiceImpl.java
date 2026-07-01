@@ -27,7 +27,6 @@ import com.sora.aitravel.mapper.RentalPriceTemplateMapper;
 import com.sora.aitravel.mapper.RentalVehicleGroupMapper;
 import com.sora.aitravel.mapper.RentalVehicleModelMapper;
 import com.sora.aitravel.service.RentalQuoteService;
-import com.sora.aitravel.service.RentalStoreService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -55,7 +54,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private final RentalPriceTemplateMapper priceTemplateMapper;
     private final RentalVehicleGroupMapper vehicleGroupMapper;
     private final RentalVehicleModelMapper vehicleModelMapper;
-    private final RentalStoreService rentalStoreService;
+    private final RentalStoreServiceImpl rentalStoreService;
 
     @Override
     public RentalContextPreviewResponse previewContext(RentalContextPreviewRequest request) {

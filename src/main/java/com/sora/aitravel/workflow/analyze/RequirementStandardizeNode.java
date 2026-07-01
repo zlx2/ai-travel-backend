@@ -2,7 +2,7 @@ package com.sora.aitravel.workflow.analyze;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripAnalyzeRequest;
-import com.sora.aitravel.service.TravelRequirementReadyService;
+import com.sora.aitravel.service.impl.TravelRequirementReadyServiceImpl;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class RequirementStandardizeNode {
 
     @Autowired(required = false)
-    private TravelRequirementReadyService travelRequirementReadyService;
+    private TravelRequirementReadyServiceImpl travelRequirementReadyService;
 
     public void execute(AnalyzeWorkflowContext context) {
         TravelRequirementDTO extracted = context.getExtractedRequirement();

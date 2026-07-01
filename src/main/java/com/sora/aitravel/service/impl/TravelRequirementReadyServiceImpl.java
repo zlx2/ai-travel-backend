@@ -4,8 +4,6 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
-import com.sora.aitravel.service.RegionRoutePresetService;
-import com.sora.aitravel.service.TravelRequirementReadyService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +13,10 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TravelRequirementReadyServiceImpl implements TravelRequirementReadyService {
+public class TravelRequirementReadyServiceImpl {
 
-    private final RegionRoutePresetService regionRoutePresetService;
+    private final RegionRoutePresetServiceImpl regionRoutePresetService;
 
-    @Override
     public void validateForGenerate(TripGenerateRequest request) {
         if (request == null || request.getRequirement() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "需求不能为空");
@@ -53,7 +50,6 @@ public class TravelRequirementReadyServiceImpl implements TravelRequirementReady
         }
     }
 
-    @Override
     public void resolveRouteScopeIfMissing(TravelRequirementDTO r) {
         if (r == null) return;
         if (r.getRouteCities() != null && !r.getRouteCities().isEmpty()) {

@@ -2,7 +2,6 @@ package com.sora.aitravel.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sora.aitravel.service.RegionRoutePresetService;
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.util.List;
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class RegionRoutePresetServiceImpl implements RegionRoutePresetService {
+public class RegionRoutePresetServiceImpl {
 
     private static final String PRESETS_PATH = "travel/region-route-presets.json";
 
@@ -37,7 +36,6 @@ public class RegionRoutePresetServiceImpl implements RegionRoutePresetService {
         }
     }
 
-    @Override
     public RegionPresetGroup matchGroup(String destination) {
         if (destination == null) {
             return null;
@@ -63,7 +61,6 @@ public class RegionRoutePresetServiceImpl implements RegionRoutePresetService {
         return null;
     }
 
-    @Override
     public RoutePreset selectPreset(RegionPresetGroup group, int days, List<String> preferences) {
         if (group == null || group.getPresets() == null) {
             return null;
@@ -102,5 +99,101 @@ public class RegionRoutePresetServiceImpl implements RegionRoutePresetService {
 
     private int nullToZero(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    public static class RegionPresetGroup {
+        private String type;
+        private List<String> aliases;
+        private String defaultCity;
+        private List<RoutePreset> presets;
+        private String standardName;
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public List<String> getAliases() {
+            return aliases;
+        }
+
+        public void setAliases(List<String> aliases) {
+            this.aliases = aliases;
+        }
+
+        public String getDefaultCity() {
+            return defaultCity;
+        }
+
+        public void setDefaultCity(String defaultCity) {
+            this.defaultCity = defaultCity;
+        }
+
+        public List<RoutePreset> getPresets() {
+            return presets;
+        }
+
+        public void setPresets(List<RoutePreset> presets) {
+            this.presets = presets;
+        }
+
+        public String getStandardName() {
+            return standardName;
+        }
+
+        public void setStandardName(String standardName) {
+            this.standardName = standardName;
+        }
+    }
+
+    public static class RoutePreset {
+        private String name;
+        private Integer minDays;
+        private Integer maxDays;
+        private List<String> cities;
+        private List<String> tags;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Integer getMinDays() {
+            return minDays;
+        }
+
+        public void setMinDays(Integer minDays) {
+            this.minDays = minDays;
+        }
+
+        public Integer getMaxDays() {
+            return maxDays;
+        }
+
+        public void setMaxDays(Integer maxDays) {
+            this.maxDays = maxDays;
+        }
+
+        public List<String> getCities() {
+            return cities;
+        }
+
+        public void setCities(List<String> cities) {
+            this.cities = cities;
+        }
+
+        public List<String> getTags() {
+            return tags;
+        }
+
+        public void setTags(List<String> tags) {
+            this.tags = tags;
+        }
     }
 }

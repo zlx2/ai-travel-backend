@@ -1,13 +1,11 @@
 package com.sora.aitravel.service.impl;
 
 import com.sora.aitravel.model.PoiCandidate;
-import com.sora.aitravel.service.PoiIdentityService;
 import org.springframework.stereotype.Component;
 
 /** Shared POI identity and name normalization rules. */
 @Component
-public class PoiIdentityServiceImpl implements PoiIdentityService {
-    @Override
+public class PoiIdentityServiceImpl {
     public String dedupKey(PoiCandidate candidate) {
         if (candidate == null) {
             return "";
@@ -18,7 +16,6 @@ public class PoiIdentityServiceImpl implements PoiIdentityService {
         return normalizeName(candidate.getName());
     }
 
-    @Override
     public String normalizeName(String name) {
         if (name == null) {
             return "";

@@ -12,7 +12,6 @@ import com.sora.aitravel.dto.workflow.generate.TripPrepareResult;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.AiTripGenerationOrchestrator;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
-import com.sora.aitravel.service.TravelRequirementReadyService;
 import com.sora.aitravel.workflow.generate.TripPrepareWorkflow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +25,7 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
 
     private final AiTripGenerationSessionService sessionService;
     private final TripPrepareWorkflow tripPrepareWorkflow;
-    private final TravelRequirementReadyService travelRequirementReadyService;
+    private final TravelRequirementReadyServiceImpl travelRequirementReadyService;
     private final ObjectMapper objectMapper;
 
     @Override

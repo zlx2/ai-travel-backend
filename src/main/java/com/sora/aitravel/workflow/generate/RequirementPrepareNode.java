@@ -10,7 +10,7 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
-import com.sora.aitravel.service.RegionRoutePresetService;
+import com.sora.aitravel.service.impl.RegionRoutePresetServiceImpl;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class RequirementPrepareNode {
 
-    private final RegionRoutePresetService regionRoutePresetService;
+    private final RegionRoutePresetServiceImpl regionRoutePresetService;
 
     public Map<String, Object> execute(OverAllState state) {
         TripGenerateRequest request =
