@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.node.day;
+package com.sora.aitravel.workflow.generate.day;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;

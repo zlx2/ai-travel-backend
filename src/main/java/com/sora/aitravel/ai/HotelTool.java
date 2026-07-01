@@ -1,4 +1,4 @@
-package com.sora.aitravel.tools;
+package com.sora.aitravel.ai;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONArray;

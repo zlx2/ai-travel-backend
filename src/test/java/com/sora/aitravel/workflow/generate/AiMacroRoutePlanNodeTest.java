@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
 import com.sora.aitravel.model.trip.generate.CandidatePool;
-import com.sora.aitravel.workflow.generate.node.prepare.AiMacroRoutePlanNode;
+import com.sora.aitravel.workflow.generate.prepare.AiMacroRoutePlanNode;
 import java.lang.reflect.Method;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

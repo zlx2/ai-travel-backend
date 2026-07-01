@@ -2,7 +2,7 @@ package com.sora.aitravel.service.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import com.sora.aitravel.client.amap.AmapPoiClient;
+import com.sora.aitravel.client.AmapPoiClient;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
 import com.sora.aitravel.common.exception.BusinessException;

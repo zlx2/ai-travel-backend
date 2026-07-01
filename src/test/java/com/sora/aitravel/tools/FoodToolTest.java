@@ -1,4 +1,4 @@
-package com.sora.aitravel.tools;
+package com.sora.aitravel.ai;
 
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;

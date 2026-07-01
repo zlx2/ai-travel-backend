@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.node.prepare;
+package com.sora.aitravel.workflow.generate.prepare;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUEST;

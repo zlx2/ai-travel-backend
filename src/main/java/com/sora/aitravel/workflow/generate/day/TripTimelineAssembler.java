@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.node.day;
+package com.sora.aitravel.workflow.generate.day;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.LOCKED_DAILY_PLANS;

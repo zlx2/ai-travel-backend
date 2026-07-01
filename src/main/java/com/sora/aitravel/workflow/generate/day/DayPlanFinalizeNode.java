@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.node.day;
+package com.sora.aitravel.workflow.generate.day;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;

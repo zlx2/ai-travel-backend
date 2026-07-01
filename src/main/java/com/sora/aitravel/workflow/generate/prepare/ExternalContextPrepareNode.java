@@ -1,13 +1,13 @@
-package com.sora.aitravel.workflow.generate.node.prepare;
+package com.sora.aitravel.workflow.generate.prepare;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.WEATHER_FORECAST;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.sora.aitravel.ai.HotelTool;
+import com.sora.aitravel.ai.WeatherTool;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.tools.HotelTool;
-import com.sora.aitravel.tools.WeatherTool;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;

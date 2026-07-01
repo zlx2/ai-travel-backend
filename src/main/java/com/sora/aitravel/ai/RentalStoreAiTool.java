@@ -1,4 +1,4 @@
-package com.sora.aitravel.tools;
+package com.sora.aitravel.ai;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;

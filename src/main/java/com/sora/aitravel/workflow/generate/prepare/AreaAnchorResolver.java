@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.node.prepare;
+package com.sora.aitravel.workflow.generate.prepare;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;

@@ -1,4 +1,4 @@
-package com.sora.aitravel.bootstrap;
+package com.sora.aitravel.config;
 
 import com.sora.aitravel.service.HomeService;
 import java.util.concurrent.CompletableFuture;

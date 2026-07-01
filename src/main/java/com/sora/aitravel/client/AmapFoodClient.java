@@ -1,4 +1,4 @@
-package com.sora.aitravel.client.amap;
+package com.sora.aitravel.client;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;

@@ -2,7 +2,7 @@ package com.sora.aitravel.service.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import com.sora.aitravel.client.amap.AmapFoodClient;
+import com.sora.aitravel.client.AmapFoodClient;
 import com.sora.aitravel.common.enums.FoodSearchIntentTypeEnum;
 import com.sora.aitravel.dto.model.FoodRestaurantItemDTO;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;
