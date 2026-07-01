@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -21,19 +21,19 @@ public class DayContext {
     private String dailyDrivingLimit;
     private String revisionText;
 
-    Integer day() {
+    public Integer day() {
         return day;
     }
 
-    DaySkeleton skeleton() {
+    public DaySkeleton skeleton() {
         return skeleton;
     }
 
-    String hotelArea() {
+    public String hotelArea() {
         return hotelArea;
     }
 
-    boolean rentalEnabled() {
+    public boolean rentalEnabled() {
         return Boolean.TRUE.equals(rentalEnabled);
     }
 }

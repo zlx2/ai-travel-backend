@@ -4,6 +4,9 @@ import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_C
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RANKED_DAY_DATA_PACKAGES;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.sora.aitravel.model.trip.generate.DayContext;
+import com.sora.aitravel.model.trip.generate.DayDataPackage;
+import com.sora.aitravel.model.trip.generate.PoiCandidate;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.Comparator;

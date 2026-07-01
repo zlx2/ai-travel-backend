@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,23 +16,23 @@ public class QueryItem {
     private String to;
     private String purpose;
 
-    String type() {
+    public String type() {
         return type;
     }
 
-    String keyword() {
+    public String keyword() {
         return keyword;
     }
 
-    String around() {
+    public String around() {
         return around;
     }
 
-    String from() {
+    public String from() {
         return from;
     }
 
-    String to() {
+    public String to() {
         return to;
     }
 }

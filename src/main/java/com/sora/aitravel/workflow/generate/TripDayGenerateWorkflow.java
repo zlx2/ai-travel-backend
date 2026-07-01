@@ -23,6 +23,8 @@ import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import com.sora.aitravel.model.trip.generate.DayContext;
+import com.sora.aitravel.model.trip.generate.DayPlanValidationReport;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateStrategies;
 import jakarta.annotation.PostConstruct;

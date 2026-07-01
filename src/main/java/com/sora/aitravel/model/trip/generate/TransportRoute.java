@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,11 +16,11 @@ public class TransportRoute {
     private String source;
     private Boolean estimated;
 
-    String mode() {
+    public String mode() {
         return mode;
     }
 
-    String durationEstimate() {
+    public String durationEstimate() {
         return durationEstimate;
     }
 }

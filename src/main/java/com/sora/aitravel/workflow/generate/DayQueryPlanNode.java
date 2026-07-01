@@ -7,6 +7,10 @@ import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUI
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.model.trip.generate.CityProfile;
+import com.sora.aitravel.model.trip.generate.DayContext;
+import com.sora.aitravel.model.trip.generate.DayQueryPlan;
+import com.sora.aitravel.model.trip.generate.QueryItem;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.List;

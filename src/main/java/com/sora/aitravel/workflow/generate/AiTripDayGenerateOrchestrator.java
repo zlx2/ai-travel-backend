@@ -12,6 +12,8 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
+import com.sora.aitravel.model.trip.generate.CityProfile;
+import com.sora.aitravel.model.trip.generate.DaySkeleton;
 import com.sora.aitravel.service.AiTripDayGenerateService;
 import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationSessionService;

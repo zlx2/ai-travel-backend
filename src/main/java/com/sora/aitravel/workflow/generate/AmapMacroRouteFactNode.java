@@ -7,6 +7,13 @@ import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.MACRO
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
+import com.sora.aitravel.model.trip.generate.MacroRouteDay;
+import com.sora.aitravel.model.trip.generate.MacroRouteDayFact;
+import com.sora.aitravel.model.trip.generate.MacroRouteFact;
+import com.sora.aitravel.model.trip.generate.MacroRoutePlan;
+import com.sora.aitravel.model.trip.generate.RouteLegMetric;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;

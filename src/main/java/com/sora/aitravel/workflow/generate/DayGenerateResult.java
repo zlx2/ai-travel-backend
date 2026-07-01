@@ -1,6 +1,7 @@
 package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import com.sora.aitravel.model.trip.generate.DayPlanValidationReport;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;

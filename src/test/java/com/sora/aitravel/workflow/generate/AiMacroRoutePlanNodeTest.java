@@ -3,10 +3,25 @@ package com.sora.aitravel.workflow.generate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
 import java.lang.reflect.Method;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
 import java.util.List;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
 import org.junit.jupiter.api.DisplayName;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
 import org.junit.jupiter.api.Test;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
 
 class AiMacroRoutePlanNodeTest {
 

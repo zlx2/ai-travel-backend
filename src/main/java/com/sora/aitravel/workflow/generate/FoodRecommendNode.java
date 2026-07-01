@@ -6,6 +6,9 @@ import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.FOOD_
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.response.FoodRecommendResponse;
+import com.sora.aitravel.model.trip.generate.CityProfile;
+import com.sora.aitravel.model.trip.generate.DayQueryPlan;
+import com.sora.aitravel.model.trip.generate.QueryItem;
 import com.sora.aitravel.service.FoodRecommendService;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.LinkedHashMap;

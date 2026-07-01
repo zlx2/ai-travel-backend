@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -12,11 +12,11 @@ public class DayQueryPlan {
     private Integer day;
     private List<QueryItem> queries;
 
-    Integer day() {
+    public Integer day() {
         return day;
     }
 
-    List<QueryItem> queries() {
+    public List<QueryItem> queries() {
         return queries;
     }
 }

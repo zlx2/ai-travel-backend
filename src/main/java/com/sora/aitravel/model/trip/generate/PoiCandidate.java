@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -30,19 +30,19 @@ public class PoiCandidate {
     private String entranceLocation;
     private List<String> imageUrls;
 
-    String name() {
+    public String name() {
         return name;
     }
 
-    String area() {
+    public String area() {
         return area;
     }
 
-    String source() {
+    public String source() {
         return source;
     }
 
-    String reason() {
+    public String reason() {
         return reason;
     }
 }

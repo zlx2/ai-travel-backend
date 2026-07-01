@@ -2,6 +2,9 @@ package com.sora.aitravel.workflow.generate;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.MacroRouteDay;
+import com.sora.aitravel.model.trip.generate.MacroRoutePlan;
 import java.util.List;
 import java.util.Map;
 

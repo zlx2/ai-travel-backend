@@ -1,6 +1,6 @@
 package com.sora.aitravel.service.route;
 
-import com.sora.aitravel.workflow.generate.RouteAnchor;
+import com.sora.aitravel.model.trip.generate.RouteAnchor;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;

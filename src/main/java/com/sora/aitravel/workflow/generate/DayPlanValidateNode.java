@@ -13,6 +13,8 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import com.sora.aitravel.model.trip.generate.DayDataPackage;
+import com.sora.aitravel.model.trip.generate.DayPlanValidationReport;
 import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.service.route.RouteShapeValidator;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;

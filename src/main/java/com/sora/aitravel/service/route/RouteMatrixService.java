@@ -1,7 +1,7 @@
 package com.sora.aitravel.service.route;
 
-import com.sora.aitravel.workflow.generate.RouteAnchor;
-import com.sora.aitravel.workflow.generate.RouteLegMetric;
+import com.sora.aitravel.model.trip.generate.RouteAnchor;
+import com.sora.aitravel.model.trip.generate.RouteLegMetric;
 import java.util.List;
 
 public interface RouteMatrixService {

@@ -1,6 +1,6 @@
 package com.sora.aitravel.service.route;
 
-import com.sora.aitravel.workflow.generate.PoiCandidate;
+import com.sora.aitravel.model.trip.generate.PoiCandidate;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;

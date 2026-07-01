@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -16,19 +16,19 @@ public class CityProfile {
     private List<PoiCandidate> foodCandidates;
     private List<PoiCandidate> hotelCandidates;
 
-    String destination() {
+    public String destination() {
         return destination;
     }
 
-    List<PoiCandidate> scenicCandidates() {
+    public List<PoiCandidate> scenicCandidates() {
         return scenicCandidates;
     }
 
-    List<PoiCandidate> foodCandidates() {
+    public List<PoiCandidate> foodCandidates() {
         return foodCandidates;
     }
 
-    List<PoiCandidate> hotelCandidates() {
+    public List<PoiCandidate> hotelCandidates() {
         return hotelCandidates;
     }
 }

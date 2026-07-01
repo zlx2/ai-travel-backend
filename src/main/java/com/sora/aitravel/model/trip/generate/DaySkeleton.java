@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.model.trip.generate;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,15 +20,15 @@ public class DaySkeleton {
     private AreaAnchorSnapshot endArea;
     private AreaAnchorSnapshot stayArea;
 
-    Integer day() {
+    public Integer day() {
         return day;
     }
 
-    String theme() {
+    public String theme() {
         return theme;
     }
 
-    String targetArea() {
+    public String targetArea() {
         return targetArea;
     }
 }

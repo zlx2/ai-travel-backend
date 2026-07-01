@@ -1,11 +1,11 @@
 package com.sora.aitravel.service.route;
 
+import com.sora.aitravel.model.trip.generate.AreaAnchorSnapshot;
+import com.sora.aitravel.model.trip.generate.DayContext;
+import com.sora.aitravel.model.trip.generate.PoiCandidate;
+import com.sora.aitravel.model.trip.generate.RouteAnchor;
+import com.sora.aitravel.model.trip.generate.RouteLegMetric;
 import com.sora.aitravel.service.PoiIdentityService;
-import com.sora.aitravel.workflow.generate.AreaAnchorSnapshot;
-import com.sora.aitravel.workflow.generate.DayContext;
-import com.sora.aitravel.workflow.generate.PoiCandidate;
-import com.sora.aitravel.workflow.generate.RouteAnchor;
-import com.sora.aitravel.workflow.generate.RouteLegMetric;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
