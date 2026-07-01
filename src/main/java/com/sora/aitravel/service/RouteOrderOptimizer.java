@@ -1,6 +1,6 @@
 package com.sora.aitravel.service;
 
-import com.sora.aitravel.model.trip.generate.RouteAnchor;
+import com.sora.aitravel.model.RouteAnchor;
 import com.sora.aitravel.service.route.RouteMatrix;
 import java.util.List;
 

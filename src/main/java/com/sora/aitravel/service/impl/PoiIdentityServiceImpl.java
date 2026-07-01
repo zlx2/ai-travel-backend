@@ -1,6 +1,6 @@
 package com.sora.aitravel.service.impl;
 
-import com.sora.aitravel.model.trip.generate.PoiCandidate;
+import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.service.PoiIdentityService;
 import org.springframework.stereotype.Component;
 

@@ -1,4 +1,4 @@
-package com.sora.aitravel.model.trip.generate;
+package com.sora.aitravel.model;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class RouteCriticResult {
-    private String selectedPlanId;
-    private MacroRoutePlan revisedPlan;
-    private Integer score;
+public class MacroRoutePlan {
+    private String id;
+    private String routeShape;
+    private List<MacroRouteDay> days;
     private List<String> warnings;
     private String reason;
 }

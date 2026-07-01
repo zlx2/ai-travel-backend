@@ -1,8 +1,8 @@
 package com.sora.aitravel.dto.workflow.generate;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.model.trip.generate.CityProfile;
-import com.sora.aitravel.model.trip.generate.DaySkeleton;
+import com.sora.aitravel.model.CityProfile;
+import com.sora.aitravel.model.DaySkeleton;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;

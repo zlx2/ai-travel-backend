@@ -1,4 +1,4 @@
-package com.sora.aitravel.model.trip.generate;
+package com.sora.aitravel.model;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -8,15 +8,16 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class DayDataPackage {
-    private Integer day;
+public class CityProfile {
+    private String destination;
+    private List<String> popularAreas;
+    private List<String> transportHubs;
     private List<PoiCandidate> scenicCandidates;
     private List<PoiCandidate> foodCandidates;
     private List<PoiCandidate> hotelCandidates;
-    private List<TransportRoute> transportRoutes;
 
-    public Integer day() {
-        return day;
+    public String destination() {
+        return destination;
     }
 
     public List<PoiCandidate> scenicCandidates() {
@@ -29,9 +30,5 @@ public class DayDataPackage {
 
     public List<PoiCandidate> hotelCandidates() {
         return hotelCandidates;
-    }
-
-    public List<TransportRoute> transportRoutes() {
-        return transportRoutes;
     }
 }

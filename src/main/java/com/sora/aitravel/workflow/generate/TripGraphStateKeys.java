@@ -11,9 +11,6 @@ public final class TripGraphStateKeys {
     public static final String RENTAL_TRIP_CONTEXT = "rentalTripContext";
     public static final String CITY_PROFILE = "cityProfile";
     public static final String CANDIDATE_POOL = "candidatePool";
-    public static final String MACRO_ROUTE_PLANS = "macroRoutePlans";
-    public static final String MACRO_ROUTE_FACTS = "macroRouteFacts";
-    public static final String ROUTE_CRITIC_RESULT = "routeCriticResult";
     public static final String DAY_SKELETONS = "daySkeletons";
     public static final String WEATHER_FORECAST = "weatherForecast";
     public static final String HOTEL_SEARCH_RESULT = "hotelSearchResult";

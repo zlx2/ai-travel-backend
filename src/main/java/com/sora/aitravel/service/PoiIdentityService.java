@@ -1,6 +1,6 @@
 package com.sora.aitravel.service;
 
-import com.sora.aitravel.model.trip.generate.PoiCandidate;
+import com.sora.aitravel.model.PoiCandidate;
 
 public interface PoiIdentityService {
 

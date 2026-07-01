@@ -1,7 +1,7 @@
 package com.sora.aitravel.service;
 
-import com.sora.aitravel.model.trip.generate.DayContext;
-import com.sora.aitravel.model.trip.generate.PoiCandidate;
+import com.sora.aitravel.model.DayContext;
+import com.sora.aitravel.model.PoiCandidate;
 import java.util.List;
 
 public interface DayRouteOrderService {

@@ -24,7 +24,7 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.workflow.generate.DayGenerateInput;
 import com.sora.aitravel.dto.workflow.generate.DayGenerateResult;
-import com.sora.aitravel.model.trip.generate.DayPlanValidationReport;
+import com.sora.aitravel.model.DayPlanValidationReport;
 import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.Map;

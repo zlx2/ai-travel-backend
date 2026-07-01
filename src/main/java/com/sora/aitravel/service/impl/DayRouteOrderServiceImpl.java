@@ -1,10 +1,10 @@
 package com.sora.aitravel.service.impl;
 
-import com.sora.aitravel.model.trip.generate.AreaAnchorSnapshot;
-import com.sora.aitravel.model.trip.generate.DayContext;
-import com.sora.aitravel.model.trip.generate.PoiCandidate;
-import com.sora.aitravel.model.trip.generate.RouteAnchor;
-import com.sora.aitravel.model.trip.generate.RouteLegMetric;
+import com.sora.aitravel.model.AreaAnchorSnapshot;
+import com.sora.aitravel.model.DayContext;
+import com.sora.aitravel.model.PoiCandidate;
+import com.sora.aitravel.model.RouteAnchor;
+import com.sora.aitravel.model.RouteLegMetric;
 import com.sora.aitravel.service.DayRouteOrderService;
 import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.service.RouteOrderOptimizer;

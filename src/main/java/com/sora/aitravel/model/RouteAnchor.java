@@ -1,4 +1,4 @@
-package com.sora.aitravel.model.trip.generate;
+package com.sora.aitravel.model;
 
 import java.util.List;
 import lombok.Builder;
