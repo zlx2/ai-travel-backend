@@ -9,8 +9,8 @@ import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
-import com.sora.aitravel.config.AmapProperties;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.service.AmapApiService;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -29,7 +29,7 @@ public class ExternalContextPrepareNode {
     private static final String OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
     private static final Map<Integer, String> WEATHER_CODES = weatherCodes();
 
-    private final AmapProperties amapProperties;
+    private final AmapApiService amapApiService;
 
     public Map<String, Object> execute(OverAllState state) {
         TravelRequirementDTO requirement =
@@ -172,28 +172,8 @@ public class ExternalContextPrepareNode {
     }
 
     private String queryHotels(String city, String checkIn, String checkOut) {
-        String apiKey = amapProperties.getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            return JSONUtil.createObj().set("city", city).set("error", "未配置高德 API Key").toString();
-        }
         JSONObject json =
-                JSONUtil.parseObj(
-                        HttpRequest.get(amapEndpoint("/v3/place/text"))
-                                .form("key", apiKey)
-                                .form("keywords", "酒店")
-                                .form("city", city)
-                                .form("citylimit", true)
-                                .form("types", "100100")
-                                .form("offset", 8)
-                                .form("page", 1)
-                                .form("extensions", "all")
-                                .timeout(
-                                        amapProperties.getTimeout() == null
-                                                ? 10000
-                                                : Math.toIntExact(
-                                                        amapProperties.getTimeout().toMillis()))
-                                .execute()
-                                .body());
+                amapApiService.searchPoiTextRaw("酒店", "100100", city, true, 8, 1, "business");
         if (!"1".equals(json.getStr("status"))) {
             return JSONUtil.createObj()
                     .set("city", city)
@@ -220,16 +200,6 @@ public class ExternalContextPrepareNode {
                 .set("source", "高德地图")
                 .set("hotels", hotels)
                 .toString();
-    }
-
-    private String amapEndpoint(String path) {
-        String baseUrl = amapProperties.getBaseUrl();
-        if (baseUrl == null || baseUrl.isBlank()) {
-            baseUrl = "https://restapi.amap.com";
-        }
-        return baseUrl.endsWith("/")
-                ? baseUrl.substring(0, baseUrl.length() - 1) + path
-                : baseUrl + path;
     }
 
     private static Map<Integer, String> weatherCodes() {

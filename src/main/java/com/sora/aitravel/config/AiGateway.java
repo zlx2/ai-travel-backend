@@ -1,6 +1,5 @@
 package com.sora.aitravel.config;
 
-import com.sora.aitravel.common.enums.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -16,11 +15,11 @@ import org.springframework.stereotype.Component;
 public class AiGateway {
     private final ChatModel chatModel;
 
-    public String callText(AiScene scene, String userPrompt) {
-        return callText(scene, null, userPrompt);
+    public String callText(String sceneName, String userPrompt) {
+        return callText(sceneName, null, userPrompt);
     }
 
-    public String callText(AiScene scene, String systemPrompt, String userPrompt) {
+    public String callText(String sceneName, String systemPrompt, String userPrompt) {
         long start = System.currentTimeMillis();
         try {
             ChatClient chatClient = ChatClient.builder(chatModel).build();
@@ -38,7 +37,7 @@ public class AiGateway {
             }
             log.info(
                     "{} 调用完成，耗时={}ms，promptLength={}，responseLength={}",
-                    scene.description(),
+                    sceneName,
                     System.currentTimeMillis() - start,
                     length(systemPrompt) + length(userPrompt),
                     content.length());
@@ -46,17 +45,17 @@ public class AiGateway {
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.warn("{} 调用失败", scene.description(), ex);
-            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, scene.description() + "服务调用失败");
+            log.warn("{} 调用失败", sceneName, ex);
+            throw new BusinessException(ErrorCode.AI_SERVICE_ERROR, sceneName + "服务调用失败");
         }
     }
 
-    public String callJsonObject(AiScene scene, String userPrompt) {
-        return extractJsonObject(callText(scene, userPrompt));
+    public String callJsonObject(String sceneName, String userPrompt) {
+        return extractJsonObject(callText(sceneName, userPrompt));
     }
 
-    public String callJsonObject(AiScene scene, String systemPrompt, String userPrompt) {
-        return extractJsonObject(callText(scene, systemPrompt, userPrompt));
+    public String callJsonObject(String sceneName, String systemPrompt, String userPrompt) {
+        return extractJsonObject(callText(sceneName, systemPrompt, userPrompt));
     }
 
     private String extractJsonObject(String content) {

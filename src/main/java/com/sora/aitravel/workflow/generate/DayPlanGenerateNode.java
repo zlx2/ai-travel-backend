@@ -9,7 +9,6 @@ import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.REQUIREMENT
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sora.aitravel.common.enums.AiScene;
 import com.sora.aitravel.config.AiGateway;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
@@ -981,7 +980,7 @@ public class DayPlanGenerateNode {
                         revisionInstruction(dayContext),
                         aiCandidateText(refs, city),
                         requiredCount);
-        String response = aiGateway.callJsonObject(AiScene.TRIP_GENERATE, prompt);
+        String response = aiGateway.callJsonObject("AI 行程生成", prompt);
         AiDayPlan aiDayPlan = parseAiDayPlan(response, refs, city, requiredCount);
         if (aiDayPlan.getSelected().size() != requiredCount) {
             throw new IllegalStateException(
