@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.workflow.generate.node.day;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,6 +10,8 @@ import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import com.sora.aitravel.dto.workflow.generate.DayGenerateInput;
+import com.sora.aitravel.dto.workflow.generate.DayGenerateResult;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.model.trip.generate.CityProfile;
@@ -17,6 +19,7 @@ import com.sora.aitravel.model.trip.generate.DaySkeleton;
 import com.sora.aitravel.service.AiTripDayGenerateService;
 import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
+import com.sora.aitravel.workflow.generate.TripDayGenerateWorkflow;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

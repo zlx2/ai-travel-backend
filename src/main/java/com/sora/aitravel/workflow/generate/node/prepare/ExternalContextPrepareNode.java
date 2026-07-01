@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.workflow.generate.node.prepare;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;

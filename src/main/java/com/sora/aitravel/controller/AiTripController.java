@@ -21,7 +21,7 @@ import com.sora.aitravel.service.AiTripGenerationSessionService;
 import com.sora.aitravel.service.TripDayGenerateMessageProducer;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
-import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
+import com.sora.aitravel.workflow.generate.node.day.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.List;

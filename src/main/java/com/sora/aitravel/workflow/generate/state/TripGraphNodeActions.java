@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.workflow.generate.state;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
@@ -8,12 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Shared Spring AI Alibaba Graph node adapters for trip generation workflows. */
-final class TripGraphNodeActions {
+public final class TripGraphNodeActions {
     private static final Logger TIMING_LOGGER = LoggerFactory.getLogger(WorkflowTiming.class);
 
     private TripGraphNodeActions() {}
 
-    static AsyncNodeAction stateNode(
+    public static AsyncNodeAction stateNode(
             String workflowName, String nodeName, StateNodeExecutor executor) {
         return AsyncNodeAction.node_async(
                 state -> {
@@ -31,7 +31,7 @@ final class TripGraphNodeActions {
     }
 
     @FunctionalInterface
-    interface StateNodeExecutor {
+    public interface StateNodeExecutor {
         Map<String, Object> execute(OverAllState state) throws Exception;
     }
 }

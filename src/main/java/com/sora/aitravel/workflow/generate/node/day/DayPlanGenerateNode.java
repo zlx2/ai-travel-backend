@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.workflow.generate.node.day;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_CONTEXTS;

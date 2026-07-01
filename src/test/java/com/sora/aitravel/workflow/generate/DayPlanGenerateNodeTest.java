@@ -12,6 +12,7 @@ import com.sora.aitravel.model.trip.generate.PoiCandidate;
 import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.service.route.DayRouteOrderService;
 import com.sora.aitravel.service.route.RouteOrderOptimizer;
+import com.sora.aitravel.workflow.generate.node.day.DayPlanGenerateNode;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.HashSet;
@@ -171,7 +172,7 @@ class DayPlanGenerateNodeTest {
     private Object dayPlanInput(CityProfile profile) throws Exception {
         Class<?> type =
                 Class.forName(
-                        "com.sora.aitravel.workflow.generate.DayPlanGenerateNode$DayPlanInput");
+                        "com.sora.aitravel.workflow.generate.node.day.DayPlanGenerateNode$DayPlanInput");
         Constructor<?> constructor =
                 type.getDeclaredConstructor(
                         com.sora.aitravel.dto.model.TravelRequirementDTO.class,
