@@ -2,10 +2,9 @@ package com.sora.aitravel.workflow.analyze;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sora.aitravel.ai.AiGateway;
-import com.sora.aitravel.ai.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.config.AiGateway;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import java.util.ArrayList;
@@ -36,7 +35,7 @@ public class AnalyzeLlmClient {
     public TravelRequirementDTO extractRequirement(String cleanInput, String selectedDestination) {
         String json =
                 aiGateway.callJsonObject(
-                        AiScene.TRIP_ANALYZE,
+                        "AI 分析",
                         """
                         你是旅行规划系统的 Analyze 节点，只做“需求抽取”，不要生成行程。
                         请从用户输入中抽取旅行需求，并只返回 JSON 对象，不要 Markdown。

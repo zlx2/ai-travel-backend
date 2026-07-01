@@ -108,7 +108,9 @@ public class AuthServiceImpl implements AuthService {
 
         SysUser user =
                 userMapper.selectOne(
-                        new LambdaQueryWrapper<SysUser>().eq(SysUser::getEmail, email).last("LIMIT 1"));
+                        new LambdaQueryWrapper<SysUser>()
+                                .eq(SysUser::getEmail, email)
+                                .last("LIMIT 1"));
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "该邮箱未注册");
         }

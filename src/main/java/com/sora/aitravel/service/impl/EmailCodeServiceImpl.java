@@ -102,7 +102,9 @@ public class EmailCodeServiceImpl implements EmailCodeService {
     }
 
     private void validateScene(String scene) {
-        if (!REGISTER_SCENE.equals(scene) && !CHANGE_EMAIL_SCENE.equals(scene) && !RESET_PASSWORD_SCENE.equals(scene)) {
+        if (!REGISTER_SCENE.equals(scene)
+                && !CHANGE_EMAIL_SCENE.equals(scene)
+                && !RESET_PASSWORD_SCENE.equals(scene)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "不支持的验证码场景：" + scene);
         }
     }

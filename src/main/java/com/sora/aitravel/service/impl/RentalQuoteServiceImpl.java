@@ -1,20 +1,29 @@
 package com.sora.aitravel.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.sora.aitravel.common.enums.ErrorCode;
+import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalArrivalPointDTO;
 import com.sora.aitravel.dto.model.RentalFeeBreakdownDTO;
+import com.sora.aitravel.dto.model.RentalPickupPlanDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
+import com.sora.aitravel.dto.model.RentalStoreDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.dto.request.RentalContextPreviewRequest;
+import com.sora.aitravel.dto.response.RentalContextPreviewResponse;
 import com.sora.aitravel.dto.response.RentalQuotePreviewResponse;
-import com.sora.aitravel.entity.RentalPickupPoi;
 import com.sora.aitravel.entity.RentalOrder;
+import com.sora.aitravel.entity.RentalPickupPoi;
 import com.sora.aitravel.entity.RentalPriceTemplate;
 import com.sora.aitravel.entity.RentalVehicleGroup;
 import com.sora.aitravel.entity.RentalVehicleModel;
-import com.sora.aitravel.mapper.RentalPickupPoiMapper;
 import com.sora.aitravel.mapper.RentalOrderMapper;
+import com.sora.aitravel.mapper.RentalPickupPoiMapper;
 import com.sora.aitravel.mapper.RentalPriceTemplateMapper;
 import com.sora.aitravel.mapper.RentalVehicleGroupMapper;
 import com.sora.aitravel.mapper.RentalVehicleModelMapper;
@@ -46,6 +55,34 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private final RentalPriceTemplateMapper priceTemplateMapper;
     private final RentalVehicleGroupMapper vehicleGroupMapper;
     private final RentalVehicleModelMapper vehicleModelMapper;
+    private final RentalStoreServiceImpl rentalStoreService;
+
+    @Override
+    public RentalContextPreviewResponse previewContext(RentalContextPreviewRequest request) {
+        TravelRequirementDTO requirement = prepareContextRequirement(request);
+        RentalArrivalPointDTO arrivalPoint = resolveArrivalPoint(request, requirement);
+        RentalStoreDTO matchedStore =
+                rentalStoreService.resolveRentalStore(
+                        arrivalPoint.getName(),
+                        arrivalPoint.getCityName(),
+                        RentalStoreUsageEnum.PICKUP);
+        List<RentalQuoteOptionDTO> quoteOptions =
+                preview(requirement).getQuoteOptions().stream()
+                        .map(option -> applyDynamicPickupPoint(option, matchedStore))
+                        .toList();
+        RentalPickupPlanDTO pickupPlan = buildPickupPlan(matchedStore);
+        return RentalContextPreviewResponse.builder()
+                .rentalRecommended(true)
+                .reason(buildRecommendReason(requirement))
+                .requirement(requirement)
+                .arrivalPoint(arrivalPoint)
+                .matchedStore(matchedStore)
+                .pickupPlan(pickupPlan)
+                .rentalTripContext(
+                        buildRentalTripContext(requirement, arrivalPoint, matchedStore, pickupPlan))
+                .quoteOptions(quoteOptions)
+                .build();
+    }
 
     @Override
     public RentalQuotePreviewResponse preview(TravelRequirementDTO requirement) {
@@ -75,6 +112,243 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         }
         return new RentalQuotePreviewResponse(
                 requirement.getRouteMode(), rentalCity, cityMatch.getCitycode(), options);
+    }
+
+    private TravelRequirementDTO prepareContextRequirement(RentalContextPreviewRequest request) {
+        if (request == null || request.getRequirement() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "租车上下文需求不能为空");
+        }
+        TravelRequirementDTO requirement = request.getRequirement();
+        if (requirement.getDays() == null
+                || requirement.getDays() < 1
+                || requirement.getDays() > 7) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "租车天数必须在 1 到 7 天之间");
+        }
+        if (StrUtil.isBlank(requirement.getDestination())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "目的地不能为空");
+        }
+
+        RentalRequirementDTO rental = requirement.getRentalRequirement();
+        if (rental == null) {
+            rental = new RentalRequirementDTO();
+            requirement.setRentalRequirement(rental);
+        }
+        rental.setNeedRental(true);
+        String rentalStartCity =
+                normalizeRentalCity(
+                        firstNotBlank(
+                                rental.getRentalStartCity(),
+                                rental.getPickupCity(),
+                                firstRouteCity(requirement),
+                                requirement.getDestination()));
+        rental.setRentalStartCity(rentalStartCity);
+        rental.setPickupCity(
+                normalizeRentalCity(firstNotBlank(rental.getPickupCity(), rentalStartCity)));
+        rental.setReturnCity(
+                firstNotBlank(
+                        rental.getReturnCity(), rental.getRentalEndCity(), rental.getPickupCity()));
+        rental.setRentalEndCity(firstNotBlank(rental.getRentalEndCity(), rental.getReturnCity()));
+        rental.setPickupMode(firstNotBlank(rental.getPickupMode(), "DELIVERY"));
+        rental.setReturnMode(firstNotBlank(rental.getReturnMode(), rental.getPickupMode()));
+        rental.setRentalDays(
+                rental.getRentalDays() == null ? requirement.getDays() : rental.getRentalDays());
+        rental.setDeliveryRequired(true);
+        rental.setIsOneWay(Boolean.TRUE.equals(rental.getIsOneWay()));
+
+        requirement.setRouteMode(firstNotBlank(requirement.getRouteMode(), "LANDING_RENTAL_TRIP"));
+        requirement.setTransportMode("RENTAL_CAR");
+        requirement.setRentalIntent("SYSTEM_RECOMMENDED");
+        requirement.setPeopleCount(
+                requirement.getPeopleCount() == null ? 2 : requirement.getPeopleCount());
+        requirement.setPreferences(ensureRentalPreference(requirement.getPreferences()));
+        return requirement;
+    }
+
+    private RentalArrivalPointDTO resolveArrivalPoint(
+            RentalContextPreviewRequest request, TravelRequirementDTO requirement) {
+        RentalRequirementDTO rental = requirement.getRentalRequirement();
+        String arrivalText = request.getArrivalText();
+        String city =
+                normalizeRentalCity(
+                        firstNotBlank(
+                                rental.getPickupCity(),
+                                rental.getRentalStartCity(),
+                                firstRouteCity(requirement),
+                                requirement.getDestination()));
+        String name =
+                firstNotBlank(
+                        arrivalText,
+                        rental.getDeliveryAddress(),
+                        defaultArrivalPoint(city, requirement));
+        String source = StrUtil.isBlank(arrivalText) ? "SYSTEM_INFERRED" : "USER_PROVIDED";
+        rental.setDeliveryAddress(name);
+        return RentalArrivalPointDTO.builder().name(name).cityName(city).source(source).build();
+    }
+
+    private RentalQuoteOptionDTO applyDynamicPickupPoint(
+            RentalQuoteOptionDTO option, RentalStoreDTO store) {
+        if (option == null || store == null) {
+            return option;
+        }
+        option.setPickupPoiId(null);
+        option.setPickupPoiName(store.getDisplayName());
+        option.setPickupAddress(firstNotBlank(store.getAddress(), store.getAmapPoiName()));
+        option.setPickupLng(decimal(store.getLng()));
+        option.setPickupLat(decimal(store.getLat()));
+        option.setReturnPoiId(null);
+        option.setReturnPoiName(store.getDisplayName());
+        option.setReturnAddress(firstNotBlank(store.getAddress(), store.getAmapPoiName()));
+        option.setReturnLng(decimal(store.getLng()));
+        option.setReturnLat(decimal(store.getLat()));
+        option.setPickupMode("DYNAMIC_SERVICE_POINT");
+        option.setReturnMode("SAME_SERVICE_POINT");
+        Map<String, Object> snapshot =
+                option.getPriceSnapshot() == null
+                        ? new LinkedHashMap<>()
+                        : new LinkedHashMap<>(option.getPriceSnapshot());
+        snapshot.put("dynamicPickupStore", store);
+        option.setPriceSnapshot(snapshot);
+        return option;
+    }
+
+    private RentalPickupPlanDTO buildPickupPlan(RentalStoreDTO store) {
+        String servicePointName = store == null ? null : store.getDisplayName();
+        Integer distanceMeters = store == null ? null : store.getDistanceMeters();
+        String distanceText =
+                distanceMeters == null
+                        ? "附近"
+                        : distanceMeters < 1000
+                                ? distanceMeters + "米"
+                                : String.format("%.1f公里", distanceMeters / 1000.0);
+        return RentalPickupPlanDTO.builder()
+                .mode("DELIVERY_PICKUP")
+                .title("送车接人")
+                .servicePointName(servicePointName)
+                .distanceMeters(distanceMeters)
+                .displayText(
+                        "已匹配"
+                                + (servicePointName == null ? "附近服务点" : servicePointName)
+                                + "，距到达点约"
+                                + distanceText
+                                + "，可安排工作人员送车接人并现场交车。")
+                .build();
+    }
+
+    private RentalTripContextDTO buildRentalTripContext(
+            TravelRequirementDTO requirement,
+            RentalArrivalPointDTO arrivalPoint,
+            RentalStoreDTO matchedStore,
+            RentalPickupPlanDTO pickupPlan) {
+        return RentalTripContextDTO.builder()
+                .arrivalPoint(arrivalPoint)
+                .matchedStore(matchedStore)
+                .pickupPlan(pickupPlan)
+                .arrivalMode(arrivalMode(arrivalPoint == null ? null : arrivalPoint.getName()))
+                .arrivalTimeRange("到达后取车")
+                .routeStructure(
+                        requirement == null || requirement.getRouteStructure() == null
+                                ? "城市及周边自驾"
+                                : requirement.getRouteStructure())
+                .dailyDrivingLimit("近郊自驾（单日累计约2-4小时）")
+                .returnMode("同城还车")
+                .returnPoint(arrivalPoint == null ? null : arrivalPoint.getName())
+                .build();
+    }
+
+    private String buildRecommendReason(TravelRequirementDTO requirement) {
+        List<String> reasons = new ArrayList<>();
+        if (requirement.getPeopleCount() != null && requirement.getPeopleCount() >= 2) {
+            reasons.add("多人同行更适合租车分摊交通成本");
+        }
+        if (requirement.getDays() != null && requirement.getDays() >= 2) {
+            reasons.add("多日行程用车更灵活");
+        }
+        if (requirement.getPreferences() != null
+                && requirement.getPreferences().stream()
+                        .anyMatch(
+                                item ->
+                                        item.contains("自然")
+                                                || item.contains("周边")
+                                                || item.contains("亲子"))) {
+            reasons.add("偏好包含周边或自然场景，自驾衔接更顺畅");
+        }
+        if (reasons.isEmpty()) {
+            reasons.add("当前行程可通过送车接人降低到达后的交通衔接成本");
+        }
+        return String.join("，", reasons);
+    }
+
+    private List<String> ensureRentalPreference(List<String> preferences) {
+        List<String> result = new ArrayList<>();
+        if (preferences != null) {
+            result.addAll(preferences);
+        }
+        if (result.stream().noneMatch(item -> item.contains("租车") || item.contains("自驾"))) {
+            result.add("租车出行");
+        }
+        return result;
+    }
+
+    private String defaultArrivalPoint(String city, TravelRequirementDTO requirement) {
+        String text =
+                String.join(
+                        " ",
+                        StrUtil.nullToEmpty(requirement.getDeparture()),
+                        StrUtil.nullToEmpty(requirement.getDestination()));
+        if (text.contains("飞")
+                || text.contains("航班")
+                || text.contains("飞机")
+                || text.contains("机场")) {
+            return city + "机场";
+        }
+        if (text.contains("高铁")
+                || text.contains("火车")
+                || text.contains("动车")
+                || text.contains("车站")) {
+            return city + "站";
+        }
+        return city + "站";
+    }
+
+    private String arrivalMode(String arrivalName) {
+        if (StrUtil.isBlank(arrivalName)) {
+            return "还不确定";
+        }
+        if (arrivalName.contains("机场")) {
+            return "机场到达";
+        }
+        if (arrivalName.contains("站")) {
+            return "高铁/火车站到达";
+        }
+        if (arrivalName.contains("酒店")
+                || arrivalName.contains("宾馆")
+                || arrivalName.contains("民宿")) {
+            return "酒店/住宿点出发";
+        }
+        return "指定地址交车";
+    }
+
+    private String firstRouteCity(TravelRequirementDTO requirement) {
+        return CollUtil.isEmpty(requirement.getRouteCities())
+                ? null
+                : requirement.getRouteCities().get(0);
+    }
+
+    private String firstNotBlank(String... values) {
+        for (String value : values) {
+            if (StrUtil.isNotBlank(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private BigDecimal decimal(String value) {
+        try {
+            return StrUtil.isBlank(value) ? null : new BigDecimal(value);
+        } catch (RuntimeException exception) {
+            return null;
+        }
     }
 
     @Override
@@ -123,7 +397,10 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         List<RentalQuoteOptionDTO> result = new ArrayList<>();
         for (RentalOrder order : orders) {
             if (result.stream()
-                    .anyMatch(item -> Objects.equals(item.getVehicleGroupId(), order.getVehicleGroupId()))) {
+                    .anyMatch(
+                            item ->
+                                    Objects.equals(
+                                            item.getVehicleGroupId(), order.getVehicleGroupId()))) {
                 continue;
             }
             RentalVehicleGroup group = vehicleGroupMapper.selectById(order.getVehicleGroupId());
@@ -166,29 +443,29 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private String resolveRentalCity(TravelRequirementDTO requirement) {
         RentalRequirementDTO rental = requirement.getRentalRequirement();
-        if (rental != null && notBlank(rental.getRentalStartCity())) {
+        if (rental != null && StrUtil.isNotBlank(rental.getRentalStartCity())) {
             return normalizeRentalCity(rental.getRentalStartCity());
         }
-        if (rental != null && notBlank(rental.getPickupCity())) {
+        if (rental != null && StrUtil.isNotBlank(rental.getPickupCity())) {
             return normalizeRentalCity(rental.getPickupCity());
         }
         if ("ROAD_TRIP".equals(requirement.getRouteMode())) {
             return normalizeRentalCity(requirement.getDeparture());
         }
-        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+        if (CollUtil.isNotEmpty(requirement.getRouteCities())) {
             return normalizeRentalCity(requirement.getRouteCities().get(0));
         }
         return normalizeRentalCity(requirement.getDestination());
     }
 
     private String normalizeRentalCity(String value) {
-        if (isBlank(value)) {
+        if (StrUtil.isBlank(value)) {
             return value;
         }
         String[] parts = value.trim().split("[、,，/|；;\\s]+|和|及|与|到|至|\\+");
         for (String part : parts) {
             String city = cleanRentalCity(part);
-            if (notBlank(city)) {
+            if (StrUtil.isNotBlank(city)) {
                 return city;
             }
         }
@@ -196,18 +473,18 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private String cleanRentalCity(String value) {
-        if (isBlank(value)) {
+        if (StrUtil.isBlank(value)) {
             return null;
         }
         String city =
                 value.replaceAll("(国际机场|机场|高铁站|火车站|动车站|汽车站|东站|西站|南站|北站|站)$", "")
                         .replaceAll("(市|地区)$", "")
                         .trim();
-        return city.isBlank() ? null : city;
+        return StrUtil.isBlank(city) ? null : city;
     }
 
     private CityMatch resolveCityMatch(String rentalCity) {
-        if (isBlank(rentalCity)) {
+        if (StrUtil.isBlank(rentalCity)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车城市不能为空");
         }
         List<String> names = cityNameVariants(rentalCity);
@@ -238,7 +515,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private List<RentalPriceTemplate> findTemplates(CityMatch cityMatch) {
         LambdaQueryWrapper<RentalPriceTemplate> query =
                 new LambdaQueryWrapper<RentalPriceTemplate>().eq(RentalPriceTemplate::getStatus, 1);
-        if (notBlank(cityMatch.getCitycode())) {
+        if (StrUtil.isNotBlank(cityMatch.getCitycode())) {
             query.eq(RentalPriceTemplate::getCitycode, cityMatch.getCitycode());
         } else {
             query.eq(RentalPriceTemplate::getCity, cityMatch.getCity());
@@ -279,7 +556,8 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         String vehiclePreference =
                 requirement.getRentalRequirement() == null
                         ? ""
-                        : safe(requirement.getRentalRequirement().getVehiclePreference());
+                        : StrUtil.nullToEmpty(
+                                requirement.getRentalRequirement().getVehiclePreference());
         List<String> preferences =
                 requirement.getPreferences() == null ? List.of() : requirement.getPreferences();
         String text =
@@ -313,7 +591,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             RentalVehicleGroup group,
             List<String> preferredCodes,
             TravelRequirementDTO requirement) {
-        String code = safe(group.getGroupCode()).toUpperCase(Locale.ROOT);
+        String code = StrUtil.nullToEmpty(group.getGroupCode()).toUpperCase(Locale.ROOT);
         int index = preferredCodes.indexOf(code);
         int score = index >= 0 ? 100 - index * 15 : 20;
         if (requirement.getBudget() != null
@@ -332,9 +610,13 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             RentalPriceTemplate template) {
         RentalRequirementDTO rental = requirement.getRentalRequirement();
         String pickupMode =
-                rental == null ? "UNKNOWN" : safeDefault(rental.getPickupMode(), "UNKNOWN");
+                rental == null
+                        ? "UNKNOWN"
+                        : StrUtil.blankToDefault(rental.getPickupMode(), "UNKNOWN");
         String returnMode =
-                rental == null ? pickupMode : safeDefault(rental.getReturnMode(), pickupMode);
+                rental == null
+                        ? pickupMode
+                        : StrUtil.blankToDefault(rental.getReturnMode(), pickupMode);
         RentalPickupPoi pickupPoi = choosePoi(cityMatch.getPois(), pickupMode);
         int rentalDays =
                 rental != null && rental.getRentalDays() != null
@@ -365,38 +647,15 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         snapshot.put("includedServices", template.getIncludedServices());
         snapshot.put("feeBreakdown", fee);
 
-        return RentalQuoteOptionDTO.builder()
-                .quoteId("Q-" + template.getId() + "-" + group.getId())
-                .routeMode(requirement.getRouteMode())
-                .rentalCity(rentalCity)
-                .citycode(cityMatch.getCitycode())
-                .adcode(cityMatch.getAdcode())
-                .vehicleGroupId(group.getId())
-                .groupCode(group.getGroupCode())
-                .groupName(group.getGroupName())
-                .displayName(group.getDisplayName())
-                .vehicleClass(group.getVehicleClass())
-                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
-                .seatsMin(group.getSeatsMin())
-                .seatsMax(group.getSeatsMax())
-                .recommendedPeople(group.getRecommendedPeople())
-                .recommendedLuggage(group.getRecommendedLuggage())
-                .travelTags(group.getTravelTags())
-                .exampleModels(group.getExampleModels())
-                .description(group.getDescription())
-                .iconUrl(group.getIconUrl())
-                .vehicleModelId(model == null ? null : model.getId())
-                .brand(model == null ? null : model.getBrand())
-                .series(model == null ? null : model.getSeries())
-                .seriesFullName(modelName(model, group))
-                .modelYear(model == null ? null : model.getModelYear())
-                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
-                .transmission(model == null ? group.getTransmission() : model.getTransmission())
-                .seats(model == null ? group.getSeatsMax() : model.getSeats())
-                .imageUrl(model == null ? null : model.getImageUrl())
-                .summary(model == null ? group.getDescription() : model.getSummary())
-                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags())
-                .pickupPoiId(pickupPoi == null ? null : pickupPoi.getId())
+        RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder =
+                RentalQuoteOptionDTO.builder()
+                        .quoteId("Q-" + template.getId() + "-" + group.getId())
+                        .routeMode(requirement.getRouteMode())
+                        .rentalCity(rentalCity)
+                        .citycode(cityMatch.getCitycode())
+                        .adcode(cityMatch.getAdcode());
+        applyGroupAndModelFields(builder, group, model);
+        return builder.pickupPoiId(pickupPoi == null ? null : pickupPoi.getId())
                 .pickupPoiName(pickupPoi == null ? null : pickupPoi.getPoiName())
                 .pickupAddress(pickupPoi == null ? null : pickupPoi.getAddress())
                 .pickupLng(pickupPoi == null ? null : pickupPoi.getLongitude())
@@ -427,10 +686,10 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         }
         RentalRequirementDTO rental = requirement.getRentalRequirement();
         String returnCity =
-                notBlank(rental.getRentalEndCity())
+                StrUtil.isNotBlank(rental.getRentalEndCity())
                         ? rental.getRentalEndCity()
                         : rental.getReturnCity();
-        if (isBlank(returnCity) || sameCity(returnCity, pickupCityMatch.getCity())) {
+        if (StrUtil.isBlank(returnCity) || sameCity(returnCity, pickupCityMatch.getCity())) {
             return pickupCityMatch;
         }
         return resolveCityMatch(returnCity);
@@ -480,36 +739,14 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         snapshot.put("groupCode", group.getGroupCode());
         snapshot.put("vehicleModelId", model == null ? null : model.getId());
         snapshot.put("vehicleModelName", modelName(model, group));
-        snapshot.put("rentalDays", order.getRentalDays() == null ? null : order.getRentalDays().intValue());
+        snapshot.put(
+                "rentalDays",
+                order.getRentalDays() == null ? null : order.getRentalDays().intValue());
         snapshot.put("feeBreakdown", fee);
-        return RentalQuoteOptionDTO.builder()
-                .quoteId("O-" + order.getId() + "-" + group.getId())
-                .vehicleGroupId(group.getId())
-                .groupCode(group.getGroupCode())
-                .groupName(group.getGroupName())
-                .displayName(group.getDisplayName())
-                .vehicleClass(group.getVehicleClass())
-                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
-                .seatsMin(group.getSeatsMin())
-                .seatsMax(group.getSeatsMax())
-                .recommendedPeople(group.getRecommendedPeople())
-                .recommendedLuggage(group.getRecommendedLuggage())
-                .travelTags(group.getTravelTags())
-                .exampleModels(group.getExampleModels())
-                .description(group.getDescription())
-                .iconUrl(group.getIconUrl())
-                .vehicleModelId(model == null ? null : model.getId())
-                .brand(model == null ? null : model.getBrand())
-                .series(model == null ? null : model.getSeries())
-                .seriesFullName(modelName(model, group))
-                .modelYear(model == null ? null : model.getModelYear())
-                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
-                .transmission(model == null ? group.getTransmission() : model.getTransmission())
-                .seats(model == null ? group.getSeatsMax() : model.getSeats())
-                .imageUrl(model == null ? null : model.getImageUrl())
-                .summary(model == null ? group.getDescription() : model.getSummary())
-                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags())
-                .pickupPoiId(order.getPickupPoiId())
+        RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder =
+                RentalQuoteOptionDTO.builder().quoteId("O-" + order.getId() + "-" + group.getId());
+        applyGroupAndModelFields(builder, group, model);
+        return builder.pickupPoiId(order.getPickupPoiId())
                 .returnPoiId(order.getReturnPoiId())
                 .pickupMode(order.getPickupMode())
                 .returnMode(order.getReturnMode())
@@ -527,12 +764,17 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private String modelName(RentalVehicleModel model, RentalVehicleGroup group) {
         if (model == null) {
-            return group == null ? null : safeDefault(group.getDisplayName(), group.getGroupName());
+            return group == null
+                    ? null
+                    : StrUtil.blankToDefault(group.getDisplayName(), group.getGroupName());
         }
-        if (notBlank(model.getSeriesFullName())) {
+        if (StrUtil.isNotBlank(model.getSeriesFullName())) {
             return model.getSeriesFullName();
         }
-        return (safe(model.getBrand()) + " " + safe(model.getSeries())).trim();
+        return (StrUtil.nullToEmpty(model.getBrand())
+                        + " "
+                        + StrUtil.nullToEmpty(model.getSeries()))
+                .trim();
     }
 
     private RentalFeeBreakdownDTO calculateFee(
@@ -583,7 +825,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private RentalPickupPoi choosePoi(List<RentalPickupPoi> pois, String mode) {
-        if (pois == null || pois.isEmpty()) {
+        if (CollUtil.isEmpty(pois)) {
             return null;
         }
         Comparator<RentalPickupPoi> comparator =
@@ -592,15 +834,16 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private int poiScore(RentalPickupPoi poi, String mode) {
-        String name = safe(poi.getPoiName());
-        String type = safe(poi.getPoiType()) + safe(poi.getPoiTypecode());
+        String name = StrUtil.nullToEmpty(poi.getPoiName());
+        String type =
+                StrUtil.nullToEmpty(poi.getPoiType()) + StrUtil.nullToEmpty(poi.getPoiTypecode());
         if ("AIRPORT".equals(mode)) {
-            return containsAny(name + type, "机场", "150104") ? 100 : 1;
+            return StrUtil.containsAny(name + type, "机场", "150104") ? 100 : 1;
         }
         if ("TRAIN_STATION".equals(mode)) {
-            return containsAny(name + type, "高铁", "火车", "车站", "150200") ? 100 : 1;
+            return StrUtil.containsAny(name + type, "高铁", "火车", "车站", "150200") ? 100 : 1;
         }
-        return containsAny(name, "市区", "中心") ? 60 : 10;
+        return StrUtil.containsAny(name, "市区", "中心") ? 60 : 10;
     }
 
     private List<String> cityNameVariants(String city) {
@@ -622,7 +865,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private LocalDate parseDate(String value) {
         try {
-            return isBlank(value) ? LocalDate.now() : LocalDate.parse(value);
+            return StrUtil.isBlank(value) ? LocalDate.now() : LocalDate.parse(value);
         } catch (Exception e) {
             return LocalDate.now();
         }
@@ -632,29 +875,35 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         return value == null ? 0 : value;
     }
 
-    private boolean containsAny(String input, String... values) {
-        for (String value : values) {
-            if (input.contains(value)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean notBlank(String value) {
-        return !isBlank(value);
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
-
-    private String safe(String value) {
-        return value == null ? "" : value;
-    }
-
-    private String safeDefault(String value, String defaultValue) {
-        return isBlank(value) ? defaultValue : value;
+    private void applyGroupAndModelFields(
+            RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder,
+            RentalVehicleGroup group,
+            RentalVehicleModel model) {
+        builder.vehicleGroupId(group.getId())
+                .groupCode(group.getGroupCode())
+                .groupName(group.getGroupName())
+                .displayName(group.getDisplayName())
+                .vehicleClass(group.getVehicleClass())
+                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
+                .seatsMin(group.getSeatsMin())
+                .seatsMax(group.getSeatsMax())
+                .recommendedPeople(group.getRecommendedPeople())
+                .recommendedLuggage(group.getRecommendedLuggage())
+                .travelTags(group.getTravelTags())
+                .exampleModels(group.getExampleModels())
+                .description(group.getDescription())
+                .iconUrl(group.getIconUrl())
+                .vehicleModelId(model == null ? null : model.getId())
+                .brand(model == null ? null : model.getBrand())
+                .series(model == null ? null : model.getSeries())
+                .seriesFullName(modelName(model, group))
+                .modelYear(model == null ? null : model.getModelYear())
+                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
+                .transmission(model == null ? group.getTransmission() : model.getTransmission())
+                .seats(model == null ? group.getSeatsMax() : model.getSeats())
+                .imageUrl(model == null ? null : model.getImageUrl())
+                .summary(model == null ? group.getDescription() : model.getSummary())
+                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags());
     }
 
     @Data

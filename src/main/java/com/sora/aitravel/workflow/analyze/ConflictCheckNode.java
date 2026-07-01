@@ -135,9 +135,7 @@ public class ConflictCheckNode {
         if (rentalRequired && "NO_RENTAL".equals(requirement.getRentalIntent())) {
             conflicts.add(
                     new ConflictDTO(
-                        "RENTAL_TRANSPORT_CONFLICT",
-                            "用户同时选择了租车和不租车。",
-                            "请确认本次是否进入租车行程。"));
+                            "RENTAL_TRANSPORT_CONFLICT", "用户同时选择了租车和不租车。", "请确认本次是否进入租车行程。"));
         }
         if (requirement.getRentalRequirement() != null
                 && requirement.getRentalRequirement().getRentalDays() != null

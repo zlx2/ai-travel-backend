@@ -1,11 +1,11 @@
 package com.sora.aitravel.workflow.generate;
 
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_VALIDATION_REPORTS;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.LOCKED_DAILY_PLANS;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RANKED_DAY_DATA_PACKAGES;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SELECTED_QUOTE;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SINGLE_DAY_GENERATION;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.DAY_VALIDATION_REPORTS;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.LOCKED_DAILY_PLANS;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.RANKED_DAY_DATA_PACKAGES;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.SELECTED_QUOTE;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.SINGLE_DAY_GENERATION;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.common.enums.ErrorCode;
@@ -13,8 +13,10 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
-import com.sora.aitravel.workflow.generate.route.RouteShapeValidator;
-import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
+import com.sora.aitravel.model.DayDataPackage;
+import com.sora.aitravel.model.DayPlanValidationReport;
+import com.sora.aitravel.service.impl.PoiIdentityServiceImpl;
+import com.sora.aitravel.service.impl.RouteShapeValidatorImpl;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,27 +31,23 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class DayPlanValidateNode {
-    private final RouteShapeValidator routeShapeValidator;
-    private final PoiIdentityService poiIdentityService;
-
-    public void execute(GenerateWorkflowContext context) {
-        context.setDayValidationReports(
-                validatePlans(
-                        context.getLockedDailyPlans(),
-                        context.getRankedDayDataPackages(),
-                        context.getRequirement(),
-                        context.getSelectedQuote(),
-                        context.isSingleDayGeneration()));
-    }
+    private final RouteShapeValidatorImpl routeShapeValidator;
+    private final PoiIdentityServiceImpl poiIdentityService;
 
     public Map<String, Object> execute(OverAllState state) {
         List<DayPlanValidationReport> reports =
                 validatePlans(
-                        TripGraphStateCodec.optionalList(state, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class),
-                        TripGraphStateCodec.optionalList(state, RANKED_DAY_DATA_PACKAGES, DayDataPackage.class),
-                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
-                        TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null),
-                        TripGraphStateCodec.optional(state, SINGLE_DAY_GENERATION, Boolean.class).orElse(false));
+                        TripGraphStateCodec.optionalList(
+                                state, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class),
+                        TripGraphStateCodec.optionalList(
+                                state, RANKED_DAY_DATA_PACKAGES, DayDataPackage.class),
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optional(
+                                        state, SELECTED_QUOTE, RentalQuoteOptionDTO.class)
+                                .orElse(null),
+                        TripGraphStateCodec.optional(state, SINGLE_DAY_GENERATION, Boolean.class)
+                                .orElse(false));
         return TripGraphStateCodec.patch(DAY_VALIDATION_REPORTS, reports);
     }
 
@@ -63,11 +61,12 @@ public class DayPlanValidateNode {
         Set<String> usedSpotNames = new HashSet<>();
         for (TripPlanDTO.DailyPlan dailyPlan : lockedDailyPlans) {
             DayDataPackage dataPackage = findDataPackage(rankedDayDataPackages, dailyPlan.getDay());
-            List<String> warnings = validateDay(dailyPlan, dataPackage, usedSpotNames, selectedQuote != null);
+            List<String> warnings =
+                    validateDay(dailyPlan, dataPackage, usedSpotNames, selectedQuote != null);
             reports.add(
                     new DayPlanValidationReport(dailyPlan.getDay(), warnings.isEmpty(), warnings));
             log.info(
-                    "节点[day-plan-validate]：第 {} 天校验完成，passed={}, warnings={}",
+                    "节点[day-plan-finalize]：第 {} 天校验完成，passed={}, warnings={}",
                     dailyPlan.getDay(),
                     warnings.isEmpty(),
                     warnings);
@@ -136,7 +135,8 @@ public class DayPlanValidateNode {
                         item -> {
                             allowedPoiIds.add(item.getSourcePoiId());
                             allowedNames.add(item.getName());
-                            normalizedAllowedNames.add(poiIdentityService.normalizeName(item.getName()));
+                            normalizedAllowedNames.add(
+                                    poiIdentityService.normalizeName(item.getName()));
                         });
 
         for (TripPlanDTO.Spot spot : spots) {
@@ -182,7 +182,8 @@ public class DayPlanValidateNode {
                 .anyMatch(name -> name.contains(spotName) || spotName.contains(name));
     }
 
-    private DayDataPackage findDataPackage(List<DayDataPackage> rankedDayDataPackages, Integer day) {
+    private DayDataPackage findDataPackage(
+            List<DayDataPackage> rankedDayDataPackages, Integer day) {
         return rankedDayDataPackages.stream()
                 .filter(item -> item.getDay().equals(day))
                 .findFirst()

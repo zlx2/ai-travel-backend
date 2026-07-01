@@ -1,16 +1,13 @@
 package com.sora.aitravel.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sora.aitravel.common.enums.ErrorCode;
-import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.JsonCodec;
+import com.sora.aitravel.common.utils.WorkflowTiming;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
+import com.sora.aitravel.dto.workflow.generate.TripPrepareInput;
+import com.sora.aitravel.dto.workflow.generate.TripPrepareResult;
 import com.sora.aitravel.entity.AiTripGenerationSession;
-import com.sora.aitravel.service.AiTripGenerationOrchestrator;
-import com.sora.aitravel.service.AiTripGenerationSessionService;
-import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
 import com.sora.aitravel.workflow.generate.TripPrepareWorkflow;
-import com.sora.aitravel.workflow.generate.WorkflowTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,42 +16,51 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchestrator {
+public class AiTripGenerationOrchestratorImpl {
 
-    private final AiTripGenerationSessionService sessionService;
+    private final AiTripGenerationSessionServiceImpl sessionService;
     private final TripPrepareWorkflow tripPrepareWorkflow;
-    private final ObjectMapper objectMapper;
+    private final TravelRequirementReadyServiceImpl travelRequirementReadyService;
+    private final JsonCodec jsonCodec;
 
-    @Override
     public AiTripGenerationSession prepareSession(Long userId, TripGenerateRequest request) {
+        travelRequirementReadyService.validateForGenerate(request);
+        TravelRequirementDTO requirement = request.getRequirement();
+        travelRequirementReadyService.resolveRouteScopeIfMissing(requirement);
         AiTripGenerationSession session =
                 sessionService.createPreparing(
                         userId,
                         request.getConversationId(),
-                        writeJson(request.getRequirement()),
-                        writeJsonOrNull(request.getSelectedQuote()),
-                        writeJsonOrNull(request.getRentalTripContext()));
-        GenerateWorkflowContext initialContext = new GenerateWorkflowContext();
-        initialContext.setUserId(userId);
-        initialContext.setRequest(request);
+                        jsonCodec.write(requirement, "行程生成数据序列化失败"),
+                        jsonCodec.writeNullable(request.getSelectedQuote(), "行程生成数据序列化失败"),
+                        jsonCodec.writeNullable(request.getRentalTripContext(), "行程生成数据序列化失败"));
         long start = WorkflowTiming.start();
         try {
-            GenerateWorkflowContext context =
-                    timed("trip-prepare-workflow", () -> tripPrepareWorkflow.execute(initialContext));
+            TripPrepareResult result =
+                    timed(
+                            "trip-prepare-workflow",
+                            () ->
+                                    tripPrepareWorkflow.execute(
+                                            new TripPrepareInput(
+                                                    userId,
+                                                    requirement,
+                                                    request.getSelectedQuote(),
+                                                    request.getRentalTripContext())));
             timed(
                     "session-requirement-update",
                     () ->
                             sessionService.updateRequirementJson(
-                                    session.getSessionId(), writeJson(context.getRequirement())));
+                                    session.getSessionId(),
+                                    jsonCodec.write(result.getRequirement(), "行程生成数据序列化失败")));
             timed(
                     "session-mark-prepared",
                     () ->
                             sessionService.markPrepared(
                                     session.getSessionId(),
-                                    writeJson(context.getDaySkeletons()),
-                                    writeJson(context.getCityProfile()),
-                                    writeJson(context.getWeatherForecast()),
-                                    writeJson(context.getHotelSearchResult())));
+                                    jsonCodec.write(result.getDaySkeletons(), "行程生成数据序列化失败"),
+                                    jsonCodec.write(result.getCityProfile(), "行程生成数据序列化失败"),
+                                    jsonCodec.write(result.getWeatherForecast(), "行程生成数据序列化失败"),
+                                    jsonCodec.write(result.getHotelSearchResult(), "行程生成数据序列化失败")));
             AiTripGenerationSession prepared =
                     timed(
                             "session-load-prepared",
@@ -80,17 +86,5 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
 
     private <T> T timed(String node, java.util.function.Supplier<T> action) {
         return WorkflowTiming.call("prepare-session", node, action);
-    }
-
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程生成数据序列化失败");
-        }
-    }
-
-    private String writeJsonOrNull(Object value) {
-        return value == null ? null : writeJson(value);
     }
 }

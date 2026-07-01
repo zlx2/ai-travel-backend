@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.mapper.AiTripDayGenerationMapper;
-import com.sora.aitravel.service.AiTripDayGenerationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Service;
 /** AI 行程按天生成服务实现。 */
 @Service
 @RequiredArgsConstructor
-public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationService {
+public class AiTripDayGenerationServiceImpl {
 
     public static final String STATUS_PENDING = "PENDING"; // 待生成
     public static final String STATUS_QUEUED = "QUEUED"; // 排队中
@@ -26,11 +25,11 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 获取某天最新一次版本的行程
+     *
      * @param sessionId
      * @param dayNo
      * @return
      */
-    @Override
     public AiTripDayGeneration getLatest(String sessionId, Integer dayNo) {
         return mapper.selectOne(
                 new LambdaQueryWrapper<AiTripDayGeneration>()
@@ -42,11 +41,11 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 查询已生成且当前生效的行程日数
+     *
      * @param sessionId
      * @param dayNo
      * @return
      */
-    @Override
     public List<AiTripDayGeneration> listCurrentGeneratedBefore(String sessionId, Integer dayNo) {
         return mapper.selectList(
                 new LambdaQueryWrapper<AiTripDayGeneration>()
@@ -59,6 +58,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 创建待生成的行程
+     *
      * @param sessionId
      * @param userId
      * @param dayNo
@@ -66,7 +66,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param requestMode
      * @return
      */
-    @Override
     public AiTripDayGeneration createPending(
             String sessionId,
             Long userId,
@@ -89,13 +88,13 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 创建为指定行程会话的某天创建排队中的生成记录
+     *
      * @param sessionId
      * @param userId
      * @param dayNo
      * @param requestMode
      * @return
      */
-    @Override
     public AiTripDayGeneration createQueuedIfAbsent(
             String sessionId, Long userId, Integer dayNo, String requestMode) {
         AiTripDayGeneration latest = getLatest(sessionId, dayNo);
@@ -125,28 +124,28 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 状态为等待中
+     *
      * @param id
      */
-    @Override
     public void markQueued(Long id) {
         updateStatus(id, STATUS_QUEUED, null, null);
     }
 
     /**
      * 修改状态为生成中
+     *
      * @param id
      */
-    @Override
     public void markGenerating(Long id) {
         updateStatus(id, STATUS_GENERATING, LocalDateTime.now(), null);
     }
 
     /**
      * 修改状态为生成成功
+     *
      * @param id
      * @param resultJson
      */
-    @Override
     public void markGenerated(Long id, String resultJson) {
         mapper.update(
                 null,
@@ -160,10 +159,10 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 更新状态为生成失败
+     *
      * @param id
      * @param errorMessage
      */
-    @Override
     public void markFailed(Long id, String errorMessage) {
         mapper.update(
                 null,
@@ -175,11 +174,11 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-      * 更新状态为过期
+     * 更新状态为过期
+     *
      * @param sessionId
      * @param dayNo
      */
-    @Override
     public void supersedeDay(String sessionId, Integer dayNo) {
         mapper.update(
                 null,
@@ -192,12 +191,12 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-      * 更新状态为切换当前版本为指定版本
+     * 更新状态为切换当前版本为指定版本
+     *
      * @param sessionId
      * @param dayNo
      * @param generationVersion
      */
-    @Override
     public void switchCurrentVersion(String sessionId, Integer dayNo, Integer generationVersion) {
         mapper.update(
                 null,
@@ -216,6 +215,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 更新状态
+     *
      * @param id
      * @param status
      * @param startedAt
@@ -239,6 +239,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 去除错误信息中的换行符
+     *
      * @param errorMessage
      * @return
      */

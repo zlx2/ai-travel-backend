@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.mapper.AiTripGenerationSessionMapper;
-import com.sora.aitravel.service.AiTripGenerationSessionService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,7 +11,7 @@ import org.springframework.stereotype.Service;
 /** AI 行程生成会话服务实现。 */
 @Service
 @RequiredArgsConstructor
-public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessionService {
+public class AiTripGenerationSessionServiceImpl {
 
     public static final String STATUS_PREPARING = "PREPARING";
     public static final String STATUS_PREPARED = "PREPARED";
@@ -20,7 +19,6 @@ public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessi
 
     private final AiTripGenerationSessionMapper mapper;
 
-    @Override
     public AiTripGenerationSession createPreparing(
             Long userId,
             String conversationId,
@@ -42,14 +40,12 @@ public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessi
         return session;
     }
 
-    @Override
     public AiTripGenerationSession getBySessionId(String sessionId) {
         return mapper.selectOne(
                 new LambdaQueryWrapper<AiTripGenerationSession>()
                         .eq(AiTripGenerationSession::getSessionId, sessionId));
     }
 
-    @Override
     public void updateRequirementJson(String sessionId, String requirementJson) {
         mapper.update(
                 null,
@@ -58,7 +54,6 @@ public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessi
                         .set(AiTripGenerationSession::getRequirementJson, requirementJson));
     }
 
-    @Override
     public void markPrepared(
             String sessionId,
             String daySkeletonsJson,
@@ -77,7 +72,6 @@ public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessi
                         .set(AiTripGenerationSession::getErrorMessage, null));
     }
 
-    @Override
     public void markFailed(String sessionId, String errorMessage) {
         mapper.update(
                 null,

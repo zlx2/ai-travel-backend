@@ -2,17 +2,19 @@ package com.sora.aitravel.workflow.generate;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
+import com.sora.aitravel.common.utils.WorkflowTiming;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Shared Spring AI Alibaba Graph node adapters for trip generation workflows. */
-final class TripGraphNodeActions {
+public final class TripGraphNodeActions {
     private static final Logger TIMING_LOGGER = LoggerFactory.getLogger(WorkflowTiming.class);
 
     private TripGraphNodeActions() {}
 
-    static AsyncNodeAction stateNode(String workflowName, String nodeName, StateNodeExecutor executor) {
+    public static AsyncNodeAction stateNode(
+            String workflowName, String nodeName, StateNodeExecutor executor) {
         return AsyncNodeAction.node_async(
                 state -> {
                     long start = WorkflowTiming.start();
@@ -29,7 +31,7 @@ final class TripGraphNodeActions {
     }
 
     @FunctionalInterface
-    interface StateNodeExecutor {
+    public interface StateNodeExecutor {
         Map<String, Object> execute(OverAllState state) throws Exception;
     }
 }

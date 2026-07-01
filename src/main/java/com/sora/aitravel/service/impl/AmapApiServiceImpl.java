@@ -38,6 +38,20 @@ public class AmapApiServiceImpl implements AmapApiService {
             Integer pageSize,
             Integer pageNum,
             String showFields) {
+        return parsePoiResponse(
+                searchPoiTextRaw(keywords, types, region, cityLimit, pageSize, pageNum, showFields)
+                        .toString());
+    }
+
+    @Override
+    public JSONObject searchPoiTextRaw(
+            String keywords,
+            String types,
+            String region,
+            Boolean cityLimit,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields) {
         if (StrUtil.isBlank(keywords) && StrUtil.isBlank(types)) {
             throw new IllegalArgumentException("keywords和types至少需要提供一个");
         }
@@ -56,7 +70,51 @@ public class AmapApiServiceImpl implements AmapApiService {
         if (pageNum != null) {
             params.put("page_num", Math.max(1, pageNum));
         }
-        return parsePoiResponse(executeGet(baseUrl() + "/v5/place/text", params));
+        return JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/text", params));
+    }
+
+    @Override
+    public JSONObject searchPoiAroundRaw(
+            String location,
+            String keywords,
+            String types,
+            String region,
+            Boolean cityLimit,
+            Integer radius,
+            String sortrule,
+            Integer pageSize,
+            Integer pageNum,
+            String showFields) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("key", apiKey());
+        putIfNotBlank(params, "location", location);
+        putIfNotBlank(params, "keywords", keywords);
+        putIfNotBlank(params, "types", types);
+        putIfNotBlank(params, "region", region);
+        putIfNotBlank(params, "show_fields", showFields);
+        putIfNotBlank(params, "sortrule", sortrule);
+        if (cityLimit != null) {
+            params.put("city_limit", String.valueOf(cityLimit));
+        }
+        if (radius != null) {
+            params.put("radius", radius);
+        }
+        if (pageSize != null) {
+            params.put("page_size", Math.max(1, Math.min(pageSize, 25)));
+        }
+        if (pageNum != null) {
+            params.put("page_num", Math.max(1, pageNum));
+        }
+        return JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/around", params));
+    }
+
+    @Override
+    public JSONObject geocodeRaw(String address, String city) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("key", apiKey());
+        putIfNotBlank(params, "address", address);
+        putIfNotBlank(params, "city", city);
+        return JSONUtil.parseObj(executeGet(baseUrl() + "/v3/geocode/geo", params));
     }
 
     private String baseUrl() {
@@ -68,7 +126,9 @@ public class AmapApiServiceImpl implements AmapApiService {
     }
 
     private Duration timeout() {
-        return amapProperties.getTimeout() == null ? Duration.ofSeconds(10) : amapProperties.getTimeout();
+        return amapProperties.getTimeout() == null
+                ? Duration.ofSeconds(10)
+                : amapProperties.getTimeout();
     }
 
     private void putIfNotBlank(Map<String, Object> params, String key, String value) {
@@ -79,7 +139,8 @@ public class AmapApiServiceImpl implements AmapApiService {
 
     private String executeGet(String url, Map<String, Object> params) {
         try {
-            HttpRequest request = HttpUtil.createGet(url).timeout((int) timeout().toMillis()).form(params);
+            HttpRequest request =
+                    HttpUtil.createGet(url).timeout((int) timeout().toMillis()).form(params);
             try (HttpResponse response = request.execute()) {
                 String body = response.body();
                 log.debug("高德 POI 请求 url={}, response={}", request.getUrl(), body);
@@ -162,12 +223,13 @@ public class AmapApiServiceImpl implements AmapApiService {
         }
         return photos.stream()
                 .map(JSONObject.class::cast)
-                .map(photo -> {
-                    PoiPhoto value = new PoiPhoto();
-                    value.setTitle(photo.getStr("title"));
-                    value.setUrl(photo.getStr("url"));
-                    return value;
-                })
+                .map(
+                        photo -> {
+                            PoiPhoto value = new PoiPhoto();
+                            value.setTitle(photo.getStr("title"));
+                            value.setUrl(photo.getStr("url"));
+                            return value;
+                        })
                 .toList();
     }
 }

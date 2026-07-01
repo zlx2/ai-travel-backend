@@ -1,19 +1,22 @@
 package com.sora.aitravel.workflow.generate;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.JsonCodec;
+import com.sora.aitravel.common.utils.WorkflowTiming;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
+import com.sora.aitravel.dto.workflow.generate.DayGenerateInput;
+import com.sora.aitravel.dto.workflow.generate.DayGenerateResult;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
-import com.sora.aitravel.service.AiTripDayGenerateService;
-import com.sora.aitravel.service.AiTripDayGenerationService;
-import com.sora.aitravel.service.AiTripGenerationSessionService;
+import com.sora.aitravel.model.CityProfile;
+import com.sora.aitravel.model.DaySkeleton;
+import com.sora.aitravel.service.impl.AiTripDayGenerationServiceImpl;
+import com.sora.aitravel.service.impl.AiTripGenerationSessionServiceImpl;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,35 +26,32 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
+public class AiTripDayGenerateOrchestrator {
 
     private static final TypeReference<List<DaySkeleton>> DAY_SKELETON_LIST =
             new TypeReference<>() {};
 
-    private final AiTripGenerationSessionService sessionService;
-    private final AiTripDayGenerationService dayGenerationService;
+    private final AiTripGenerationSessionServiceImpl sessionService;
+    private final AiTripDayGenerationServiceImpl dayGenerationService;
     private final TripDayGenerateWorkflow tripDayGenerateWorkflow;
-    private final ObjectMapper objectMapper;
+    private final JsonCodec jsonCodec;
 
     /**
      * 生成指定日期的行程计划。
      *
-     * <p>整体流程：幂等检查 → 创建/复用生成记录 → 执行工作流节点 → 持久化结果。
-     * 支持强制重新生成（forceRegenerate=true）和异步复用（ASYNC模式）两种策略。</p>
+     * <p>整体流程：幂等检查 → 创建/复用生成记录 → 执行工作流节点 → 持久化结果。 支持强制重新生成（forceRegenerate=true）和异步复用（ASYNC模式）两种策略。
      *
-     * @param sessionId       生成会话ID
-     * @param dayNo           第几天（从1开始）
-     * @param requestMode     请求模式，如 "SYNC"（同步）、"ASYNC"（异步）
+     * @param sessionId 生成会话ID
+     * @param dayNo 第几天（从1开始）
+     * @param requestMode 请求模式，如 "SYNC"（同步）、"ASYNC"（异步）
      * @param forceRegenerate 是否强制重新生成，忽略已有结果
      * @return 生成记录（包含状态和结果JSON）
      */
-    @Override
     public AiTripDayGeneration generateDay(
             String sessionId, Integer dayNo, String requestMode, boolean forceRegenerate) {
         return generateDay(sessionId, dayNo, requestMode, forceRegenerate, null);
     }
 
-    @Override
     public AiTripDayGeneration generateDay(
             String sessionId,
             Integer dayNo,
@@ -102,21 +102,23 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         long start = WorkflowTiming.start();
         try {
             timed("day-mark-generating", () -> dayGenerationService.markGenerating(day.getId()));
-            // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
-            GenerateWorkflowContext context = timed("restore-context", () -> restoreContext(session, dayNo));
-            context.setRevisionText(normalizeRevisionText(revisionText));
-            context.setTargetDayNo(dayNo);
-            GenerateWorkflowContext workflowInput = context;
-            context = timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(workflowInput));
-            TripPlanDTO.DailyPlan generatedPlan = currentGeneratedPlan(context, dayNo);
+            DayGenerateInput input = timed("restore-input", () -> restoreInput(session, dayNo));
+            input.setRevisionText(normalizeRevisionText(revisionText));
+            DayGenerateResult result =
+                    timed(
+                            "trip-day-generate-workflow",
+                            () -> tripDayGenerateWorkflow.execute(input));
+            TripPlanDTO.DailyPlan generatedPlan = result.getDailyPlan();
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
             timed(
                     "day-mark-generated",
                     () ->
                             dayGenerationService.markGenerated(
-                                    day.getId(), writeJson(generatedPlan)));
+                                    day.getId(), jsonCodec.write(generatedPlan, "单日生成数据序列化失败")));
             AiTripDayGeneration generated =
-                    timed("day-load-generated", () -> dayGenerationService.getLatest(sessionId, dayNo));
+                    timed(
+                            "day-load-generated",
+                            () -> dayGenerationService.getLatest(sessionId, dayNo));
             log.info(
                     "行程生成总耗时 workflow=generate-day sessionId={} day={} elapsedMs={}",
                     sessionId,
@@ -143,26 +145,6 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return text.length() > 500 ? text.substring(0, 500) : text;
     }
 
-    private TripPlanDTO.DailyPlan currentGeneratedPlan(GenerateWorkflowContext context, Integer dayNo) {
-        if (context.getLockedDailyPlans() == null || context.getLockedDailyPlans().isEmpty()) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成结果为空，day=" + dayNo);
-        }
-        return context.getLockedDailyPlans().stream()
-                .filter(plan -> dayNo.equals(plan.getDay()))
-                .findFirst()
-                .orElseGet(() -> {
-                    if (context.getLockedDailyPlans().size() == 1) {
-                        return context.getLockedDailyPlans().get(0);
-                    }
-                    throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "未找到当前天行程结果，day=" + dayNo);
-                });
-    }
-
-    /**
-     * 获取已准备好的生成会话。
-     * @param sessionId
-     * @return
-     */
     private AiTripGenerationSession requirePreparedSession(String sessionId) {
         AiTripGenerationSession session = sessionService.getBySessionId(sessionId);
         if (session == null) {
@@ -174,29 +156,30 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return session;
     }
 
-    /**
-     * 恢复生成工作流上下文。
-     * @param session
-     * @param dayNo
-     * @return
-     */
-    private GenerateWorkflowContext restoreContext(AiTripGenerationSession session, Integer dayNo) {
-        return GenerateWorkflowContext.builder()
-                .userId(session.getUserId())
-                .requirement(read(session.getRequirementJson(), TravelRequirementDTO.class))
-                .selectedQuote(readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class))
-                .rentalTripContext(readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class))
-                .daySkeletons(read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST))
-                .cityProfile(read(session.getCityProfileJson(), CityProfile.class))
-                .weatherForecast(session.getWeatherJson())
-                .hotelSearchResult(session.getHotelJson())
-                .lockedDailyPlans(readGeneratedPreviousDays(session.getSessionId(), dayNo))
-                .singleDayGeneration(true)
-                .build();
+    /** 恢复生成工作流输入。 */
+    private DayGenerateInput restoreInput(AiTripGenerationSession session, Integer dayNo) {
+        return new DayGenerateInput(
+                session.getUserId(),
+                jsonCodec.read(
+                        session.getRequirementJson(), TravelRequirementDTO.class, "生成会话数据解析失败"),
+                jsonCodec.readNullable(
+                        session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class, "生成会话数据解析失败"),
+                jsonCodec.readNullable(
+                        session.getRentalTripContextJson(),
+                        RentalTripContextDTO.class,
+                        "生成会话数据解析失败"),
+                jsonCodec.read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST, "生成会话数据解析失败"),
+                jsonCodec.read(session.getCityProfileJson(), CityProfile.class, "生成会话数据解析失败"),
+                session.getWeatherJson(),
+                session.getHotelJson(),
+                readGeneratedPreviousDays(session.getSessionId(), dayNo),
+                dayNo,
+                null);
     }
 
     /**
      * 读取已生成的前一天行程数据。
+     *
      * @param sessionId
      * @param dayNo
      * @return
@@ -209,15 +192,12 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     /**
      * 读取已生成的单日行程数据。
+     *
      * @param day
      * @return
      */
     private TripPlanDTO.DailyPlan readGeneratedDay(AiTripDayGeneration day) {
-        try {
-            return objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
-        } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "已生成单日行程数据解析失败");
-        }
+        return jsonCodec.read(day.getResultJson(), TripPlanDTO.DailyPlan.class, "已生成单日行程数据解析失败");
     }
 
     private void timed(String node, Runnable action) {
@@ -226,55 +206,5 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     private <T> T timed(String node, java.util.function.Supplier<T> action) {
         return WorkflowTiming.call("generate-day", node, action);
-    }
-
-    /**
-     * 从JSON字符串读取数据。
-     * @param json
-     * @param type
-     * @param <T>
-     * @return
-     */
-    private <T> T read(String json, Class<T> type) {
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "生成会话数据解析失败");
-        }
-    }
-
-    private <T> T readNullable(String json, Class<T> type) {
-        if (json == null || json.isBlank() || "null".equals(json)) {
-            return null;
-        }
-        return read(json, type);
-    }
-
-    /**
-     * 从JSON字符串读取数据。
-     * @param json
-     * @param type
-     * @param <T>
-     * @return
-     */
-    private <T> T read(String json, TypeReference<T> type) {
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "生成会话数据解析失败");
-        }
-    }
-
-    /**
-     * 将数据写入JSON字符串。
-     * @param value
-     * @return
-     */
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日生成数据序列化失败");
-        }
     }
 }

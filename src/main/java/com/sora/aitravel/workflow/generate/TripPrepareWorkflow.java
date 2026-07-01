@@ -1,21 +1,26 @@
 package com.sora.aitravel.workflow.generate;
 
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CANDIDATE_POOL;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
-import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.DAY_SKELETONS;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.SELECTED_QUOTE;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.WEATHER_FORECAST;
 
-import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
-import com.sora.aitravel.workflow.generate.state.TripGraphStateStrategies;
+import com.sora.aitravel.dto.workflow.generate.TripPrepareInput;
+import com.sora.aitravel.dto.workflow.generate.TripPrepareResult;
+import com.sora.aitravel.model.CityProfile;
+import com.sora.aitravel.model.DaySkeleton;
 import jakarta.annotation.PostConstruct;
-import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -26,18 +31,10 @@ import org.springframework.stereotype.Component;
 public class TripPrepareWorkflow {
     private static final String WORKFLOW_NAME = "trip-prepare-workflow";
 
-    private final RequirementValidateNode requirementValidateNode;
-    private final RequirementLoadNode requirementLoadNode;
-    private final RouteScopeResolveNode routeScopeResolveNode;
-    private final CityDataProfileNode cityDataProfileNode;
-    private final CandidatePoolBuildNode candidatePoolBuildNode;
-    private final AiMacroRoutePlanNode aiMacroRoutePlanNode;
-    private final AmapMacroRouteFactNode amapMacroRouteFactNode;
-    private final AiRouteCriticNode aiRouteCriticNode;
-    private final MacroRouteContractValidateNode macroRouteContractValidateNode;
-    private final WeatherFetchNode weatherFetchNode;
-    private final HotelFetchNode hotelFetchNode;
-    private final DayStateInitNode dayStateInitNode;
+    private final DestinationPrepareNode destinationPrepareNode;
+    private final MacroRoutePrepareNode macroRoutePrepareNode;
+    private final ExternalContextPrepareNode externalContextPrepareNode;
+    private final PrepareFinalizeNode prepareFinalizeNode;
 
     private CompiledGraph graph;
 
@@ -46,70 +43,59 @@ public class TripPrepareWorkflow {
         this.graph = compile();
     }
 
-    public GenerateWorkflowContext execute(GenerateWorkflowContext context) {
-        return graph.invoke(TripGraphContextAdapter.toState(context))
-                .map(TripGraphContextAdapter::fromState)
-                .orElse(context);
+    public TripPrepareResult execute(TripPrepareInput input) {
+        Map<String, Object> initialState =
+                TripGraphStateCodec.patch(
+                        REQUIREMENT, input.getRequirement(),
+                        SELECTED_QUOTE, input.getSelectedQuote(),
+                        RENTAL_TRIP_CONTEXT, input.getRentalTripContext());
+        OverAllState finalState =
+                graph.invoke(initialState)
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                ErrorCode.AI_GENERATE_ERROR, "行程准备工作流执行失败"));
+        return new TripPrepareResult(
+                TripGraphStateCodec.required(finalState, REQUIREMENT, TravelRequirementDTO.class),
+                TripGraphStateCodec.optionalList(finalState, DAY_SKELETONS, DaySkeleton.class),
+                TripGraphStateCodec.optional(finalState, CITY_PROFILE, CityProfile.class)
+                        .orElse(null),
+                TripGraphStateCodec.optional(finalState, WEATHER_FORECAST, String.class)
+                        .orElse(null),
+                TripGraphStateCodec.optional(finalState, HOTEL_SEARCH_RESULT, String.class)
+                        .orElse(null));
     }
 
     private CompiledGraph compile() {
         try {
-            StateGraph stateGraph =
-                    new StateGraph(
-                            WORKFLOW_NAME,
-                            TripGraphStateStrategies.build());
+            StateGraph stateGraph = new StateGraph(WORKFLOW_NAME, TripGraphStateStrategies.build());
 
-            stateGraph.addNode("requirement-validate", stateNode("requirement-validate", requirementValidateNode::execute));
-            stateGraph.addNode("requirement-load", stateNode("requirement-load", requirementLoadNode::execute));
-            stateGraph.addNode("route-scope-resolve", stateNode("route-scope-resolve", routeScopeResolveNode::execute));
-            stateGraph.addNode("city-data-profile", stateNode("city-data-profile", cityDataProfileNode::execute));
-            stateGraph.addNode("candidate-pool-build", stateNode("candidate-pool-build", candidatePoolBuildNode::execute));
-            stateGraph.addNode("ai-macro-route-plan", stateNode("ai-macro-route-plan", aiMacroRoutePlanNode::execute));
-            stateGraph.addNode("amap-macro-route-fact", stateNode("amap-macro-route-fact", amapMacroRouteFactNode::execute));
-            stateGraph.addNode("ai-route-critic", stateNode("ai-route-critic", aiRouteCriticNode::execute));
             stateGraph.addNode(
-                    "macro-route-contract-validate",
-                    stateNode("macro-route-contract-validate", macroRouteContractValidateNode::execute));
-            stateGraph.addNode("prepared-context-validate", stateNode("prepared-context-validate", this::validatePreparedState));
-            stateGraph.addNode("weather-fetch", stateNode("weather-fetch", weatherFetchNode::execute));
-            stateGraph.addNode("hotel-fetch", stateNode("hotel-fetch", hotelFetchNode::execute));
-            stateGraph.addNode("day-state-init", stateNode("day-state-init", dayStateInitNode::execute));
+                    "destination-prepare",
+                    stateNode("destination-prepare", destinationPrepareNode::execute));
+            stateGraph.addNode(
+                    "macro-route-prepare",
+                    stateNode("macro-route-prepare", macroRoutePrepareNode::execute));
+            stateGraph.addNode(
+                    "external-context-prepare",
+                    stateNode("external-context-prepare", externalContextPrepareNode::execute));
+            stateGraph.addNode(
+                    "prepare-finalize",
+                    stateNode("prepare-finalize", prepareFinalizeNode::execute));
 
-            stateGraph.addEdge(StateGraph.START, "requirement-validate");
-            stateGraph.addEdge("requirement-validate", "requirement-load");
-            stateGraph.addEdge("requirement-load", "route-scope-resolve");
-            stateGraph.addEdge("route-scope-resolve", "city-data-profile");
-            stateGraph.addEdge("city-data-profile", "candidate-pool-build");
-            stateGraph.addEdge("candidate-pool-build", "ai-macro-route-plan");
-            stateGraph.addEdge("ai-macro-route-plan", "amap-macro-route-fact");
-            stateGraph.addEdge("amap-macro-route-fact", "ai-route-critic");
-            stateGraph.addEdge("ai-route-critic", "macro-route-contract-validate");
-            stateGraph.addEdge("macro-route-contract-validate", "prepared-context-validate");
-            stateGraph.addEdge("prepared-context-validate", "weather-fetch");
-            stateGraph.addEdge("weather-fetch", "hotel-fetch");
-            stateGraph.addEdge("hotel-fetch", "day-state-init");
-            stateGraph.addEdge("day-state-init", StateGraph.END);
+            stateGraph.addEdge(StateGraph.START, "destination-prepare");
+            stateGraph.addEdge("destination-prepare", "macro-route-prepare");
+            stateGraph.addEdge("macro-route-prepare", "external-context-prepare");
+            stateGraph.addEdge("external-context-prepare", "prepare-finalize");
+            stateGraph.addEdge("prepare-finalize", StateGraph.END);
             return stateGraph.compile();
         } catch (GraphStateException exception) {
             throw new IllegalStateException("Failed to compile trip prepare graph", exception);
         }
     }
 
-    private AsyncNodeAction stateNode(String nodeName, TripGraphNodeActions.StateNodeExecutor executor) {
+    private AsyncNodeAction stateNode(
+            String nodeName, TripGraphNodeActions.StateNodeExecutor executor) {
         return TripGraphNodeActions.stateNode(WORKFLOW_NAME, nodeName, executor::execute);
-    }
-
-    private Map<String, Object> validatePreparedState(OverAllState state) {
-        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
-        List<DaySkeleton> daySkeletons = TripGraphStateCodec.optionalList(state, DAY_SKELETONS, DaySkeleton.class);
-        CandidatePool candidatePool = TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class);
-        int days = requirement.getDays();
-        if (daySkeletons == null || daySkeletons.size() != days) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程骨架数量与天数不一致");
-        }
-        if (candidatePool.getScenicCandidates() == null || candidatePool.getScenicCandidates().isEmpty()) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "目的地景点候选为空");
-        }
-        return Map.of();
     }
 }

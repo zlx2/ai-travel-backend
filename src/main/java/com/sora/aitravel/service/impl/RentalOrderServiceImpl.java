@@ -41,6 +41,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     @Override
     @Transactional
     public Long create(Long userId, RentalOrderCreateRequest request) {
+        validateCreateRequest(userId, request);
         RentalQuoteOptionDTO quote =
                 rentalQuoteService.recalculate(
                         request.getRequirement(), request.getSelectedQuote());
@@ -57,6 +58,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
 
     @Override
     public void pay(Long userId, Long id, RentalOrderPayRequest request) {
+        validatePayRequest(userId, id);
         RentalOrder order = mustGetOwnedOrder(userId, id);
         if (!"pending".equals(order.getOrderStatus())) {
             throw new BusinessException(ErrorCode.CONFLICT, "只有待支付订单可以支付");
@@ -71,6 +73,32 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         order.setPaymentStatus("paid");
         order.setOrderStatus("confirmed");
         rentalOrderMapper.updateById(order);
+    }
+
+    private void validateCreateRequest(Long userId, RentalOrderCreateRequest request) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "租车订单请求不能为空");
+        }
+        if (request.getRequirement() == null
+                || request.getTripPlan() == null
+                || request.getSelectedQuote() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "下单必须包含行程需求、行程方案和已选报价");
+        }
+        if (request.getRequirement().getDays() == null || request.getRequirement().getDays() < 1) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数不合法");
+        }
+    }
+
+    private void validatePayRequest(Long userId, Long id) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        if (id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单 ID 不合法");
+        }
     }
 
     @Override
@@ -169,7 +197,8 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .rentalDepositCent(fee.getRentalDepositCent())
                 .violationDepositCent(fee.getViolationDepositCent())
                 .depositFreeThresholdScore(fee.getDepositFreeThresholdScore())
-                .totalPriceCent(value(fee.getTotalPriceCent()) + value(request.getProtectionFeeCent()))
+                .totalPriceCent(
+                        value(fee.getTotalPriceCent()) + value(request.getProtectionFeeCent()))
                 .priceTemplateId(quote.getPriceTemplateId())
                 .priceSnapshot(toJson(quote.getPriceSnapshot()))
                 .contactName(request.getContactName())

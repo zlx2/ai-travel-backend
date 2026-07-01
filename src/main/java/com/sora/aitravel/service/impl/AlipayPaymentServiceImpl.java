@@ -94,7 +94,8 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
             return false;
         }
         if (!amountMatches(order, params.get("total_amount"))) {
-            log.warn("支付宝异步通知金额不匹配，orderNo={}, totalAmount={}", orderNo, params.get("total_amount"));
+            log.warn(
+                    "支付宝异步通知金额不匹配，orderNo={}, totalAmount={}", orderNo, params.get("total_amount"));
             return false;
         }
         if ("paid".equals(order.getPaymentStatus())) {
@@ -133,7 +134,11 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
 
     private boolean amountMatches(RentalOrder order, String totalAmount) {
         try {
-            return yuan(order.getTotalPriceCent()).equals(new BigDecimal(totalAmount).setScale(2, RoundingMode.HALF_UP).toPlainString());
+            return yuan(order.getTotalPriceCent())
+                    .equals(
+                            new BigDecimal(totalAmount)
+                                    .setScale(2, RoundingMode.HALF_UP)
+                                    .toPlainString());
         } catch (Exception e) {
             return false;
         }
@@ -147,15 +152,15 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
 
     private void ensureConfigured() {
         if (!Boolean.TRUE.equals(properties.getEnabled())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "支付宝沙箱支付未启用：请设置 ALIPAY_ENABLED=true");
+            throw new BusinessException(
+                    ErrorCode.PARAM_ERROR, "支付宝沙箱支付未启用：请设置 ALIPAY_ENABLED=true");
         }
         if (isBlank(properties.getAppId())
                 || isBlank(properties.getAppPrivateKey())
                 || isBlank(properties.getAlipayPublicKey())
                 || isBlank(properties.getNotifyUrl())) {
             throw new BusinessException(
-                    ErrorCode.PARAM_ERROR,
-                    "支付宝沙箱配置不完整：需要 APP_ID、应用私钥、支付宝公钥和 notifyUrl");
+                    ErrorCode.PARAM_ERROR, "支付宝沙箱配置不完整：需要 APP_ID、应用私钥、支付宝公钥和 notifyUrl");
         }
     }
 

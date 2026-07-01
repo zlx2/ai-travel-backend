@@ -1,9 +1,10 @@
 package com.sora.aitravel.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.result.*;
+import com.sora.aitravel.common.utils.JsonCodec;
 import com.sora.aitravel.common.utils.LoginUserUtils;
+import com.sora.aitravel.config.RabbitMqConfig;
 import com.sora.aitravel.dto.message.TripDayGenerateMessage;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
@@ -14,23 +15,21 @@ import com.sora.aitravel.dto.request.*;
 import com.sora.aitravel.dto.response.*;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
-import com.sora.aitravel.service.AiTripDayGenerateService;
-import com.sora.aitravel.service.AiTripDayGenerationService;
-import com.sora.aitravel.service.AiTripGenerationOrchestrator;
-import com.sora.aitravel.service.AiTripGenerationSessionService;
-import com.sora.aitravel.service.TripDayGenerateMessageProducer;
+import com.sora.aitravel.service.impl.AiTripDayGenerationServiceImpl;
+import com.sora.aitravel.service.impl.AiTripGenerationOrchestratorImpl;
+import com.sora.aitravel.service.impl.AiTripGenerationSessionServiceImpl;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
-import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
+import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -52,13 +51,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AiTripController {
 
     private final TripAnalyzeWorkflow tripAnalyzeWorkflow;
-    private final AiTripGenerationOrchestrator aiTripGenerationOrchestrator;
-    private final AiTripDayGenerateService aiTripDayGenerateService;
-    private final AiTripDayGenerationService aiTripDayGenerationService;
-    private final AiTripGenerationSessionService aiTripGenerationSessionService;
-    private final TripDayGenerateMessageProducer tripDayGenerateMessageProducer;
+    private final AiTripGenerationOrchestratorImpl aiTripGenerationOrchestrator;
+    private final AiTripDayGenerateOrchestrator aiTripDayGenerateService;
+    private final AiTripDayGenerationServiceImpl aiTripDayGenerationService;
+    private final AiTripGenerationSessionServiceImpl aiTripGenerationSessionService;
+    private final RabbitTemplate rabbitTemplate;
     private final TripTimelineAssembler tripTimelineAssembler;
-    private final ObjectMapper objectMapper;
+    private final JsonCodec jsonCodec;
 
     /**
      * AI 分析用户旅行需求（需登录）。
@@ -133,8 +132,10 @@ public class AiTripController {
                 return;
             }
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(
-                            session.getRequirementJson(), TravelRequirementDTO.class);
+                    jsonCodec.read(
+                            session.getRequirementJson(),
+                            TravelRequirementDTO.class,
+                            "预取下一日行程时需求数据解析失败");
             int nextDay = dayNo + 1;
             if (requirement.getDays() == null || nextDay > requirement.getDays()) {
                 return;
@@ -145,7 +146,7 @@ public class AiTripController {
             if (!"QUEUED".equals(queuedDay.getStatus())) {
                 return;
             }
-            tripDayGenerateMessageProducer.send(
+            publishTripDayGenerateMessage(
                     new TripDayGenerateMessage(
                             sessionId,
                             session.getUserId(),
@@ -206,10 +207,13 @@ public class AiTripController {
             RentalQuoteOptionDTO selectedQuote) {
         try {
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(
-                            session.getRequirementJson(), TravelRequirementDTO.class);
+                    jsonCodec.read(
+                            session.getRequirementJson(),
+                            TravelRequirementDTO.class,
+                            "组装生成响应时需求数据解析失败");
             TripPlanDTO.DailyPlan dailyPlan =
-                    objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+                    jsonCodec.read(
+                            day.getResultJson(), TripPlanDTO.DailyPlan.class, "组装生成响应时单日行程数据解析失败");
             assembleTimelineIfMissing(session, requirement, dailyPlan, selectedQuote);
             TripPlanDTO tripPlan =
                     new TripPlanDTO(
@@ -250,17 +254,30 @@ public class AiTripController {
                 return day.getResultJson();
             }
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+                    jsonCodec.read(
+                            session.getRequirementJson(),
+                            TravelRequirementDTO.class,
+                            "单日旧结果补 timeline 时需求数据解析失败");
             TripPlanDTO.DailyPlan dailyPlan =
-                    objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+                    jsonCodec.read(
+                            day.getResultJson(),
+                            TripPlanDTO.DailyPlan.class,
+                            "单日旧结果补 timeline 时单日行程数据解析失败");
             assembleTimelineIfMissing(
                     session,
                     requirement,
                     dailyPlan,
-                    readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class));
-            return objectMapper.writeValueAsString(dailyPlan);
+                    jsonCodec.readNullable(
+                            session.getSelectedQuoteJson(),
+                            RentalQuoteOptionDTO.class,
+                            "生成会话上下文解析失败"));
+            return jsonCodec.write(dailyPlan, "单日旧结果补 timeline 失败");
         } catch (Exception exception) {
-            log.warn("单日旧结果补 timeline 失败，sessionId={}, dayNo={}", sessionId, day.getDayNo(), exception);
+            log.warn(
+                    "单日旧结果补 timeline 失败，sessionId={}, dayNo={}",
+                    sessionId,
+                    day.getDayNo(),
+                    exception);
             return day.getResultJson();
         }
     }
@@ -273,18 +290,22 @@ public class AiTripController {
         if (dailyPlan.getTimeline() != null && !dailyPlan.getTimeline().isEmpty()) {
             return;
         }
-        GenerateWorkflowContext context =
-                GenerateWorkflowContext.builder()
-                        .userId(session.getUserId())
-                        .requirement(requirement)
-                        .selectedQuote(selectedQuote)
-                        .rentalTripContext(
-                                readNullable(
-                                        session.getRentalTripContextJson(), RentalTripContextDTO.class))
-                        .lockedDailyPlans(List.of(dailyPlan))
-                        .singleDayGeneration(true)
-                        .build();
-        tripTimelineAssembler.assemble(List.of(), context.getLockedDailyPlans(), context);
+        RentalTripContextDTO rentalTripContext =
+                jsonCodec.readNullable(
+                        session.getRentalTripContextJson(),
+                        RentalTripContextDTO.class,
+                        "生成会话上下文解析失败");
+        tripTimelineAssembler.assemble(
+                List.<TripPlanDTO.DailyPlan>of(),
+                List.of(dailyPlan),
+                new TripTimelineAssembler.TimelineInput(
+                        List.of(),
+                        List.of(dailyPlan),
+                        requirement,
+                        selectedQuote,
+                        rentalTripContext,
+                        List.of(),
+                        List.of()));
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(
@@ -337,17 +358,6 @@ public class AiTripController {
         return value == null ? 0 : value;
     }
 
-    private <T> T readNullable(String json, Class<T> type) {
-        if (json == null || json.isBlank() || "null".equals(json)) {
-            return null;
-        }
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (Exception exception) {
-            throw new IllegalStateException("生成会话上下文解析失败", exception);
-        }
-    }
-
     private String displayDestination(TravelRequirementDTO requirement) {
         if (requirement.getDestination() != null && !requirement.getDestination().isBlank()) {
             return requirement.getDestination();
@@ -382,28 +392,15 @@ public class AiTripController {
         }
     }
 
-    private String progressLabel(String node) {
-        return Map.ofEntries(
-                        Map.entry("requirement-validate", "正在校验旅行需求"),
-                        Map.entry("requirement-load", "正在读取目的地和人数信息"),
-                        Map.entry("city-data-profile", "正在整理城市景点资料"),
-                        Map.entry("candidate-pool-build", "正在整理路线候选区域"),
-                        Map.entry("ai-macro-route-plan", "正在规划多日路线方向"),
-                        Map.entry("amap-macro-route-fact", "正在核算路线距离和耗时"),
-                        Map.entry("ai-route-critic", "正在检查路线是否顺路"),
-                        Map.entry("macro-route-contract-validate", "正在锁定每日出发和住宿区域"),
-                        Map.entry("weather-fetch", "正在查询目的地天气"),
-                        Map.entry("hotel-fetch", "正在准备住宿参考"),
-                        Map.entry("day-state-init", "正在初始化每日行程状态"),
-                        Map.entry("day-context-build", "正在拆分每日游览区域"),
-                        Map.entry("day-query-plan", "正在规划景点查询关键词"),
-                        Map.entry("food-recommend", "正在匹配餐饮建议"),
-                        Map.entry("day-data-fetch", "正在查询景点与路线数据"),
-                        Map.entry("day-data-rank", "正在筛选更顺路的景点"),
-                        Map.entry("day-plan-generate", "正在生成每日行程和推荐理由"),
-                        Map.entry("day-plan-validate", "正在校验路线强度"),
-                        Map.entry("trip-summary", "正在整理行程摘要"),
-                        Map.entry("result-merge", "正在合并最终行程"))
-                .getOrDefault(node, "正在生成行程");
+    private void publishTripDayGenerateMessage(TripDayGenerateMessage message) {
+        rabbitTemplate.convertAndSend(
+                RabbitMqConfig.TRIP_DAY_GENERATE_EXCHANGE,
+                RabbitMqConfig.TRIP_DAY_GENERATE_ROUTING_KEY,
+                message);
+        log.info(
+                "已投递单日行程生成消息，sessionId={}, dayNo={}, mode={}",
+                message.sessionId(),
+                message.dayNo(),
+                message.requestMode());
     }
 }
