@@ -40,8 +40,7 @@ public class TripPrepareWorkflow {
     private final AmapMacroRouteFactNode amapMacroRouteFactNode;
     private final AiRouteCriticNode aiRouteCriticNode;
     private final MacroRouteContractValidateNode macroRouteContractValidateNode;
-    private final WeatherFetchNode weatherFetchNode;
-    private final HotelFetchNode hotelFetchNode;
+    private final ExternalContextPrepareNode externalContextPrepareNode;
     private final DayStateInitNode dayStateInitNode;
 
     private CompiledGraph graph;
@@ -101,8 +100,8 @@ public class TripPrepareWorkflow {
                     "prepared-context-validate",
                     stateNode("prepared-context-validate", this::validatePreparedState));
             stateGraph.addNode(
-                    "weather-fetch", stateNode("weather-fetch", weatherFetchNode::execute));
-            stateGraph.addNode("hotel-fetch", stateNode("hotel-fetch", hotelFetchNode::execute));
+                    "external-context-prepare",
+                    stateNode("external-context-prepare", externalContextPrepareNode::execute));
             stateGraph.addNode(
                     "day-state-init", stateNode("day-state-init", dayStateInitNode::execute));
 
@@ -113,9 +112,8 @@ public class TripPrepareWorkflow {
             stateGraph.addEdge("amap-macro-route-fact", "ai-route-critic");
             stateGraph.addEdge("ai-route-critic", "macro-route-contract-validate");
             stateGraph.addEdge("macro-route-contract-validate", "prepared-context-validate");
-            stateGraph.addEdge("prepared-context-validate", "weather-fetch");
-            stateGraph.addEdge("weather-fetch", "hotel-fetch");
-            stateGraph.addEdge("hotel-fetch", "day-state-init");
+            stateGraph.addEdge("prepared-context-validate", "external-context-prepare");
+            stateGraph.addEdge("external-context-prepare", "day-state-init");
             stateGraph.addEdge("day-state-init", StateGraph.END);
             return stateGraph.compile();
         } catch (GraphStateException exception) {
