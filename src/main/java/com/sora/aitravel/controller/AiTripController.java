@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.result.*;
 import com.sora.aitravel.common.utils.LoginUserUtils;
+import com.sora.aitravel.config.RabbitMqConfig;
 import com.sora.aitravel.dto.message.TripDayGenerateMessage;
 import com.sora.aitravel.dto.model.RecommendationContextDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
@@ -18,7 +19,6 @@ import com.sora.aitravel.service.AiTripDayGenerateService;
 import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationOrchestrator;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
-import com.sora.aitravel.service.TripDayGenerateMessageProducer;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -55,7 +56,7 @@ public class AiTripController {
     private final AiTripDayGenerateService aiTripDayGenerateService;
     private final AiTripDayGenerationService aiTripDayGenerationService;
     private final AiTripGenerationSessionService aiTripGenerationSessionService;
-    private final TripDayGenerateMessageProducer tripDayGenerateMessageProducer;
+    private final RabbitTemplate rabbitTemplate;
     private final TripTimelineAssembler tripTimelineAssembler;
     private final ObjectMapper objectMapper;
 
@@ -144,7 +145,7 @@ public class AiTripController {
             if (!"QUEUED".equals(queuedDay.getStatus())) {
                 return;
             }
-            tripDayGenerateMessageProducer.send(
+            publishTripDayGenerateMessage(
                     new TripDayGenerateMessage(
                             sessionId,
                             session.getUserId(),
@@ -407,5 +408,17 @@ public class AiTripController {
                         Map.entry("trip-summary", "正在整理行程摘要"),
                         Map.entry("result-merge", "正在合并最终行程"))
                 .getOrDefault(node, "正在生成行程");
+    }
+
+    private void publishTripDayGenerateMessage(TripDayGenerateMessage message) {
+        rabbitTemplate.convertAndSend(
+                RabbitMqConfig.TRIP_DAY_GENERATE_EXCHANGE,
+                RabbitMqConfig.TRIP_DAY_GENERATE_ROUTING_KEY,
+                message);
+        log.info(
+                "已投递单日行程生成消息，sessionId={}, dayNo={}, mode={}",
+                message.sessionId(),
+                message.dayNo(),
+                message.requestMode());
     }
 }
