@@ -30,7 +30,8 @@ class RentalContextPreviewWorkflowTest {
 
         TravelRequirementDTO requirement = new TravelRequirementDTO();
         requirement.setDeparture("上海");
-        requirement.setDestination("杭州");
+        requirement.setDestination("杭州和千岛湖");
+        requirement.setRouteCities(List.of("杭州", "千岛湖"));
         requirement.setDays(3);
         requirement.setPeopleCount(2);
         requirement.setPreferences(List.of("自然风光", "周边游"));
@@ -48,8 +49,17 @@ class RentalContextPreviewWorkflowTest {
         assertThat(response.getMatchedStore().getDisplayName()).isEqualTo("PlanGo 杭州萧山机场服务点");
         assertThat(response.getPickupPlan().getMode()).isEqualTo("DELIVERY_PICKUP");
         assertThat(response.getPickupPlan().getDisplayText()).contains("送车接人");
+        assertThat(response.getRentalTripContext()).isNotNull();
+        assertThat(response.getRentalTripContext().getArrivalPoint().getName())
+                .isEqualTo("杭州萧山国际机场");
+        assertThat(response.getRentalTripContext().getMatchedStore().getDisplayName())
+                .isEqualTo("PlanGo 杭州萧山机场服务点");
+        assertThat(response.getRentalTripContext().getPickupPlan().getMode())
+                .isEqualTo("DELIVERY_PICKUP");
         assertThat(response.getQuoteOptions()).hasSize(3);
         assertThat(response.getRequirement().getTransportMode()).isEqualTo("RENTAL_CAR");
+        assertThat(response.getRequirement().getRentalRequirement().getRentalStartCity()).isEqualTo("杭州");
+        assertThat(response.getRequirement().getRentalRequirement().getPickupCity()).isEqualTo("杭州");
         assertThat(response.getRequirement().getRentalRequirement().getNeedRental()).isTrue();
         assertThat(response.getRequirement().getRentalRequirement().getDeliveryRequired()).isTrue();
         assertThat(response.getRequirement().getRentalRequirement().getDeliveryAddress())
@@ -90,6 +100,7 @@ class RentalContextPreviewWorkflowTest {
         @Override
         public RentalQuotePreviewResponse preview(TravelRequirementDTO requirement) {
             assertThat(requirement.getRentalRequirement().getNeedRental()).isTrue();
+            assertThat(requirement.getRentalRequirement().getRentalStartCity()).isEqualTo("杭州");
             assertThat(requirement.getRouteMode()).isEqualTo("LANDING_RENTAL_TRIP");
             return RentalQuotePreviewResponse.builder()
                     .routeMode(requirement.getRouteMode())

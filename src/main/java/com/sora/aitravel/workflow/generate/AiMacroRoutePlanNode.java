@@ -16,6 +16,7 @@ import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -127,11 +128,64 @@ public class AiMacroRoutePlanNode {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少可用于路线骨架的景点区域候选");
         }
         List<MacroRoutePlan> plans = new ArrayList<>();
-        plans.add(rulePlan("plan_a", "LOOP", days, scenicAnchors, stayAnchors, pool, selectedQuote, 0));
+        String routeShape = routeShape(requirement, selectedQuote);
+        List<AreaAnchorCandidate> ordered = orderScenicAnchors(routeShape, days, scenicAnchors, pool);
+        plans.add(rulePlan("plan_a", routeShape, days, ordered, stayAnchors, pool, selectedQuote, 0));
         if (scenicAnchors.size() > 1) {
-            plans.add(rulePlan("plan_b", "LOOP", days, scenicAnchors, stayAnchors, pool, selectedQuote, 1));
+            plans.add(rulePlan("plan_b", routeShape, days, ordered, stayAnchors, pool, selectedQuote, 1));
         }
         return plans;
+    }
+
+    private String routeShape(TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
+        String text = (requirement.getRouteStructure() == null ? "" : requirement.getRouteStructure())
+                + " "
+                + (requirement.getRouteMode() == null ? "" : requirement.getRouteMode());
+        if (text.contains("不走回头") || text.contains("单向") || text.contains("一路") || text.contains("异地")) {
+            return "ONEWAY";
+        }
+        if (text.contains("固定住宿") || text.contains("不换酒店") || text.contains("基地")) {
+            return "BASE";
+        }
+        if (selectedQuote != null && Boolean.TRUE.equals(selectedQuote.getIsOneWay())) {
+            return "ONEWAY";
+        }
+        if (selectedQuote != null && selectedQuote.getReturnMode() != null
+                && (selectedQuote.getReturnMode().contains("异地") || selectedQuote.getReturnMode().contains("ONE"))) {
+            return "ONEWAY";
+        }
+        return "LOOP";
+    }
+
+    private List<AreaAnchorCandidate> orderScenicAnchors(
+            String routeShape, int days, List<AreaAnchorCandidate> scenicAnchors, CandidatePool pool) {
+        AreaAnchorCandidate origin = pool == null ? null : pool.getPickupAnchor();
+        List<AreaAnchorCandidate> sorted = scenicAnchors.stream()
+                .sorted(Comparator.comparingDouble(anchor -> distanceFrom(origin, anchor)))
+                .toList();
+        if (!"LOOP".equals(routeShape) || sorted.size() <= 2 || days <= 2) {
+            return sorted;
+        }
+        List<AreaAnchorCandidate> ordered = new ArrayList<>();
+        ordered.add(sorted.get(0));
+        ordered.add(sorted.get(sorted.size() - 1));
+        for (int index = 1; index < sorted.size() - 1; index++) {
+            ordered.add(sorted.get(index));
+        }
+        return ordered;
+    }
+
+    private double distanceFrom(AreaAnchorCandidate origin, AreaAnchorCandidate anchor) {
+        if (origin == null || anchor == null) {
+            return 0;
+        }
+        double[] from = parseLocation(origin.getLocation());
+        double[] to = parseLocation(anchor.getLocation());
+        if (from == null || to == null) {
+            return 0;
+        }
+        return com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.distanceKm(
+                from[0], from[1], to[0], to[1]);
     }
 
     private MacroRoutePlan rulePlan(

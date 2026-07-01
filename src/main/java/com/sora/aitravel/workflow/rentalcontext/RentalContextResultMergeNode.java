@@ -2,6 +2,7 @@ package com.sora.aitravel.workflow.rentalcontext;
 
 import com.sora.aitravel.dto.model.RentalPickupPlanDTO;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.response.RentalContextPreviewResponse;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +11,7 @@ public class RentalContextResultMergeNode {
 
     public void execute(RentalContextPreviewWorkflowContext context) {
         RentalStoreDTO store = context.getMatchedStore();
+        RentalPickupPlanDTO pickupPlan = buildPickupPlan(store);
         context.setResult(
                 RentalContextPreviewResponse.builder()
                         .rentalRecommended(context.getRentalRecommended())
@@ -17,9 +19,45 @@ public class RentalContextResultMergeNode {
                         .requirement(context.getRequirement())
                         .arrivalPoint(context.getArrivalPoint())
                         .matchedStore(store)
-                        .pickupPlan(buildPickupPlan(store))
+                        .pickupPlan(pickupPlan)
+                        .rentalTripContext(buildRentalTripContext(context, pickupPlan))
                         .quoteOptions(context.getQuoteOptions())
                         .build());
+    }
+
+    private RentalTripContextDTO buildRentalTripContext(
+            RentalContextPreviewWorkflowContext context, RentalPickupPlanDTO pickupPlan) {
+        return RentalTripContextDTO.builder()
+                .arrivalPoint(context.getArrivalPoint())
+                .matchedStore(context.getMatchedStore())
+                .pickupPlan(pickupPlan)
+                .arrivalMode(arrivalMode(context.getArrivalPoint() == null ? null : context.getArrivalPoint().getName()))
+                .arrivalTimeRange("到达后取车")
+                .routeStructure(
+                        context.getRequirement() == null
+                                        || context.getRequirement().getRouteStructure() == null
+                                ? "城市及周边自驾"
+                                : context.getRequirement().getRouteStructure())
+                .dailyDrivingLimit("近郊自驾（单日累计约2-4小时）")
+                .returnMode("同城还车")
+                .returnPoint(context.getArrivalPoint() == null ? null : context.getArrivalPoint().getName())
+                .build();
+    }
+
+    private String arrivalMode(String arrivalName) {
+        if (arrivalName == null || arrivalName.isBlank()) {
+            return "还不确定";
+        }
+        if (arrivalName.contains("机场")) {
+            return "机场到达";
+        }
+        if (arrivalName.contains("站")) {
+            return "高铁/火车站到达";
+        }
+        if (arrivalName.contains("酒店") || arrivalName.contains("宾馆") || arrivalName.contains("民宿")) {
+            return "酒店/住宿点出发";
+        }
+        return "指定地址交车";
     }
 
     private RentalPickupPlanDTO buildPickupPlan(RentalStoreDTO store) {

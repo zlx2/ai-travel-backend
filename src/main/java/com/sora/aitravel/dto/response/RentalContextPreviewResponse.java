@@ -4,6 +4,7 @@ import com.sora.aitravel.dto.model.RentalArrivalPointDTO;
 import com.sora.aitravel.dto.model.RentalPickupPlanDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -23,5 +24,6 @@ public class RentalContextPreviewResponse {
     private RentalArrivalPointDTO arrivalPoint;
     private RentalStoreDTO matchedStore;
     private RentalPickupPlanDTO pickupPlan;
+    private RentalTripContextDTO rentalTripContext;
     private List<RentalQuoteOptionDTO> quoteOptions;
 }

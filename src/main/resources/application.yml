@@ -13,7 +13,7 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      port: ${REDIS_PORT:52417}
       username: ${REDIS_USERNAME}
       password: ${REDIS_PASSWORD}
       database: ${REDIS_DATABASE:0}
@@ -84,10 +84,10 @@ app:
   cache:
     key-prefix: ${CACHE_KEY_PREFIX:plango:dev}
   redis-stack:
-    host: ${REDIS_STACK_HOST}
-    port: ${REDIS_STACK_PORT}
-    username: ${REDIS_STACK_USERNAME}
-    password: ${REDIS_STACK_PASSWORD}
+    host: ${REDIS_STACK_HOST:localhost}
+    port: ${REDIS_STACK_PORT:52417}
+    username: ${REDIS_STACK_USERNAME:}
+    password: ${REDIS_STACK_PASSWORD:}
     timeout: 3000ms
   cos:
     secret-id: ${COS_SECRET_ID}

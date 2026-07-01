@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class RouteShapeValidator {
     private static final int CITY_MAX_TOTAL_DISTANCE_METERS = 45_000;
-    private static final int RENTAL_MAX_TOTAL_DISTANCE_METERS = 160_000;
+    private static final int RENTAL_MAX_TOTAL_DISTANCE_METERS = 280_000;
     private static final int CITY_MAX_SINGLE_LEG_METERS = 22_000;
     private static final int RENTAL_MAX_SINGLE_LEG_METERS = 90_000;
     private static final double MAX_ROUTE_OVER_OPTIMAL_RATIO = 1.45;

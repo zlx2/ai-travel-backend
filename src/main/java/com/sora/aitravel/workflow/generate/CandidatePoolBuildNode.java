@@ -88,11 +88,14 @@ public class CandidatePoolBuildNode {
             if (candidate == null || candidate.getLocation() == null || candidate.getLocation().isBlank()) {
                 continue;
             }
-            String area = firstNonBlank(candidate.getArea(), candidate.getBusinessArea());
+            String area = firstNonBlank(candidate.getArea(), candidate.getBusinessArea(), candidate.getName());
             if (area == null || area.isBlank()) {
                 continue;
             }
-            String id = stableId("SCENIC_CLUSTER", area);
+            String id =
+                    stableId(
+                            "SCENIC_CLUSTER",
+                            firstNonBlank(candidate.getBusinessArea(), candidate.getArea(), candidate.getSourcePoiId(), candidate.getName()));
             anchors.putIfAbsent(
                     id,
                     new AreaAnchorCandidate(
@@ -100,7 +103,7 @@ public class CandidatePoolBuildNode {
                             area,
                             "SCENIC_CLUSTER",
                             candidate.getCity(),
-                            area,
+                            firstNonBlank(candidate.getArea(), candidate.getBusinessArea(), area),
                             candidate.getAddress(),
                             candidate.getLocation(),
                             candidate.getSource(),

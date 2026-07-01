@@ -28,7 +28,6 @@ public class ConflictCheckNode {
         checkDays(requirement, conflicts);
         checkPeopleCount(requirement, conflicts);
         checkBudget(requirement, conflicts);
-        checkPace(requirement, conflicts);
         checkTravelDate(requirement, conflicts);
         checkRoute(requirement, conflicts);
         checkRental(requirement, conflicts);
@@ -91,19 +90,6 @@ public class ConflictCheckNode {
         }
     }
 
-    private void checkPace(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
-        if (!"LIGHT".equals(requirement.getPace())
-                || requirement.getPreferences() == null
-                || requirement.getPreferences().size() < 5) {
-            return;
-        }
-        conflicts.add(
-                new ConflictDTO(
-                        "PACE_CONFLICT",
-                        "用户希望轻松旅行，但偏好数量较多，实际行程可能会偏赶。",
-                        "建议减少偏好主题，或把节奏调整为 NORMAL。"));
-    }
-
     private void checkTravelDate(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
         String travelDate = requirement.getTravelDate();
         if (travelDate == null || travelDate.isBlank()) {
@@ -127,15 +113,6 @@ public class ConflictCheckNode {
 
     private void checkRoute(TravelRequirementDTO requirement, List<ConflictDTO> conflicts) {
         List<String> routeCities = requirement.getRouteCities();
-        if ("SINGLE_CITY".equals(requirement.getRouteStructure())
-                && routeCities != null
-                && routeCities.size() > 1) {
-            conflicts.add(
-                    new ConflictDTO(
-                            "ROUTE_STRUCTURE_CONFLICT",
-                            "路线结构是单城市，但途经城市包含多个城市。",
-                            "请确认是只玩目标城市，还是改成多城市路线。"));
-        }
         if ("ROAD_TRIP".equals(requirement.getRouteMode())
                 && routeCities != null
                 && routeCities.isEmpty()
@@ -155,12 +132,12 @@ public class ConflictCheckNode {
                         || (requirement.getRentalRequirement() != null
                                 && Boolean.TRUE.equals(
                                         requirement.getRentalRequirement().getNeedRental()));
-        if (rentalRequired && "PUBLIC_TRANSIT".equals(requirement.getTransportMode())) {
+        if (rentalRequired && "NO_RENTAL".equals(requirement.getRentalIntent())) {
             conflicts.add(
                     new ConflictDTO(
-                            "RENTAL_TRANSPORT_CONFLICT",
-                            "用户选择了租车，但交通方式仍是公共交通。",
-                            "请确认本次是租车自驾，还是公共交通出行。"));
+                        "RENTAL_TRANSPORT_CONFLICT",
+                            "用户同时选择了租车和不租车。",
+                            "请确认本次是否进入租车行程。"));
         }
         if (requirement.getRentalRequirement() != null
                 && requirement.getRentalRequirement().getRentalDays() != null

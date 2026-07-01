@@ -332,12 +332,40 @@ public class CityDataProfileNode {
         if (candidate.getAddress() != null
                 && !candidate.getAddress().isBlank()
                 && destination != null
-                && !candidate.getAddress().contains(destination)
-                && candidate.getArea() != null
-                && !candidate.getArea().contains(destination)) {
+                && !matchesAnyDestinationPart(candidate, destination)) {
             return false;
         }
         return true;
+    }
+
+    private boolean matchesAnyDestinationPart(PoiCandidate candidate, String destination) {
+        for (String part : destinationParts(destination)) {
+            if (contains(candidate.getName(), part)
+                    || contains(candidate.getAddress(), part)
+                    || contains(candidate.getArea(), part)
+                    || contains(candidate.getCity(), part)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<String> destinationParts(String destination) {
+        if (destination == null || destination.isBlank()) {
+            return List.of();
+        }
+        List<String> parts = new ArrayList<>();
+        for (String raw : destination.trim().split("[、,，/|；;\\s]+|和|及|与|到|至|\\+")) {
+            String part = raw.replaceAll("(市|地区)$", "").trim();
+            if (!part.isBlank()) {
+                parts.add(part);
+            }
+        }
+        return parts.isEmpty() ? List.of(destination) : parts;
+    }
+
+    private boolean contains(String value, String part) {
+        return value != null && part != null && !part.isBlank() && value.contains(part);
     }
 
     private boolean isStoreLikeCandidate(PoiCandidate candidate) {

@@ -167,12 +167,43 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private String resolveRentalCity(TravelRequirementDTO requirement) {
         RentalRequirementDTO rental = requirement.getRentalRequirement();
         if (rental != null && notBlank(rental.getRentalStartCity())) {
-            return rental.getRentalStartCity();
+            return normalizeRentalCity(rental.getRentalStartCity());
+        }
+        if (rental != null && notBlank(rental.getPickupCity())) {
+            return normalizeRentalCity(rental.getPickupCity());
         }
         if ("ROAD_TRIP".equals(requirement.getRouteMode())) {
-            return requirement.getDeparture();
+            return normalizeRentalCity(requirement.getDeparture());
         }
-        return requirement.getDestination();
+        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+            return normalizeRentalCity(requirement.getRouteCities().get(0));
+        }
+        return normalizeRentalCity(requirement.getDestination());
+    }
+
+    private String normalizeRentalCity(String value) {
+        if (isBlank(value)) {
+            return value;
+        }
+        String[] parts = value.trim().split("[、,，/|；;\\s]+|和|及|与|到|至|\\+");
+        for (String part : parts) {
+            String city = cleanRentalCity(part);
+            if (notBlank(city)) {
+                return city;
+            }
+        }
+        return cleanRentalCity(value);
+    }
+
+    private String cleanRentalCity(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        String city =
+                value.replaceAll("(国际机场|机场|高铁站|火车站|动车站|汽车站|东站|西站|南站|北站|站)$", "")
+                        .replaceAll("(市|地区)$", "")
+                        .trim();
+        return city.isBlank() ? null : city;
     }
 
     private CityMatch resolveCityMatch(String rentalCity) {

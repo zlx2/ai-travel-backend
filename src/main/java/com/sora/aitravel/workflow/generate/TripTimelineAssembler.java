@@ -126,26 +126,35 @@ public class TripTimelineAssembler {
 
         if (value(day.getDay()) > 1 && previousEnd != null) {
             timeline.add(dayStartNode(order++, clock.time(), previousEnd, firstSpot));
-            clock.move(transferMinutes(previousEnd, firstSpot, day, input) + 10);
+            clock.move(20);
+            if (firstSpot != null) {
+                timeline.add(transferNode(order++, clock.time(), previousEnd, firstSpot, day, input));
+                clock.move(transferMinutes(previousEnd, firstSpot, day, input) + 10);
+            }
         }
 
         if (value(day.getDay()) == 1 && hasRental(input)) {
             TripPlanDTO.TimelineNode pickup = pickupNode(order++, pickupStartTime(input), input);
             timeline.add(pickup);
-            clock.reset(Math.max(clock.minutes(), addMinutes(pickup.getStartTime(), 45)));
+            clock.reset(Math.max(clock.minutes(), addMinutes(pickup.getStartTime(), value(pickup.getDurationMinutes(), 45))));
+            if (firstSpot != null) {
+                clock.move(transferMinutes(day.getStartAnchor(), firstSpot, day, input) + 10);
+            }
         }
 
         int nextDaytimeIndex = 0;
         if (!daytimeSpots.isEmpty() && clock.minutes() < 11 * 60 + 20) {
             TripPlanDTO.Spot firstDaytimeSpot = daytimeSpots.get(0);
-            if (canFitSpotBefore(clock.minutes(), firstDaytimeSpot, LUNCH_LATEST, input)) {
+            int morningDuration = morningSpotDuration(clock.minutes(), firstDaytimeSpot);
+            if (morningDuration >= 45 || canFitSpotBefore(clock.minutes(), firstDaytimeSpot, LUNCH_LATEST, input)) {
                 timeline.add(
                         spotNode(
                                 order++,
                                 clock.time(),
                                 firstDaytimeSpot,
-                                startRouteSuggestion(previousEnd, day, firstDaytimeSpot, input)));
-                clock.move(duration(firstDaytimeSpot) + routeBuffer(input));
+                                startRouteSuggestion(previousEnd, day, firstDaytimeSpot, input),
+                                morningDuration >= 45 ? morningDuration : duration(firstDaytimeSpot)));
+                clock.move((morningDuration >= 45 ? morningDuration : duration(firstDaytimeSpot)) + routeBuffer(input));
                 nextDaytimeIndex = 1;
             }
         }
@@ -245,8 +254,8 @@ public class TripTimelineAssembler {
             node.setAddress(firstNonBlank(input.getSelectedQuote().getPickupAddress(), node.getAddress()));
         }
         node.setCoordType("GCJ02");
-        node.setDurationMinutes(30);
-        node.setDurationText("约30分钟");
+        node.setDurationMinutes(45);
+        node.setDurationText("约45分钟");
         node.setSource("RENTAL_CONTEXT");
         node.setTags(List.of("取车", "租车"));
         return withEndTime(node);
@@ -320,6 +329,11 @@ public class TripTimelineAssembler {
 
     private TripPlanDTO.TimelineNode spotNode(
             int order, String time, TripPlanDTO.Spot spot, String transportSuggestion) {
+        return spotNode(order, time, spot, transportSuggestion, duration(spot));
+    }
+
+    private TripPlanDTO.TimelineNode spotNode(
+            int order, String time, TripPlanDTO.Spot spot, String transportSuggestion, int durationMinutes) {
         TripPlanDTO.TimelineNode node = new TripPlanDTO.TimelineNode();
         node.setOrder(order);
         node.setType(firstNonBlank(spot.getType(), TYPE_SCENIC));
@@ -333,8 +347,8 @@ public class TripTimelineAssembler {
         node.setLng(firstNonNull(spot.getEntranceLng(), spot.getLng()));
         node.setLat(firstNonNull(spot.getEntranceLat(), spot.getLat()));
         node.setCoordType(firstNonBlank(spot.getCoordType(), "GCJ02"));
-        node.setDurationMinutes(duration(spot));
-        node.setDurationText(firstNonBlank(spot.getSuggestedDurationText(), "约" + readableMinutes(duration(spot))));
+        node.setDurationMinutes(durationMinutes);
+        node.setDurationText("约" + readableMinutes(durationMinutes));
         node.setTransportSuggestion(transportSuggestion);
         node.setEstimatedCost(spot.getTicketCost());
         node.setCostText(spot.getTicketCostText());
@@ -612,6 +626,17 @@ public class TripTimelineAssembler {
         return projectedEnd <= latestEndMinutes;
     }
 
+    private int morningSpotDuration(int startMinutes, TripPlanDTO.Spot spot) {
+        if (spot == null || startMinutes >= LUNCH_EARLIEST) {
+            return 0;
+        }
+        int available = LUNCH_EARLIEST - startMinutes - 10;
+        if (available < 45) {
+            return 0;
+        }
+        return Math.min(duration(spot), Math.min(available, 90));
+    }
+
     private double[] spotLocation(TripPlanDTO.Spot spot) {
         if (spot == null) {
             return null;
@@ -722,10 +747,36 @@ public class TripTimelineAssembler {
             TripPlanDTO.Spot firstSpot,
             TripPlanDTO.DailyPlan day,
             TimelineInput input) {
+        Integer coordinateMinutes = coordinateTransferMinutes(previousEnd, firstSpot, input);
+        if (coordinateMinutes != null) {
+            return coordinateMinutes;
+        }
         if (crossCity(previousEnd, day)) {
             return hasRental(input) ? 120 : 150;
         }
         return hasRental(input) ? 35 : 45;
+    }
+
+    private Integer coordinateTransferMinutes(
+            TripPlanDTO.Anchor previousEnd, TripPlanDTO.Spot firstSpot, TimelineInput input) {
+        if (previousEnd == null || firstSpot == null
+                || previousEnd.getLng() == null || previousEnd.getLat() == null) {
+            return null;
+        }
+        double[] spot = spotLocation(firstSpot);
+        if (spot == null) {
+            return null;
+        }
+        int meters =
+                com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.roadDistanceMeters(
+                        previousEnd.getLng().doubleValue(),
+                        previousEnd.getLat().doubleValue(),
+                        spot[0],
+                        spot[1]);
+        int seconds = hasRental(input)
+                ? com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.drivingSeconds(meters)
+                : Math.max(900, meters / 450 * 60);
+        return Math.max(15, (int) Math.ceil(seconds / 60.0));
     }
 
     private boolean crossCity(TripPlanDTO.Anchor previousEnd, TripPlanDTO.DailyPlan day) {

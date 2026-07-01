@@ -104,7 +104,12 @@ public class DayPlanValidateNode {
                                         && !warning.startsWith("景点在多天行程中重复")
                                         && !warning.startsWith("景点不在候选 POI 中")
                                         && !warning.startsWith("景点缺少经纬度")
-                                        && !warning.startsWith("租车行程存在非自驾路线段"));
+                                        && !warning.startsWith("租车行程存在非自驾路线段")
+                                        && !warning.startsWith("当天存在过长单段路线")
+                                        && !warning.startsWith("当天路线总距离过长")
+                                        && !warning.startsWith("前端地图路线顺序明显绕路")
+                                        && !warning.startsWith("前端地图路线总距离过长")
+                                        && !warning.startsWith("当天路线存在明显折返"));
     }
 
     private List<String> validateDay(

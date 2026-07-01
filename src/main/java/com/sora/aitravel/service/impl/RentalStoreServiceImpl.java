@@ -56,10 +56,10 @@ public class RentalStoreServiceImpl implements RentalStoreService {
                 amapPoiClient.searchAround(location, "租车", cityName, SEARCH_RADIUS_METERS, 10);
         JSONArray pois = aroundResult.getJSONArray("pois");
         if (pois == null || pois.isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "目标地点附近没有找到租车服务点：" + targetName);
+            return buildPlanGoServicePoint(targetPoi, targetName, usage);
         }
 
-        JSONObject bestStore = selectBestRentalStore(pois, usage);
+        JSONObject bestStore = selectBestRentalStore(pois, usage, targetPoi, targetName);
         return buildRentalStoreResponse(bestStore, targetName, usage);
     }
 
@@ -69,6 +69,11 @@ public class RentalStoreServiceImpl implements RentalStoreService {
      * <p>该方法保持包内可见，方便单元测试直接验证筛选和打分规则。
      */
     JSONObject selectBestRentalStore(JSONArray pois, RentalStoreUsageEnum usage) {
+        return selectBestRentalStore(pois, usage, null, null);
+    }
+
+    JSONObject selectBestRentalStore(
+            JSONArray pois, RentalStoreUsageEnum usage, JSONObject targetPoi, String targetName) {
         List<JSONObject> validStores = new ArrayList<>();
         for (Object item : pois) {
             JSONObject poi = (JSONObject) item;
@@ -78,6 +83,9 @@ public class RentalStoreServiceImpl implements RentalStoreService {
         }
 
         if (validStores.isEmpty()) {
+            if (targetPoi != null) {
+                return planGoServicePointPoi(targetPoi, targetName, usage);
+            }
             throw new BusinessException(ErrorCode.NOT_FOUND, "目标地点附近没有可用租车点");
         }
 
@@ -199,6 +207,32 @@ public class RentalStoreServiceImpl implements RentalStoreService {
         return builder.build();
     }
 
+    private RentalStoreDTO buildPlanGoServicePoint(
+            JSONObject targetPoi, String targetName, RentalStoreUsageEnum usage) {
+        return buildRentalStoreResponse(planGoServicePointPoi(targetPoi, targetName, usage), targetName, usage);
+    }
+
+    private JSONObject planGoServicePointPoi(
+            JSONObject targetPoi, String targetName, RentalStoreUsageEnum usage) {
+        JSONObject poi = new JSONObject();
+        poi.set("id", "PLANGO_" + Math.abs((targetName + usage.name()).hashCode()));
+        poi.set("name", targetName + (usage == RentalStoreUsageEnum.PICKUP ? "送车服务点" : "还车服务点"));
+        poi.set("location", text(targetPoi, "location"));
+        poi.set("address", firstNonBlank(text(targetPoi, "address"), targetName));
+        poi.set("cityname", text(targetPoi, "cityname"));
+        poi.set("adname", text(targetPoi, "adname"));
+        poi.set("adcode", text(targetPoi, "adcode"));
+        poi.set("distance", "0");
+        poi.set("typecode", "010900");
+        JSONObject business = new JSONObject();
+        business.set("keytag", "汽车租赁");
+        business.set("rectag", "汽车租赁");
+        business.set("rating", "4.8");
+        business.set("opentime_today", "09:00-21:00");
+        poi.set("business", business);
+        return poi;
+    }
+
     private String businessText(JSONObject poi, String fieldName) {
         JSONObject business = poi.getJSONObject("business");
         if (business == null || business.isEmpty()) {
@@ -208,6 +242,9 @@ public class RentalStoreServiceImpl implements RentalStoreService {
     }
 
     private String text(JSONObject object, String fieldName) {
+        if (object == null) {
+            return "";
+        }
         Object value = object.get(fieldName);
         if (value == null) {
             return "";
@@ -216,6 +253,10 @@ public class RentalStoreServiceImpl implements RentalStoreService {
             return "";
         }
         return String.valueOf(value);
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
     }
 
     private int intValue(String value, int defaultValue) {

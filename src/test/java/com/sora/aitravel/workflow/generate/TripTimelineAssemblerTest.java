@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalStoreDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import java.math.BigDecimal;
@@ -62,6 +65,50 @@ class TripTimelineAssemblerTest {
         assertEquals(new BigDecimal("120.0315"), stay.getLng());
         assertEquals(new BigDecimal("30.0315"), stay.getLat());
         assertTrue(parseMinutes(stay.getStartTime()) <= 21 * 60);
+    }
+
+    @Test
+    @DisplayName("首日上午取车后优先安排首个景点，不展示前往过程卡片")
+    void shouldScheduleMorningSpotAfterRentalPickup() {
+        TripTimelineAssembler assembler = new TripTimelineAssembler();
+        GenerateWorkflowContext context = new GenerateWorkflowContext();
+        TravelRequirementDTO requirement = new TravelRequirementDTO();
+        requirement.setDestination("杭州");
+        requirement.setDays(1);
+        requirement.setPeopleCount(2);
+        context.setRequirement(requirement);
+        context.setSelectedQuote(RentalQuoteOptionDTO.builder()
+                .pickupLng(new BigDecimal("120.2100"))
+                .pickupLat(new BigDecimal("30.2900"))
+                .pickupPoiName("杭州东站取车点")
+                .build());
+        context.setRentalTripContext(RentalTripContextDTO.builder()
+                .matchedStore(RentalStoreDTO.builder()
+                        .displayName("杭州东站取车点")
+                        .cityName("杭州")
+                        .lng("120.2100")
+                        .lat("30.2900")
+                        .build())
+                .build());
+
+        TripPlanDTO.DailyPlan day = new TripPlanDTO.DailyPlan();
+        day.setDay(1);
+        day.setCity("杭州");
+        day.setSpots(List.of(
+                spot(1, "京杭大运河杭州景区", "120.1500", "30.3100", 150),
+                spot(2, "中国京杭大运河博物馆", "120.1450", "30.3150", 110)));
+        day.setFoodSuggestions(List.of(foodSuggestion("午餐", "LUNCH", "120.1510,30.3110")));
+        context.setLockedDailyPlans(List.of(day));
+
+        assembler.execute(context);
+
+        List<TripPlanDTO.TimelineNode> timeline = day.getTimeline();
+        assertEquals("RENTAL_PICKUP", timeline.get(0).getType());
+        assertEquals(45, timeline.get(0).getDurationMinutes());
+        assertEquals("SCENIC", timeline.get(1).getType());
+        assertEquals("京杭大运河杭州景区", timeline.get(1).getTitle());
+        assertTrue(parseMinutes(timeline.get(1).getStartTime()) >= 10 * 60 + 15);
+        assertTrue(timeline.stream().noneMatch(node -> "TRANSFER".equals(node.getType())));
     }
 
     private TripPlanDTO.Spot spot(int order, String name, String lng, String lat, int duration) {

@@ -29,8 +29,15 @@ public class RentalContextRequirementNode {
             requirement.setRentalRequirement(rental);
         }
         rental.setNeedRental(true);
-        rental.setRentalStartCity(firstNotBlank(rental.getRentalStartCity(), rental.getPickupCity(), requirement.getDestination()));
-        rental.setPickupCity(firstNotBlank(rental.getPickupCity(), rental.getRentalStartCity(), requirement.getDestination()));
+        String rentalStartCity =
+                normalizeRentalCity(
+                        firstNotBlank(
+                                rental.getRentalStartCity(),
+                                rental.getPickupCity(),
+                                firstRouteCity(requirement),
+                                requirement.getDestination()));
+        rental.setRentalStartCity(rentalStartCity);
+        rental.setPickupCity(normalizeRentalCity(firstNotBlank(rental.getPickupCity(), rentalStartCity)));
         rental.setReturnCity(firstNotBlank(rental.getReturnCity(), rental.getRentalEndCity(), rental.getPickupCity()));
         rental.setRentalEndCity(firstNotBlank(rental.getRentalEndCity(), rental.getReturnCity()));
         rental.setPickupMode(firstNotBlank(rental.getPickupMode(), "DELIVERY"));
@@ -87,6 +94,38 @@ public class RentalContextRequirementNode {
             }
         }
         return null;
+    }
+
+    private String firstRouteCity(TravelRequirementDTO requirement) {
+        return requirement.getRouteCities() == null || requirement.getRouteCities().isEmpty()
+                ? null
+                : requirement.getRouteCities().get(0);
+    }
+
+    private String normalizeRentalCity(String value) {
+        if (isBlank(value)) {
+            return value;
+        }
+        String text = value.trim();
+        String[] parts = text.split("[、,，/|；;\\s]+|和|及|与|到|至|\\+");
+        for (String part : parts) {
+            String city = cleanCity(part);
+            if (!isBlank(city)) {
+                return city;
+            }
+        }
+        return cleanCity(text);
+    }
+
+    private String cleanCity(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        String city =
+                value.replaceAll("(国际机场|机场|高铁站|火车站|动车站|汽车站|东站|西站|南站|北站|站)$", "")
+                        .replaceAll("(市|地区)$", "")
+                        .trim();
+        return city.isBlank() ? null : city;
     }
 
     private boolean isBlank(String value) {

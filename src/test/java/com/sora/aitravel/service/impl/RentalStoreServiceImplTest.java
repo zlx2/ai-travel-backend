@@ -47,6 +47,24 @@ class RentalStoreServiceImplTest {
         assertThat(response.getDistanceMeters()).isEqualTo(392);
     }
 
+    @Test
+    void shouldBuildPlanGoServicePointWhenAmapRentalPoisAreInvalid() {
+        JSONArray pois = new JSONArray();
+        pois.add(poi("成都东站出租车服务点", "151100", "汽车租赁", 120, 4.8));
+        JSONObject target = poi("成都东站", "150200", "", 0, 0);
+
+        JSONObject selected =
+                service.selectBestRentalStore(
+                        pois, RentalStoreUsageEnum.PICKUP, target, "成都东站");
+        RentalStoreDTO response =
+                service.buildRentalStoreResponse(selected, "成都东站", RentalStoreUsageEnum.PICKUP);
+
+        assertThat(response.getStoreCode()).startsWith("AMAP_PLANGO_");
+        assertThat(response.getDisplayName()).isEqualTo("成都东站推荐取车点");
+        assertThat(response.getAmapPoiName()).isEqualTo("成都东站送车服务点");
+        assertThat(response.getDistanceMeters()).isZero();
+    }
+
     private JSONObject poi(
             String name, String typeCode, String keytag, int distance, double rating) {
         JSONObject poi =
