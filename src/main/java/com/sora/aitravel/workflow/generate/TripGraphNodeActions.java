@@ -1,0 +1,35 @@
+package com.sora.aitravel.workflow.generate;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/** Shared Spring AI Alibaba Graph node adapters for trip generation workflows. */
+final class TripGraphNodeActions {
+    private static final Logger TIMING_LOGGER = LoggerFactory.getLogger(WorkflowTiming.class);
+
+    private TripGraphNodeActions() {}
+
+    static AsyncNodeAction stateNode(String workflowName, String nodeName, StateNodeExecutor executor) {
+        return AsyncNodeAction.node_async(
+                state -> {
+                    long start = WorkflowTiming.start();
+                    try {
+                        return executor.execute(state);
+                    } finally {
+                        TIMING_LOGGER.info(
+                                "行程生成耗时 workflow={} node={} elapsedMs={}",
+                                workflowName,
+                                nodeName,
+                                WorkflowTiming.elapsedMs(start));
+                    }
+                });
+    }
+
+    @FunctionalInterface
+    interface StateNodeExecutor {
+        Map<String, Object> execute(OverAllState state) throws Exception;
+    }
+}

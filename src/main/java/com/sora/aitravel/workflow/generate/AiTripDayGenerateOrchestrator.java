@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.entity.AiTripDayGeneration;
@@ -14,9 +16,11 @@ import com.sora.aitravel.service.AiTripDayGenerationService;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-/** 按天生成行程编排。 */
+/** 单日行程生成编排器：负责按天查询、选点、排序、组装 timeline 和持久化。 */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
@@ -26,13 +30,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     private final AiTripGenerationSessionService sessionService;
     private final AiTripDayGenerationService dayGenerationService;
-    private final DayContextBuildNode dayContextBuildNode;
-    private final DayQueryPlanNode dayQueryPlanNode;
-    private final FoodRecommendNode foodRecommendNode;
-    private final DayDataFetchNode dayDataFetchNode;
-    private final DayDataRankNode dayDataRankNode;
-    private final DayPlanGenerateNode dayPlanGenerateNode;
-    private final DayPlanValidateNode dayPlanValidateNode;
+    private final TripDayGenerateWorkflow tripDayGenerateWorkflow;
     private final ObjectMapper objectMapper;
 
     /**
@@ -101,20 +99,38 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
 
         // 5. 执行生成流程：恢复上下文 → 运行工作流节点 → 持久化结果
+        long start = WorkflowTiming.start();
         try {
-            dayGenerationService.markGenerating(day.getId());
+            timed("day-mark-generating", () -> dayGenerationService.markGenerating(day.getId()));
             // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
-            GenerateWorkflowContext context = restoreContext(session, dayNo);
+            GenerateWorkflowContext context = timed("restore-context", () -> restoreContext(session, dayNo));
             context.setRevisionText(normalizeRevisionText(revisionText));
-            // 依次执行7个生成节点：上下文构建→查询计划→美食推荐→数据抓取→排序→计划生成→校验
-            runDayNodes(context, dayNo);
+            context.setTargetDayNo(dayNo);
+            GenerateWorkflowContext workflowInput = context;
+            context = timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(workflowInput));
+            TripPlanDTO.DailyPlan generatedPlan = currentGeneratedPlan(context, dayNo);
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
-            dayGenerationService.markGenerated(
-                    day.getId(), writeJson(context.getLockedDailyPlans().get(0)));
-            return dayGenerationService.getLatest(sessionId, dayNo);
+            timed(
+                    "day-mark-generated",
+                    () ->
+                            dayGenerationService.markGenerated(
+                                    day.getId(), writeJson(generatedPlan)));
+            AiTripDayGeneration generated =
+                    timed("day-load-generated", () -> dayGenerationService.getLatest(sessionId, dayNo));
+            log.info(
+                    "行程生成总耗时 workflow=generate-day sessionId={} day={} elapsedMs={}",
+                    sessionId,
+                    dayNo,
+                    WorkflowTiming.elapsedMs(start));
+            return generated;
         } catch (RuntimeException exception) {
             // 生成失败，记录错误信息并向上抛出
             dayGenerationService.markFailed(day.getId(), exception.getMessage());
+            log.info(
+                    "行程生成总耗时 workflow=generate-day sessionId={} day={} status=failed elapsedMs={}",
+                    sessionId,
+                    dayNo,
+                    WorkflowTiming.elapsedMs(start));
             throw exception;
         }
     }
@@ -125,6 +141,21 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
         String text = revisionText.trim().replaceAll("\\s+", " ");
         return text.length() > 500 ? text.substring(0, 500) : text;
+    }
+
+    private TripPlanDTO.DailyPlan currentGeneratedPlan(GenerateWorkflowContext context, Integer dayNo) {
+        if (context.getLockedDailyPlans() == null || context.getLockedDailyPlans().isEmpty()) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成结果为空，day=" + dayNo);
+        }
+        return context.getLockedDailyPlans().stream()
+                .filter(plan -> dayNo.equals(plan.getDay()))
+                .findFirst()
+                .orElseGet(() -> {
+                    if (context.getLockedDailyPlans().size() == 1) {
+                        return context.getLockedDailyPlans().get(0);
+                    }
+                    throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "未找到当前天行程结果，day=" + dayNo);
+                });
     }
 
     /**
@@ -153,6 +184,8 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return GenerateWorkflowContext.builder()
                 .userId(session.getUserId())
                 .requirement(read(session.getRequirementJson(), TravelRequirementDTO.class))
+                .selectedQuote(readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class))
+                .rentalTripContext(readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class))
                 .daySkeletons(read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST))
                 .cityProfile(read(session.getCityProfileJson(), CityProfile.class))
                 .weatherForecast(session.getWeatherJson())
@@ -187,26 +220,12 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         }
     }
 
-    /**
-     * 运行单日行程生成节点。
-     * @param context
-     * @param dayNo
-     */
-    private void runDayNodes(GenerateWorkflowContext context, Integer dayNo) {
-        dayContextBuildNode.execute(context);
-        context.setDayContexts(
-                context.getDayContexts().stream()
-                        .filter(dayContext -> dayContext.getDay().equals(dayNo))
-                        .toList());
-        if (context.getDayContexts().isEmpty()) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "行程天数不存在：" + dayNo);
-        }
-        dayQueryPlanNode.execute(context);
-        foodRecommendNode.execute(context);
-        dayDataFetchNode.execute(context);
-        dayDataRankNode.execute(context);
-        dayPlanGenerateNode.execute(context);
-        dayPlanValidateNode.execute(context);
+    private void timed(String node, Runnable action) {
+        WorkflowTiming.run("generate-day", node, action);
+    }
+
+    private <T> T timed(String node, java.util.function.Supplier<T> action) {
+        return WorkflowTiming.call("generate-day", node, action);
     }
 
     /**
@@ -222,6 +241,13 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         } catch (Exception exception) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "生成会话数据解析失败");
         }
+    }
+
+    private <T> T readNullable(String json, Class<T> type) {
+        if (json == null || json.isBlank() || "null".equals(json)) {
+            return null;
+        }
+        return read(json, type);
     }
 
     /**

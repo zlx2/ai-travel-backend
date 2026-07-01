@@ -1,9 +1,15 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.tools.HotelTool;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -27,11 +33,20 @@ public class HotelFetchNode {
      */
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
+        context.setHotelSearchResult(fetchHotels(requirement));
+    }
+
+    public Map<String, Object> execute(OverAllState state) {
+        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        return TripGraphStateCodec.patch(HOTEL_SEARCH_RESULT, fetchHotels(requirement));
+    }
+
+    private String fetchHotels(TravelRequirementDTO requirement) {
         String destination = primarySearchCity(requirement);
 
         if (destination == null || destination.isBlank()) {
             log.warn("节点[hotel-fetch]：目的地为空，跳过酒店查询");
-            return;
+            return null;
         }
 
         // 计算入住/离店日期
@@ -50,11 +65,11 @@ public class HotelFetchNode {
                     checkInStr,
                     checkOutStr);
             String hotelData = hotelTool.searchHotel(destination, checkInStr, checkOutStr);
-            context.setHotelSearchResult(hotelData);
             log.info("节点[hotel-fetch]：酒店数据获取成功，长度={}", hotelData.length());
+            return hotelData;
         } catch (Exception e) {
             log.error("节点[hotel-fetch]：酒店查询失败，destination={}", destination, e);
-            context.setHotelSearchResult("酒店数据暂不可用：" + e.getMessage());
+            return "酒店数据暂不可用：" + e.getMessage();
         }
     }
 

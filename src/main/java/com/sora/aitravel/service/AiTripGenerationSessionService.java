@@ -6,7 +6,11 @@ import com.sora.aitravel.entity.AiTripGenerationSession;
 public interface AiTripGenerationSessionService {
 
     AiTripGenerationSession createPreparing(
-            Long userId, String conversationId, String requirementJson);
+            Long userId,
+            String conversationId,
+            String requirementJson,
+            String selectedQuoteJson,
+            String rentalTripContextJson);
 
     AiTripGenerationSession getBySessionId(String sessionId);
 

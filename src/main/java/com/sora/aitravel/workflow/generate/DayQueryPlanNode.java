@@ -1,7 +1,16 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_CONTEXTS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_QUERY_PLANS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -11,12 +20,30 @@ import org.springframework.stereotype.Component;
 public class DayQueryPlanNode {
 
     public void execute(GenerateWorkflowContext context) {
-        List<DayQueryPlan> plans = new ArrayList<>();
-        String city = context.getCityProfile().getDestination();
-        boolean wantsNight = hasPreference(context, "夜景") || hasPreference(context, "夜市");
-        int nightDay = context.getRequirement().getDays() == 1 ? 1 : 2;
+        context.setDayQueryPlans(
+                buildPlans(
+                        context.getCityProfile(),
+                        context.getRequirement(),
+                        context.getDayContexts()));
+    }
 
-        for (DayContext dayContext : context.getDayContexts()) {
+    public Map<String, Object> execute(OverAllState state) {
+        List<DayQueryPlan> plans =
+                buildPlans(
+                        TripGraphStateCodec.required(state, CITY_PROFILE, CityProfile.class),
+                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optionalList(state, DAY_CONTEXTS, DayContext.class));
+        return TripGraphStateCodec.patch(DAY_QUERY_PLANS, plans);
+    }
+
+    private List<DayQueryPlan> buildPlans(
+            CityProfile cityProfile, TravelRequirementDTO requirement, List<DayContext> dayContexts) {
+        List<DayQueryPlan> plans = new ArrayList<>();
+        String city = cityProfile.getDestination();
+        boolean wantsNight = hasPreference(requirement, "夜景") || hasPreference(requirement, "夜市");
+        int nightDay = requirement.getDays() == 1 ? 1 : 2;
+
+        for (DayContext dayContext : dayContexts) {
             String targetArea = dayContext.skeleton().targetArea();
             List<QueryItem> queries = new ArrayList<>();
             for (String keyword : scenicKeywords(city, dayContext)) {
@@ -82,8 +109,7 @@ public class DayQueryPlanNode {
             plans.add(new DayQueryPlan(dayContext.getDay(), queries));
             log.info("节点[day-query-plan]：第 {} 天查询计划={}", dayContext.getDay(), queries);
         }
-
-        context.setDayQueryPlans(plans);
+        return plans;
     }
 
     private List<String> scenicKeywords(String city, DayContext dayContext) {
@@ -114,9 +140,9 @@ public class DayQueryPlanNode {
         return dayContext.skeleton().getTheme().contains("美食") ? "美食街" : "特色餐厅";
     }
 
-    private boolean hasPreference(GenerateWorkflowContext context, String keyword) {
-        return context.getRequirement().getPreferences() != null
-                && context.getRequirement().getPreferences().stream()
+    private boolean hasPreference(TravelRequirementDTO requirement, String keyword) {
+        return requirement.getPreferences() != null
+                && requirement.getPreferences().stream()
                         .anyMatch(item -> item.contains(keyword));
     }
 }

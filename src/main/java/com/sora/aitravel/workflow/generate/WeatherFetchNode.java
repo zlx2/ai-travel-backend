@@ -1,7 +1,13 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.WEATHER_FORECAST;
+
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.tools.WeatherTool;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,21 +26,29 @@ public class WeatherFetchNode {
 
     public void execute(GenerateWorkflowContext context) {
         TravelRequirementDTO requirement = context.getRequirement();
-        String destination = primarySearchCity(requirement);
+        context.setWeatherForecast(fetchWeather(requirement));
+    }
 
+    public Map<String, Object> execute(OverAllState state) {
+        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        return TripGraphStateCodec.patch(WEATHER_FORECAST, fetchWeather(requirement));
+    }
+
+    private String fetchWeather(TravelRequirementDTO requirement) {
+        String destination = primarySearchCity(requirement);
         if (destination == null || destination.isBlank()) {
             log.warn("节点[weather-fetch]：目的地为空，跳过天气查询");
-            return;
+            return null;
         }
 
         try {
             log.info("节点[weather-fetch]：调用 WeatherTool 查询 {} 天气", destination);
             String weatherData = weatherTool.getWeather(destination);
-            context.setWeatherForecast(weatherData);
             log.info("节点[weather-fetch]：天气数据获取成功，长度={}", weatherData.length());
+            return weatherData;
         } catch (Exception e) {
             log.error("节点[weather-fetch]：天气查询失败，destination={}", destination, e);
-            context.setWeatherForecast("天气数据暂不可用：" + e.getMessage());
+            return "天气数据暂不可用：" + e.getMessage();
         }
     }
 

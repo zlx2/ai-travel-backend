@@ -9,20 +9,6 @@ CREATE TABLE IF NOT EXISTS sys_user (
   UNIQUE KEY uk_username (username), UNIQUE KEY uk_email (email), KEY idx_status (status), KEY idx_create_time (create_time)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS ai_conversation (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT, conversation_id VARCHAR(64) NOT NULL, user_id BIGINT NOT NULL,
-  scene VARCHAR(32) NOT NULL, status TINYINT NOT NULL DEFAULT 1, context_json JSON,
-  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_ai_conversation_id (conversation_id), KEY idx_ai_conversation_user (user_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS ai_call_log (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT, conversation_id VARCHAR(64), scene VARCHAR(32) NOT NULL,
-  model_name VARCHAR(64), request_json JSON, response_json JSON, success TINYINT NOT NULL DEFAULT 0,
-  error_message VARCHAR(1000), duration_ms BIGINT, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_ai_call_user_time (user_id, create_time), KEY idx_ai_call_conversation (conversation_id)
-) ENGINE=InnoDB;
-
 CREATE TABLE IF NOT EXISTS trip (
   id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id BIGINT NOT NULL, conversation_id VARCHAR(64), title VARCHAR(100) NOT NULL,
   departure VARCHAR(100), destination VARCHAR(100) NOT NULL, days TINYINT NOT NULL, budget INT,
@@ -83,12 +69,6 @@ CREATE TABLE IF NOT EXISTS file_resource (
   status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, deleted TINYINT NOT NULL DEFAULT 0,
   KEY idx_file_user (user_id), UNIQUE KEY uk_file_object_key (object_key)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS admin_operation_log (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT, admin_id BIGINT NOT NULL, operation VARCHAR(128) NOT NULL,
-  target_type VARCHAR(64), target_id BIGINT, content VARCHAR(1000), ip VARCHAR(64),
-  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_admin_log_time (admin_id, create_time)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS rental_vehicle_group (
@@ -168,6 +148,8 @@ CREATE TABLE IF NOT EXISTS ai_trip_generation_session (
   user_id BIGINT NOT NULL,
   conversation_id VARCHAR(64),
   requirement_json JSON NOT NULL,
+  selected_quote_json JSON,
+  rental_trip_context_json JSON,
   day_skeletons_json JSON,
   city_profile_json JSON,
   weather_json JSON,
@@ -179,6 +161,11 @@ CREATE TABLE IF NOT EXISTS ai_trip_generation_session (
   UNIQUE KEY uk_ai_trip_generation_session_id (session_id),
   KEY idx_ai_trip_generation_user_time (user_id, create_time)
 ) ENGINE=InnoDB;
+
+-- Existing databases created before this change need:
+-- ALTER TABLE ai_trip_generation_session
+--   ADD COLUMN selected_quote_json JSON NULL AFTER requirement_json,
+--   ADD COLUMN rental_trip_context_json JSON NULL AFTER selected_quote_json;
 
 CREATE TABLE IF NOT EXISTS ai_trip_day_generation (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,

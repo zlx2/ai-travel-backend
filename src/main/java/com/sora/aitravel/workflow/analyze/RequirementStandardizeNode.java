@@ -53,6 +53,10 @@ public class RequirementStandardizeNode {
                                 value(formInput, TravelRequirementDTO::getRentalIntent),
                                 value(confirmed, TravelRequirementDTO::getRentalIntent),
                                 extracted.getRentalIntent()));
+        if (rentalRequired(rentalIntent, formInput, confirmed, extracted)) {
+            transportMode = "RENTAL_CAR";
+            routeMode = "LANDING_RENTAL_TRIP";
+        }
         Integer days =
                 firstNonNull(
                         value(formInput, TravelRequirementDTO::getDays),
@@ -211,6 +215,21 @@ public class RequirementStandardizeNode {
             case "NEED_RENTAL", "REQUIRED" -> "USER_REQUIRED";
             default -> null;
         };
+    }
+
+    private boolean rentalRequired(
+            String rentalIntent,
+            TravelRequirementDTO formInput,
+            TravelRequirementDTO confirmed,
+            TravelRequirementDTO extracted) {
+        return "USER_REQUIRED".equals(rentalIntent)
+                || rentalRequired(value(formInput, TravelRequirementDTO::getRentalRequirement))
+                || rentalRequired(value(confirmed, TravelRequirementDTO::getRentalRequirement))
+                || rentalRequired(value(extracted, TravelRequirementDTO::getRentalRequirement));
+    }
+
+    private boolean rentalRequired(com.sora.aitravel.dto.model.RentalRequirementDTO requirement) {
+        return requirement != null && Boolean.TRUE.equals(requirement.getNeedRental());
     }
 
     private List<String> cleanList(List<String> values) {

@@ -22,13 +22,19 @@ public class AiTripGenerationSessionServiceImpl implements AiTripGenerationSessi
 
     @Override
     public AiTripGenerationSession createPreparing(
-            Long userId, String conversationId, String requirementJson) {
+            Long userId,
+            String conversationId,
+            String requirementJson,
+            String selectedQuoteJson,
+            String rentalTripContextJson) {
         AiTripGenerationSession session =
                 AiTripGenerationSession.builder()
                         .sessionId(UUID.randomUUID().toString())
                         .userId(userId)
                         .conversationId(conversationId)
                         .requirementJson(requirementJson)
+                        .selectedQuoteJson(selectedQuoteJson)
+                        .rentalTripContextJson(rentalTripContextJson)
                         .daySkeletonsJson("[]")
                         .status(STATUS_PREPARING)
                         .build();

@@ -32,9 +32,13 @@ public class RentalContextQuoteRecommendNode {
         option.setPickupPoiId(null);
         option.setPickupPoiName(store.getDisplayName());
         option.setPickupAddress(firstNonBlank(store.getAddress(), store.getAmapPoiName()));
+        option.setPickupLng(decimal(store.getLng()));
+        option.setPickupLat(decimal(store.getLat()));
         option.setReturnPoiId(null);
         option.setReturnPoiName(store.getDisplayName());
         option.setReturnAddress(firstNonBlank(store.getAddress(), store.getAmapPoiName()));
+        option.setReturnLng(decimal(store.getLng()));
+        option.setReturnLat(decimal(store.getLat()));
         option.setPickupMode("DYNAMIC_SERVICE_POINT");
         option.setReturnMode("SAME_SERVICE_POINT");
         Map<String, Object> snapshot =
@@ -48,5 +52,13 @@ public class RentalContextQuoteRecommendNode {
 
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
+    }
+
+    private java.math.BigDecimal decimal(String value) {
+        try {
+            return value == null || value.isBlank() ? null : new java.math.BigDecimal(value);
+        } catch (RuntimeException exception) {
+            return null;
+        }
     }
 }

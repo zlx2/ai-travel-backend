@@ -24,6 +24,8 @@ public class AiTripGenerationSession {
     private Long userId;
     private String conversationId;
     private String requirementJson;
+    private String selectedQuoteJson;
+    private String rentalTripContextJson;
     private String daySkeletonsJson;
     private String cityProfileJson;
     private String weatherJson;
