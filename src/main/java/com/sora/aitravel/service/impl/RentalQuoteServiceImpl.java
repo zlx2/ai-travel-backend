@@ -640,38 +640,15 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         snapshot.put("includedServices", template.getIncludedServices());
         snapshot.put("feeBreakdown", fee);
 
-        return RentalQuoteOptionDTO.builder()
-                .quoteId("Q-" + template.getId() + "-" + group.getId())
-                .routeMode(requirement.getRouteMode())
-                .rentalCity(rentalCity)
-                .citycode(cityMatch.getCitycode())
-                .adcode(cityMatch.getAdcode())
-                .vehicleGroupId(group.getId())
-                .groupCode(group.getGroupCode())
-                .groupName(group.getGroupName())
-                .displayName(group.getDisplayName())
-                .vehicleClass(group.getVehicleClass())
-                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
-                .seatsMin(group.getSeatsMin())
-                .seatsMax(group.getSeatsMax())
-                .recommendedPeople(group.getRecommendedPeople())
-                .recommendedLuggage(group.getRecommendedLuggage())
-                .travelTags(group.getTravelTags())
-                .exampleModels(group.getExampleModels())
-                .description(group.getDescription())
-                .iconUrl(group.getIconUrl())
-                .vehicleModelId(model == null ? null : model.getId())
-                .brand(model == null ? null : model.getBrand())
-                .series(model == null ? null : model.getSeries())
-                .seriesFullName(modelName(model, group))
-                .modelYear(model == null ? null : model.getModelYear())
-                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
-                .transmission(model == null ? group.getTransmission() : model.getTransmission())
-                .seats(model == null ? group.getSeatsMax() : model.getSeats())
-                .imageUrl(model == null ? null : model.getImageUrl())
-                .summary(model == null ? group.getDescription() : model.getSummary())
-                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags())
-                .pickupPoiId(pickupPoi == null ? null : pickupPoi.getId())
+        RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder =
+                RentalQuoteOptionDTO.builder()
+                        .quoteId("Q-" + template.getId() + "-" + group.getId())
+                        .routeMode(requirement.getRouteMode())
+                        .rentalCity(rentalCity)
+                        .citycode(cityMatch.getCitycode())
+                        .adcode(cityMatch.getAdcode());
+        applyGroupAndModelFields(builder, group, model);
+        return builder.pickupPoiId(pickupPoi == null ? null : pickupPoi.getId())
                 .pickupPoiName(pickupPoi == null ? null : pickupPoi.getPoiName())
                 .pickupAddress(pickupPoi == null ? null : pickupPoi.getAddress())
                 .pickupLng(pickupPoi == null ? null : pickupPoi.getLongitude())
@@ -759,34 +736,10 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 "rentalDays",
                 order.getRentalDays() == null ? null : order.getRentalDays().intValue());
         snapshot.put("feeBreakdown", fee);
-        return RentalQuoteOptionDTO.builder()
-                .quoteId("O-" + order.getId() + "-" + group.getId())
-                .vehicleGroupId(group.getId())
-                .groupCode(group.getGroupCode())
-                .groupName(group.getGroupName())
-                .displayName(group.getDisplayName())
-                .vehicleClass(group.getVehicleClass())
-                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
-                .seatsMin(group.getSeatsMin())
-                .seatsMax(group.getSeatsMax())
-                .recommendedPeople(group.getRecommendedPeople())
-                .recommendedLuggage(group.getRecommendedLuggage())
-                .travelTags(group.getTravelTags())
-                .exampleModels(group.getExampleModels())
-                .description(group.getDescription())
-                .iconUrl(group.getIconUrl())
-                .vehicleModelId(model == null ? null : model.getId())
-                .brand(model == null ? null : model.getBrand())
-                .series(model == null ? null : model.getSeries())
-                .seriesFullName(modelName(model, group))
-                .modelYear(model == null ? null : model.getModelYear())
-                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
-                .transmission(model == null ? group.getTransmission() : model.getTransmission())
-                .seats(model == null ? group.getSeatsMax() : model.getSeats())
-                .imageUrl(model == null ? null : model.getImageUrl())
-                .summary(model == null ? group.getDescription() : model.getSummary())
-                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags())
-                .pickupPoiId(order.getPickupPoiId())
+        RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder =
+                RentalQuoteOptionDTO.builder().quoteId("O-" + order.getId() + "-" + group.getId());
+        applyGroupAndModelFields(builder, group, model);
+        return builder.pickupPoiId(order.getPickupPoiId())
                 .returnPoiId(order.getReturnPoiId())
                 .pickupMode(order.getPickupMode())
                 .returnMode(order.getReturnMode())
@@ -932,6 +885,37 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private String safeDefault(String value, String defaultValue) {
         return isBlank(value) ? defaultValue : value;
+    }
+
+    private void applyGroupAndModelFields(
+            RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder,
+            RentalVehicleGroup group,
+            RentalVehicleModel model) {
+        builder.vehicleGroupId(group.getId())
+                .groupCode(group.getGroupCode())
+                .groupName(group.getGroupName())
+                .displayName(group.getDisplayName())
+                .vehicleClass(group.getVehicleClass())
+                .energyType(model == null ? group.getEnergyType() : model.getEnergyType())
+                .seatsMin(group.getSeatsMin())
+                .seatsMax(group.getSeatsMax())
+                .recommendedPeople(group.getRecommendedPeople())
+                .recommendedLuggage(group.getRecommendedLuggage())
+                .travelTags(group.getTravelTags())
+                .exampleModels(group.getExampleModels())
+                .description(group.getDescription())
+                .iconUrl(group.getIconUrl())
+                .vehicleModelId(model == null ? null : model.getId())
+                .brand(model == null ? null : model.getBrand())
+                .series(model == null ? null : model.getSeries())
+                .seriesFullName(modelName(model, group))
+                .modelYear(model == null ? null : model.getModelYear())
+                .bodyType(model == null ? group.getBodyType() : model.getBodyType())
+                .transmission(model == null ? group.getTransmission() : model.getTransmission())
+                .seats(model == null ? group.getSeatsMax() : model.getSeats())
+                .imageUrl(model == null ? null : model.getImageUrl())
+                .summary(model == null ? group.getDescription() : model.getSummary())
+                .featureTags(model == null ? group.getTravelTags() : model.getFeatureTags());
     }
 
     @Data
