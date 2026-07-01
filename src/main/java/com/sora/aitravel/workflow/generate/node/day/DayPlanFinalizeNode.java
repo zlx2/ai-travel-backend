@@ -1,6 +1,7 @@
 package com.sora.aitravel.workflow.generate.node.day;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -16,13 +17,7 @@ public class DayPlanFinalizeNode {
 
     public Map<String, Object> execute(OverAllState state) {
         Map<String, Object> patch = new LinkedHashMap<>(tripTimelineAssembler.execute(state));
-        patch.putAll(dayPlanValidateNode.execute(stateWithPatch(state, patch)));
+        patch.putAll(dayPlanValidateNode.execute(TripGraphStateCodec.withPatch(state, patch)));
         return patch;
-    }
-
-    private OverAllState stateWithPatch(OverAllState state, Map<String, Object> patch) {
-        Map<String, Object> data = new LinkedHashMap<>(state.data());
-        data.putAll(patch);
-        return new OverAllState(data);
     }
 }

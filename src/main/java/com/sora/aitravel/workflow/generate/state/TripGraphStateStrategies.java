@@ -33,7 +33,6 @@ public final class TripGraphStateStrategies {
             TripGraphStateKeys.HOTEL_SEARCH_RESULT,
             TripGraphStateKeys.DAY_CONTEXTS,
             TripGraphStateKeys.DAY_QUERY_PLANS,
-            TripGraphStateKeys.FOOD_RECOMMENDATIONS_BY_DAY,
             TripGraphStateKeys.RANKED_DAY_DATA_PACKAGES,
             TripGraphStateKeys.DAY_VALIDATION_REPORTS,
             TripGraphStateKeys.LOCKED_DAILY_PLANS,

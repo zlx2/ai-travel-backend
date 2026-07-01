@@ -61,6 +61,12 @@ public final class TripGraphStateCodec {
         return patch;
     }
 
+    public static OverAllState withPatch(OverAllState state, Map<String, Object> patch) {
+        Map<String, Object> data = new LinkedHashMap<>(state.data());
+        data.putAll(patch);
+        return new OverAllState(data);
+    }
+
     private static <T> T convert(Object value, Class<T> type) {
         if (type.isInstance(value)) {
             return type.cast(value);

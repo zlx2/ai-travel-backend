@@ -42,11 +42,11 @@ public class DayInputPrepareNode {
         Map<String, Object> contextPatch = buildDayContexts(state);
         patch.putAll(contextPatch);
 
-        OverAllState contextState = stateWithPatch(state, patch);
+        OverAllState contextState = TripGraphStateCodec.withPatch(state, patch);
         Map<String, Object> filterPatch = filterTargetDay(contextState);
         patch.putAll(filterPatch);
 
-        OverAllState filteredState = stateWithPatch(state, patch);
+        OverAllState filteredState = TripGraphStateCodec.withPatch(state, patch);
         patch.putAll(buildQueryPlans(filteredState));
         patch.putAll(snapshotPreviousDays(filteredState));
         return patch;
@@ -240,12 +240,6 @@ public class DayInputPrepareNode {
     private boolean hasPreference(TravelRequirementDTO requirement, String keyword) {
         return requirement.getPreferences() != null
                 && requirement.getPreferences().stream().anyMatch(item -> item.contains(keyword));
-    }
-
-    private OverAllState stateWithPatch(OverAllState state, Map<String, Object> patch) {
-        Map<String, Object> data = new LinkedHashMap<>(state.data());
-        data.putAll(patch);
-        return new OverAllState(data);
     }
 
     private String resolveHotelArea(CityProfile profile, TravelRequirementDTO requirement) {

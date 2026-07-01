@@ -19,7 +19,6 @@ public final class TripGraphStateKeys {
     public static final String HOTEL_SEARCH_RESULT = "hotelSearchResult";
     public static final String DAY_CONTEXTS = "dayContexts";
     public static final String DAY_QUERY_PLANS = "dayQueryPlans";
-    public static final String FOOD_RECOMMENDATIONS_BY_DAY = "foodRecommendationsByDay";
     public static final String RANKED_DAY_DATA_PACKAGES = "rankedDayDataPackages";
     public static final String DAY_VALIDATION_REPORTS = "dayValidationReports";
     public static final String LOCKED_DAILY_PLANS = "lockedDailyPlans";
