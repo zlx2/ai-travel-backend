@@ -1,5 +1,7 @@
 package com.sora.aitravel.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
@@ -124,7 +126,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 || requirement.getDays() > 7) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车天数必须在 1 到 7 天之间");
         }
-        if (isBlank(requirement.getDestination())) {
+        if (StrUtil.isBlank(requirement.getDestination())) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "目的地不能为空");
         }
 
@@ -180,7 +182,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                         arrivalText,
                         rental.getDeliveryAddress(),
                         defaultArrivalPoint(city, requirement));
-        String source = isBlank(arrivalText) ? "SYSTEM_INFERRED" : "USER_PROVIDED";
+        String source = StrUtil.isBlank(arrivalText) ? "SYSTEM_INFERRED" : "USER_PROVIDED";
         rental.setDeliveryAddress(name);
         return RentalArrivalPointDTO.builder().name(name).cityName(city).source(source).build();
     }
@@ -292,7 +294,9 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private String defaultArrivalPoint(String city, TravelRequirementDTO requirement) {
         String text =
                 String.join(
-                        " ", safe(requirement.getDeparture()), safe(requirement.getDestination()));
+                        " ",
+                        StrUtil.nullToEmpty(requirement.getDeparture()),
+                        StrUtil.nullToEmpty(requirement.getDestination()));
         if (text.contains("飞")
                 || text.contains("航班")
                 || text.contains("飞机")
@@ -309,7 +313,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private String arrivalMode(String arrivalName) {
-        if (isBlank(arrivalName)) {
+        if (StrUtil.isBlank(arrivalName)) {
             return "还不确定";
         }
         if (arrivalName.contains("机场")) {
@@ -327,14 +331,14 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private String firstRouteCity(TravelRequirementDTO requirement) {
-        return requirement.getRouteCities() == null || requirement.getRouteCities().isEmpty()
+        return CollUtil.isEmpty(requirement.getRouteCities())
                 ? null
                 : requirement.getRouteCities().get(0);
     }
 
     private String firstNotBlank(String... values) {
         for (String value : values) {
-            if (notBlank(value)) {
+            if (StrUtil.isNotBlank(value)) {
                 return value;
             }
         }
@@ -343,7 +347,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private BigDecimal decimal(String value) {
         try {
-            return isBlank(value) ? null : new BigDecimal(value);
+            return StrUtil.isBlank(value) ? null : new BigDecimal(value);
         } catch (RuntimeException exception) {
             return null;
         }
@@ -441,29 +445,29 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private String resolveRentalCity(TravelRequirementDTO requirement) {
         RentalRequirementDTO rental = requirement.getRentalRequirement();
-        if (rental != null && notBlank(rental.getRentalStartCity())) {
+        if (rental != null && StrUtil.isNotBlank(rental.getRentalStartCity())) {
             return normalizeRentalCity(rental.getRentalStartCity());
         }
-        if (rental != null && notBlank(rental.getPickupCity())) {
+        if (rental != null && StrUtil.isNotBlank(rental.getPickupCity())) {
             return normalizeRentalCity(rental.getPickupCity());
         }
         if ("ROAD_TRIP".equals(requirement.getRouteMode())) {
             return normalizeRentalCity(requirement.getDeparture());
         }
-        if (requirement.getRouteCities() != null && !requirement.getRouteCities().isEmpty()) {
+        if (CollUtil.isNotEmpty(requirement.getRouteCities())) {
             return normalizeRentalCity(requirement.getRouteCities().get(0));
         }
         return normalizeRentalCity(requirement.getDestination());
     }
 
     private String normalizeRentalCity(String value) {
-        if (isBlank(value)) {
+        if (StrUtil.isBlank(value)) {
             return value;
         }
         String[] parts = value.trim().split("[、,，/|；;\\s]+|和|及|与|到|至|\\+");
         for (String part : parts) {
             String city = cleanRentalCity(part);
-            if (notBlank(city)) {
+            if (StrUtil.isNotBlank(city)) {
                 return city;
             }
         }
@@ -471,18 +475,18 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private String cleanRentalCity(String value) {
-        if (isBlank(value)) {
+        if (StrUtil.isBlank(value)) {
             return null;
         }
         String city =
                 value.replaceAll("(国际机场|机场|高铁站|火车站|动车站|汽车站|东站|西站|南站|北站|站)$", "")
                         .replaceAll("(市|地区)$", "")
                         .trim();
-        return city.isBlank() ? null : city;
+        return StrUtil.isBlank(city) ? null : city;
     }
 
     private CityMatch resolveCityMatch(String rentalCity) {
-        if (isBlank(rentalCity)) {
+        if (StrUtil.isBlank(rentalCity)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车城市不能为空");
         }
         List<String> names = cityNameVariants(rentalCity);
@@ -513,7 +517,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     private List<RentalPriceTemplate> findTemplates(CityMatch cityMatch) {
         LambdaQueryWrapper<RentalPriceTemplate> query =
                 new LambdaQueryWrapper<RentalPriceTemplate>().eq(RentalPriceTemplate::getStatus, 1);
-        if (notBlank(cityMatch.getCitycode())) {
+        if (StrUtil.isNotBlank(cityMatch.getCitycode())) {
             query.eq(RentalPriceTemplate::getCitycode, cityMatch.getCitycode());
         } else {
             query.eq(RentalPriceTemplate::getCity, cityMatch.getCity());
@@ -554,7 +558,8 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         String vehiclePreference =
                 requirement.getRentalRequirement() == null
                         ? ""
-                        : safe(requirement.getRentalRequirement().getVehiclePreference());
+                        : StrUtil.nullToEmpty(
+                                requirement.getRentalRequirement().getVehiclePreference());
         List<String> preferences =
                 requirement.getPreferences() == null ? List.of() : requirement.getPreferences();
         String text =
@@ -588,7 +593,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             RentalVehicleGroup group,
             List<String> preferredCodes,
             TravelRequirementDTO requirement) {
-        String code = safe(group.getGroupCode()).toUpperCase(Locale.ROOT);
+        String code = StrUtil.nullToEmpty(group.getGroupCode()).toUpperCase(Locale.ROOT);
         int index = preferredCodes.indexOf(code);
         int score = index >= 0 ? 100 - index * 15 : 20;
         if (requirement.getBudget() != null
@@ -607,9 +612,13 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             RentalPriceTemplate template) {
         RentalRequirementDTO rental = requirement.getRentalRequirement();
         String pickupMode =
-                rental == null ? "UNKNOWN" : safeDefault(rental.getPickupMode(), "UNKNOWN");
+                rental == null
+                        ? "UNKNOWN"
+                        : StrUtil.blankToDefault(rental.getPickupMode(), "UNKNOWN");
         String returnMode =
-                rental == null ? pickupMode : safeDefault(rental.getReturnMode(), pickupMode);
+                rental == null
+                        ? pickupMode
+                        : StrUtil.blankToDefault(rental.getReturnMode(), pickupMode);
         RentalPickupPoi pickupPoi = choosePoi(cityMatch.getPois(), pickupMode);
         int rentalDays =
                 rental != null && rental.getRentalDays() != null
@@ -679,10 +688,10 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         }
         RentalRequirementDTO rental = requirement.getRentalRequirement();
         String returnCity =
-                notBlank(rental.getRentalEndCity())
+                StrUtil.isNotBlank(rental.getRentalEndCity())
                         ? rental.getRentalEndCity()
                         : rental.getReturnCity();
-        if (isBlank(returnCity) || sameCity(returnCity, pickupCityMatch.getCity())) {
+        if (StrUtil.isBlank(returnCity) || sameCity(returnCity, pickupCityMatch.getCity())) {
             return pickupCityMatch;
         }
         return resolveCityMatch(returnCity);
@@ -757,12 +766,17 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private String modelName(RentalVehicleModel model, RentalVehicleGroup group) {
         if (model == null) {
-            return group == null ? null : safeDefault(group.getDisplayName(), group.getGroupName());
+            return group == null
+                    ? null
+                    : StrUtil.blankToDefault(group.getDisplayName(), group.getGroupName());
         }
-        if (notBlank(model.getSeriesFullName())) {
+        if (StrUtil.isNotBlank(model.getSeriesFullName())) {
             return model.getSeriesFullName();
         }
-        return (safe(model.getBrand()) + " " + safe(model.getSeries())).trim();
+        return (StrUtil.nullToEmpty(model.getBrand())
+                        + " "
+                        + StrUtil.nullToEmpty(model.getSeries()))
+                .trim();
     }
 
     private RentalFeeBreakdownDTO calculateFee(
@@ -813,7 +827,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private RentalPickupPoi choosePoi(List<RentalPickupPoi> pois, String mode) {
-        if (pois == null || pois.isEmpty()) {
+        if (CollUtil.isEmpty(pois)) {
             return null;
         }
         Comparator<RentalPickupPoi> comparator =
@@ -822,15 +836,16 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private int poiScore(RentalPickupPoi poi, String mode) {
-        String name = safe(poi.getPoiName());
-        String type = safe(poi.getPoiType()) + safe(poi.getPoiTypecode());
+        String name = StrUtil.nullToEmpty(poi.getPoiName());
+        String type =
+                StrUtil.nullToEmpty(poi.getPoiType()) + StrUtil.nullToEmpty(poi.getPoiTypecode());
         if ("AIRPORT".equals(mode)) {
-            return containsAny(name + type, "机场", "150104") ? 100 : 1;
+            return StrUtil.containsAny(name + type, "机场", "150104") ? 100 : 1;
         }
         if ("TRAIN_STATION".equals(mode)) {
-            return containsAny(name + type, "高铁", "火车", "车站", "150200") ? 100 : 1;
+            return StrUtil.containsAny(name + type, "高铁", "火车", "车站", "150200") ? 100 : 1;
         }
-        return containsAny(name, "市区", "中心") ? 60 : 10;
+        return StrUtil.containsAny(name, "市区", "中心") ? 60 : 10;
     }
 
     private List<String> cityNameVariants(String city) {
@@ -852,7 +867,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private LocalDate parseDate(String value) {
         try {
-            return isBlank(value) ? LocalDate.now() : LocalDate.parse(value);
+            return StrUtil.isBlank(value) ? LocalDate.now() : LocalDate.parse(value);
         } catch (Exception e) {
             return LocalDate.now();
         }
@@ -860,31 +875,6 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     private int value(Integer value) {
         return value == null ? 0 : value;
-    }
-
-    private boolean containsAny(String input, String... values) {
-        for (String value : values) {
-            if (input.contains(value)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean notBlank(String value) {
-        return !isBlank(value);
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
-
-    private String safe(String value) {
-        return value == null ? "" : value;
-    }
-
-    private String safeDefault(String value, String defaultValue) {
-        return isBlank(value) ? defaultValue : value;
     }
 
     private void applyGroupAndModelFields(

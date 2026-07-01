@@ -1,10 +1,9 @@
 package com.sora.aitravel.workflow.generate;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.JsonCodec;
 import com.sora.aitravel.common.utils.WorkflowTiming;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
@@ -35,7 +34,7 @@ public class AiTripDayGenerateOrchestrator {
     private final AiTripGenerationSessionServiceImpl sessionService;
     private final AiTripDayGenerationServiceImpl dayGenerationService;
     private final TripDayGenerateWorkflow tripDayGenerateWorkflow;
-    private final ObjectMapper objectMapper;
+    private final JsonCodec jsonCodec;
 
     /**
      * 生成指定日期的行程计划。
@@ -115,7 +114,7 @@ public class AiTripDayGenerateOrchestrator {
                     "day-mark-generated",
                     () ->
                             dayGenerationService.markGenerated(
-                                    day.getId(), writeJson(generatedPlan)));
+                                    day.getId(), jsonCodec.write(generatedPlan, "单日生成数据序列化失败")));
             AiTripDayGeneration generated =
                     timed(
                             "day-load-generated",
@@ -161,11 +160,16 @@ public class AiTripDayGenerateOrchestrator {
     private DayGenerateInput restoreInput(AiTripGenerationSession session, Integer dayNo) {
         return new DayGenerateInput(
                 session.getUserId(),
-                read(session.getRequirementJson(), TravelRequirementDTO.class),
-                readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class),
-                readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class),
-                read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST),
-                read(session.getCityProfileJson(), CityProfile.class),
+                jsonCodec.read(
+                        session.getRequirementJson(), TravelRequirementDTO.class, "生成会话数据解析失败"),
+                jsonCodec.readNullable(
+                        session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class, "生成会话数据解析失败"),
+                jsonCodec.readNullable(
+                        session.getRentalTripContextJson(),
+                        RentalTripContextDTO.class,
+                        "生成会话数据解析失败"),
+                jsonCodec.read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST, "生成会话数据解析失败"),
+                jsonCodec.read(session.getCityProfileJson(), CityProfile.class, "生成会话数据解析失败"),
                 session.getWeatherJson(),
                 session.getHotelJson(),
                 readGeneratedPreviousDays(session.getSessionId(), dayNo),
@@ -193,11 +197,7 @@ public class AiTripDayGenerateOrchestrator {
      * @return
      */
     private TripPlanDTO.DailyPlan readGeneratedDay(AiTripDayGeneration day) {
-        try {
-            return objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
-        } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "已生成单日行程数据解析失败");
-        }
+        return jsonCodec.read(day.getResultJson(), TripPlanDTO.DailyPlan.class, "已生成单日行程数据解析失败");
     }
 
     private void timed(String node, Runnable action) {
@@ -206,58 +206,5 @@ public class AiTripDayGenerateOrchestrator {
 
     private <T> T timed(String node, java.util.function.Supplier<T> action) {
         return WorkflowTiming.call("generate-day", node, action);
-    }
-
-    /**
-     * 从JSON字符串读取数据。
-     *
-     * @param json
-     * @param type
-     * @param <T>
-     * @return
-     */
-    private <T> T read(String json, Class<T> type) {
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "生成会话数据解析失败");
-        }
-    }
-
-    private <T> T readNullable(String json, Class<T> type) {
-        if (json == null || json.isBlank() || "null".equals(json)) {
-            return null;
-        }
-        return read(json, type);
-    }
-
-    /**
-     * 从JSON字符串读取数据。
-     *
-     * @param json
-     * @param type
-     * @param <T>
-     * @return
-     */
-    private <T> T read(String json, TypeReference<T> type) {
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "生成会话数据解析失败");
-        }
-    }
-
-    /**
-     * 将数据写入JSON字符串。
-     *
-     * @param value
-     * @return
-     */
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日生成数据序列化失败");
-        }
     }
 }

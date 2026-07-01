@@ -1,34 +1,34 @@
 package com.sora.aitravel.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sora.aitravel.common.utils.JsonCodec;
 import jakarta.annotation.PostConstruct;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class RegionRoutePresetServiceImpl {
 
     private static final String PRESETS_PATH = "travel/region-route-presets.json";
+
+    private final JsonCodec jsonCodec;
 
     private Map<String, RegionPresetGroup> groups = Map.of();
 
     @PostConstruct
     void load() {
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            ClassPathResource resource = new ClassPathResource(PRESETS_PATH);
-            try (InputStream stream = resource.getInputStream()) {
-                Map<String, RegionPresetGroup> loaded =
-                        mapper.readValue(
-                                stream, new TypeReference<Map<String, RegionPresetGroup>>() {});
-                groups = Map.copyOf(loaded);
-            }
+            Map<String, RegionPresetGroup> loaded =
+                    jsonCodec.readClasspath(
+                            PRESETS_PATH,
+                            new TypeReference<Map<String, RegionPresetGroup>>() {},
+                            "加载 region-route-presets.json 失败");
+            groups = Map.copyOf(loaded);
             log.info("已加载 region-route-presets.json, keys={}", groups.keySet());
         } catch (Exception exception) {
             log.warn("加载 region-route-presets.json 失败，将使用空配置", exception);

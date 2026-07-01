@@ -1,8 +1,8 @@
 package com.sora.aitravel.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.result.*;
+import com.sora.aitravel.common.utils.JsonCodec;
 import com.sora.aitravel.common.utils.LoginUserUtils;
 import com.sora.aitravel.config.RabbitMqConfig;
 import com.sora.aitravel.dto.message.TripDayGenerateMessage;
@@ -58,7 +58,7 @@ public class AiTripController {
     private final AiTripGenerationSessionServiceImpl aiTripGenerationSessionService;
     private final RabbitTemplate rabbitTemplate;
     private final TripTimelineAssembler tripTimelineAssembler;
-    private final ObjectMapper objectMapper;
+    private final JsonCodec jsonCodec;
 
     /**
      * AI 分析用户旅行需求（需登录）。
@@ -133,8 +133,10 @@ public class AiTripController {
                 return;
             }
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(
-                            session.getRequirementJson(), TravelRequirementDTO.class);
+                    jsonCodec.read(
+                            session.getRequirementJson(),
+                            TravelRequirementDTO.class,
+                            "预取下一日行程时需求数据解析失败");
             int nextDay = dayNo + 1;
             if (requirement.getDays() == null || nextDay > requirement.getDays()) {
                 return;
@@ -206,10 +208,13 @@ public class AiTripController {
             RentalQuoteOptionDTO selectedQuote) {
         try {
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(
-                            session.getRequirementJson(), TravelRequirementDTO.class);
+                    jsonCodec.read(
+                            session.getRequirementJson(),
+                            TravelRequirementDTO.class,
+                            "组装生成响应时需求数据解析失败");
             TripPlanDTO.DailyPlan dailyPlan =
-                    objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+                    jsonCodec.read(
+                            day.getResultJson(), TripPlanDTO.DailyPlan.class, "组装生成响应时单日行程数据解析失败");
             assembleTimelineIfMissing(session, requirement, dailyPlan, selectedQuote);
             TripPlanDTO tripPlan =
                     new TripPlanDTO(
@@ -250,16 +255,24 @@ public class AiTripController {
                 return day.getResultJson();
             }
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(
-                            session.getRequirementJson(), TravelRequirementDTO.class);
+                    jsonCodec.read(
+                            session.getRequirementJson(),
+                            TravelRequirementDTO.class,
+                            "单日旧结果补 timeline 时需求数据解析失败");
             TripPlanDTO.DailyPlan dailyPlan =
-                    objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
+                    jsonCodec.read(
+                            day.getResultJson(),
+                            TripPlanDTO.DailyPlan.class,
+                            "单日旧结果补 timeline 时单日行程数据解析失败");
             assembleTimelineIfMissing(
                     session,
                     requirement,
                     dailyPlan,
-                    readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class));
-            return objectMapper.writeValueAsString(dailyPlan);
+                    jsonCodec.readNullable(
+                            session.getSelectedQuoteJson(),
+                            RentalQuoteOptionDTO.class,
+                            "生成会话上下文解析失败"));
+            return jsonCodec.write(dailyPlan, "单日旧结果补 timeline 失败");
         } catch (Exception exception) {
             log.warn(
                     "单日旧结果补 timeline 失败，sessionId={}, dayNo={}",
@@ -279,7 +292,10 @@ public class AiTripController {
             return;
         }
         RentalTripContextDTO rentalTripContext =
-                readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class);
+                jsonCodec.readNullable(
+                        session.getRentalTripContextJson(),
+                        RentalTripContextDTO.class,
+                        "生成会话上下文解析失败");
         tripTimelineAssembler.assemble(
                 List.<TripPlanDTO.DailyPlan>of(),
                 List.of(dailyPlan),
@@ -341,17 +357,6 @@ public class AiTripController {
 
     private int value(Integer value) {
         return value == null ? 0 : value;
-    }
-
-    private <T> T readNullable(String json, Class<T> type) {
-        if (json == null || json.isBlank() || "null".equals(json)) {
-            return null;
-        }
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (Exception exception) {
-            throw new IllegalStateException("生成会话上下文解析失败", exception);
-        }
     }
 
     private String displayDestination(TravelRequirementDTO requirement) {
