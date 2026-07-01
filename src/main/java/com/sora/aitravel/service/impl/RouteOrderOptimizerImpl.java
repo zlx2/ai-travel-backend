@@ -1,7 +1,6 @@
 package com.sora.aitravel.service.impl;
 
 import com.sora.aitravel.model.RouteAnchor;
-import com.sora.aitravel.service.RouteOrderOptimizer;
 import com.sora.aitravel.service.route.RouteMatrix;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -12,11 +11,10 @@ import org.springframework.stereotype.Component;
 
 /** Optimizes route order with fixed start/end and soft meal-position constraints. */
 @Component
-public class RouteOrderOptimizerImpl implements RouteOrderOptimizer {
+public class RouteOrderOptimizerImpl {
     private static final int MAX_EXACT_MIDDLE_POINTS = 12;
     private static final int MEAL_POSITION_PENALTY_SECONDS = 20 * 60;
 
-    @Override
     public List<RouteAnchor> optimize(
             RouteAnchor start, List<RouteAnchor> middle, RouteAnchor end, RouteMatrix matrix) {
         if (start == null || end == null) {

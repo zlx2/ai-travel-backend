@@ -1,7 +1,6 @@
 package com.sora.aitravel.service.impl;
 
 import com.sora.aitravel.dto.model.TripPlanDTO;
-import com.sora.aitravel.service.RouteLegEstimateFactory;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,14 +8,13 @@ import org.springframework.stereotype.Component;
 
 /** Builds generation-time route leg estimates from ordered daily spots. */
 @Component
-public class RouteLegEstimateFactoryImpl implements RouteLegEstimateFactory {
+public class RouteLegEstimateFactoryImpl {
     private static final String MODE_WALK = "WALK";
     private static final String MODE_TAXI = "TAXI";
     private static final String MODE_DRIVING = "DRIVING";
     private static final String SOURCE_ESTIMATED = "ESTIMATED";
     private static final double WALKING_ROUTE_MAX_KM = 2.0;
 
-    @Override
     public List<TripPlanDTO.RouteLeg> build(List<TripPlanDTO.Spot> spots, boolean rentalEnabled) {
         List<TripPlanDTO.RouteLeg> legs = new ArrayList<>();
         if (spots == null || spots.size() < 2) {

@@ -5,9 +5,7 @@ import com.sora.aitravel.model.DayContext;
 import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.model.RouteAnchor;
 import com.sora.aitravel.model.RouteLegMetric;
-import com.sora.aitravel.service.DayRouteOrderService;
 import com.sora.aitravel.service.PoiIdentityService;
-import com.sora.aitravel.service.RouteOrderOptimizer;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import com.sora.aitravel.service.route.RouteMatrix;
 import java.util.ArrayList;
@@ -19,13 +17,12 @@ import org.springframework.stereotype.Component;
 /** Orders selected POIs with optional day start and stay anchors. */
 @Component
 @RequiredArgsConstructor
-public class DayRouteOrderServiceImpl implements DayRouteOrderService {
+public class DayRouteOrderServiceImpl {
     private static final String SOURCE_ESTIMATED = "ESTIMATED";
 
-    private final RouteOrderOptimizer routeOrderOptimizer;
+    private final RouteOrderOptimizerImpl routeOrderOptimizer;
     private final PoiIdentityService poiIdentityService;
 
-    @Override
     public List<PoiCandidate> optimize(List<PoiCandidate> selected, DayContext dayContext) {
         if (selected == null || selected.size() < 2) {
             return selected;

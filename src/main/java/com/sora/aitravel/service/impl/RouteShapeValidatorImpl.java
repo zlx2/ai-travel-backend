@@ -1,7 +1,6 @@
 package com.sora.aitravel.service.impl;
 
 import com.sora.aitravel.dto.model.TripPlanDTO;
-import com.sora.aitravel.service.RouteShapeValidator;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -11,14 +10,13 @@ import org.springframework.stereotype.Component;
 
 /** Validates that a generated daily route is complete and not obviously inefficient. */
 @Component
-public class RouteShapeValidatorImpl implements RouteShapeValidator {
+public class RouteShapeValidatorImpl {
     private static final int CITY_MAX_TOTAL_DISTANCE_METERS = 45_000;
     private static final int RENTAL_MAX_TOTAL_DISTANCE_METERS = 280_000;
     private static final int CITY_MAX_SINGLE_LEG_METERS = 22_000;
     private static final int RENTAL_MAX_SINGLE_LEG_METERS = 90_000;
     private static final double MAX_ROUTE_OVER_OPTIMAL_RATIO = 1.45;
 
-    @Override
     public List<String> validate(TripPlanDTO.DailyPlan dailyPlan, boolean rentalEnabled) {
         List<String> warnings = new ArrayList<>();
         if (dailyPlan == null) {

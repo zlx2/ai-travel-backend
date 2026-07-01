@@ -1,7 +1,6 @@
 package com.sora.aitravel.service.impl;
 
 import com.sora.aitravel.model.PoiCandidate;
-import com.sora.aitravel.service.PoiClusterer;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,8 +8,7 @@ import org.springframework.stereotype.Component;
 
 /** Selects compact POI groups from coordinate-bearing candidates. */
 @Component
-public class PoiClustererImpl implements PoiClusterer {
-    @Override
+public class PoiClustererImpl {
     public List<PoiCandidate> bestCluster(List<PoiCandidate> candidates, int limit, double maxKm) {
         if (candidates == null || candidates.isEmpty() || limit <= 0) {
             return List.of();
@@ -46,7 +44,6 @@ public class PoiClustererImpl implements PoiClusterer {
         return best;
     }
 
-    @Override
     public double totalDirectRouteKm(List<PoiCandidate> candidates) {
         if (candidates == null || candidates.size() < 2) {
             return 0;
@@ -58,7 +55,6 @@ public class PoiClustererImpl implements PoiClusterer {
         return total;
     }
 
-    @Override
     public boolean fitsCluster(List<PoiCandidate> selected, PoiCandidate candidate, double maxKm) {
         if (selected == null || selected.isEmpty()) {
             return true;
@@ -66,7 +62,6 @@ public class PoiClustererImpl implements PoiClusterer {
         return selected.stream().allMatch(item -> directDistanceKm(item, candidate) <= maxKm);
     }
 
-    @Override
     public double directDistanceKm(PoiCandidate first, PoiCandidate second) {
         if (first == null || second == null) {
             return 1000;

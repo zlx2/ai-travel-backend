@@ -17,10 +17,10 @@ import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.DayContext;
 import com.sora.aitravel.model.DayDataPackage;
 import com.sora.aitravel.model.PoiCandidate;
-import com.sora.aitravel.service.DayRouteOrderService;
-import com.sora.aitravel.service.PoiClusterer;
 import com.sora.aitravel.service.PoiIdentityService;
-import com.sora.aitravel.service.RouteLegEstimateFactory;
+import com.sora.aitravel.service.impl.DayRouteOrderServiceImpl;
+import com.sora.aitravel.service.impl.PoiClustererImpl;
+import com.sora.aitravel.service.impl.RouteLegEstimateFactoryImpl;
 import com.sora.aitravel.service.route.GeoRouteCalculator;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -95,10 +95,10 @@ public class DayPlanGenerateNode {
     private static final RoutePolicy RENTAL_INTERCITY_ROUTE_POLICY = new RoutePolicy(120.0, 260.0);
     private static final RoutePolicy RENTAL_LONG_ROUTE_POLICY = new RoutePolicy(220.0, 480.0);
 
-    private final PoiClusterer poiClusterer;
+    private final PoiClustererImpl poiClusterer;
     private final PoiIdentityService poiIdentityService;
-    private final DayRouteOrderService dayRouteOrderService;
-    private final RouteLegEstimateFactory routeLegEstimateFactory;
+    private final DayRouteOrderServiceImpl dayRouteOrderService;
+    private final RouteLegEstimateFactoryImpl routeLegEstimateFactory;
     private final AiGateway aiGateway;
     private final ObjectMapper objectMapper;
 
