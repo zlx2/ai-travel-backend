@@ -98,17 +98,6 @@ public class DayPlanGenerateNode {
     private final AiGateway aiGateway;
     private final ObjectMapper objectMapper;
 
-    public void execute(GenerateWorkflowContext context) {
-        List<TripPlanDTO.DailyPlan> dailyPlans =
-                generatePlans(
-                        new DayPlanInput(
-                                context.getRequirement(),
-                                context.getCityProfile(),
-                                context.getDayContexts(),
-                                context.getRankedDayDataPackages(),
-                                context.getLockedDailyPlans()));
-        context.setLockedDailyPlans(dailyPlans);
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<TripPlanDTO.DailyPlan> dailyPlans =

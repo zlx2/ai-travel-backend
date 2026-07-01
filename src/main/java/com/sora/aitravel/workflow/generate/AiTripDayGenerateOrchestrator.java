@@ -102,13 +102,10 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         long start = WorkflowTiming.start();
         try {
             timed("day-mark-generating", () -> dayGenerationService.markGenerating(day.getId()));
-            // 从会话持久化数据中恢复工作流上下文（需求、城市、天气、酒店、前几天行程）
-            GenerateWorkflowContext context = timed("restore-context", () -> restoreContext(session, dayNo));
-            context.setRevisionText(normalizeRevisionText(revisionText));
-            context.setTargetDayNo(dayNo);
-            GenerateWorkflowContext workflowInput = context;
-            context = timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(workflowInput));
-            TripPlanDTO.DailyPlan generatedPlan = currentGeneratedPlan(context, dayNo);
+            DayGenerateInput input = timed("restore-input", () -> restoreInput(session, dayNo));
+            input.setRevisionText(normalizeRevisionText(revisionText));
+            DayGenerateResult result = timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(input));
+            TripPlanDTO.DailyPlan generatedPlan = result.getDailyPlan();
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
             timed(
                     "day-mark-generated",
@@ -143,26 +140,6 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return text.length() > 500 ? text.substring(0, 500) : text;
     }
 
-    private TripPlanDTO.DailyPlan currentGeneratedPlan(GenerateWorkflowContext context, Integer dayNo) {
-        if (context.getLockedDailyPlans() == null || context.getLockedDailyPlans().isEmpty()) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成结果为空，day=" + dayNo);
-        }
-        return context.getLockedDailyPlans().stream()
-                .filter(plan -> dayNo.equals(plan.getDay()))
-                .findFirst()
-                .orElseGet(() -> {
-                    if (context.getLockedDailyPlans().size() == 1) {
-                        return context.getLockedDailyPlans().get(0);
-                    }
-                    throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "未找到当前天行程结果，day=" + dayNo);
-                });
-    }
-
-    /**
-     * 获取已准备好的生成会话。
-     * @param sessionId
-     * @return
-     */
     private AiTripGenerationSession requirePreparedSession(String sessionId) {
         AiTripGenerationSession session = sessionService.getBySessionId(sessionId);
         if (session == null) {
@@ -175,24 +152,21 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
     }
 
     /**
-     * 恢复生成工作流上下文。
-     * @param session
-     * @param dayNo
-     * @return
+     * 恢复生成工作流输入。
      */
-    private GenerateWorkflowContext restoreContext(AiTripGenerationSession session, Integer dayNo) {
-        return GenerateWorkflowContext.builder()
-                .userId(session.getUserId())
-                .requirement(read(session.getRequirementJson(), TravelRequirementDTO.class))
-                .selectedQuote(readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class))
-                .rentalTripContext(readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class))
-                .daySkeletons(read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST))
-                .cityProfile(read(session.getCityProfileJson(), CityProfile.class))
-                .weatherForecast(session.getWeatherJson())
-                .hotelSearchResult(session.getHotelJson())
-                .lockedDailyPlans(readGeneratedPreviousDays(session.getSessionId(), dayNo))
-                .singleDayGeneration(true)
-                .build();
+     private DayGenerateInput restoreInput(AiTripGenerationSession session, Integer dayNo) {
+        return new DayGenerateInput(
+                session.getUserId(),
+                read(session.getRequirementJson(), TravelRequirementDTO.class),
+                readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class),
+                readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class),
+                read(session.getDaySkeletonsJson(), DAY_SKELETON_LIST),
+                read(session.getCityProfileJson(), CityProfile.class),
+                session.getWeatherJson(),
+                session.getHotelJson(),
+                readGeneratedPreviousDays(session.getSessionId(), dayNo),
+                dayNo,
+                null);
     }
 
     /**

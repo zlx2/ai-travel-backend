@@ -21,7 +21,6 @@ import com.sora.aitravel.service.AiTripGenerationSessionService;
 import com.sora.aitravel.service.TripDayGenerateMessageProducer;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
-import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -273,18 +272,13 @@ public class AiTripController {
         if (dailyPlan.getTimeline() != null && !dailyPlan.getTimeline().isEmpty()) {
             return;
         }
-        GenerateWorkflowContext context =
-                GenerateWorkflowContext.builder()
-                        .userId(session.getUserId())
-                        .requirement(requirement)
-                        .selectedQuote(selectedQuote)
-                        .rentalTripContext(
-                                readNullable(
-                                        session.getRentalTripContextJson(), RentalTripContextDTO.class))
-                        .lockedDailyPlans(List.of(dailyPlan))
-                        .singleDayGeneration(true)
-                        .build();
-        tripTimelineAssembler.assemble(List.of(), context.getLockedDailyPlans(), context);
+        RentalTripContextDTO rentalTripContext =
+                readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class);
+        tripTimelineAssembler.assemble(
+                List.<TripPlanDTO.DailyPlan>of(), List.of(dailyPlan),
+                new TripTimelineAssembler.TimelineInput(
+                        List.of(), List.of(dailyPlan), requirement, selectedQuote,
+                        rentalTripContext, List.of(), List.of()));
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(

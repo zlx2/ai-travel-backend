@@ -30,9 +30,6 @@ public class CityDataProfileNode {
     private final AmapPoiCacheService amapPoiCacheService;
     private final PoiIdentityService poiIdentityService;
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setCityProfile(buildProfile(context.getRequirement()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         CityProfile profile =

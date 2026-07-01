@@ -29,13 +29,6 @@ public class DayDataFetchNode {
     private final AmapPoiCacheService amapPoiCacheService;
     private final PoiIdentityService poiIdentityService;
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setRankedDayDataPackages(
-                fetchDataPackages(
-                        context.getDayQueryPlans(),
-                        context.getDayContexts(),
-                        context.getCityProfile()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<DayDataPackage> packages =

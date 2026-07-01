@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.AiTripGenerationOrchestrator;
 import com.sora.aitravel.service.AiTripGenerationSessionService;
-import com.sora.aitravel.workflow.generate.GenerateWorkflowContext;
+import com.sora.aitravel.service.TravelRequirementReadyService;
+import com.sora.aitravel.workflow.generate.TripPrepareInput;
+import com.sora.aitravel.workflow.generate.TripPrepareResult;
 import com.sora.aitravel.workflow.generate.TripPrepareWorkflow;
 import com.sora.aitravel.workflow.generate.WorkflowTiming;
 import lombok.RequiredArgsConstructor;
@@ -23,38 +26,41 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
 
     private final AiTripGenerationSessionService sessionService;
     private final TripPrepareWorkflow tripPrepareWorkflow;
+    private final TravelRequirementReadyService travelRequirementReadyService;
     private final ObjectMapper objectMapper;
 
     @Override
     public AiTripGenerationSession prepareSession(Long userId, TripGenerateRequest request) {
+        travelRequirementReadyService.validateForGenerate(request);
+        TravelRequirementDTO requirement = request.getRequirement();
+        travelRequirementReadyService.resolveRouteScopeIfMissing(requirement);
         AiTripGenerationSession session =
                 sessionService.createPreparing(
                         userId,
                         request.getConversationId(),
-                        writeJson(request.getRequirement()),
+                        writeJson(requirement),
                         writeJsonOrNull(request.getSelectedQuote()),
                         writeJsonOrNull(request.getRentalTripContext()));
-        GenerateWorkflowContext initialContext = new GenerateWorkflowContext();
-        initialContext.setUserId(userId);
-        initialContext.setRequest(request);
         long start = WorkflowTiming.start();
         try {
-            GenerateWorkflowContext context =
-                    timed("trip-prepare-workflow", () -> tripPrepareWorkflow.execute(initialContext));
+            TripPrepareResult result =
+                    timed("trip-prepare-workflow",
+                            () -> tripPrepareWorkflow.execute(
+                                    new TripPrepareInput(userId, requirement, request.getSelectedQuote(), request.getRentalTripContext())));
             timed(
                     "session-requirement-update",
                     () ->
                             sessionService.updateRequirementJson(
-                                    session.getSessionId(), writeJson(context.getRequirement())));
+                                    session.getSessionId(), writeJson(result.getRequirement())));
             timed(
                     "session-mark-prepared",
                     () ->
                             sessionService.markPrepared(
                                     session.getSessionId(),
-                                    writeJson(context.getDaySkeletons()),
-                                    writeJson(context.getCityProfile()),
-                                    writeJson(context.getWeatherForecast()),
-                                    writeJson(context.getHotelSearchResult())));
+                                    writeJson(result.getDaySkeletons()),
+                                    writeJson(result.getCityProfile()),
+                                    writeJson(result.getWeatherForecast()),
+                                    writeJson(result.getHotelSearchResult())));
             AiTripGenerationSession prepared =
                     timed(
                             "session-load-prepared",

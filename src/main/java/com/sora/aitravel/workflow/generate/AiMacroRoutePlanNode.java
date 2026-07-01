@@ -80,10 +80,6 @@ public class AiMacroRoutePlanNode {
     private final AiGateway aiGateway;
     private final ObjectMapper objectMapper;
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setMacroRoutePlans(
-                generatePlans(context.getCandidatePool(), context.getRequirement(), context.getSelectedQuote()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<MacroRoutePlan> plans =

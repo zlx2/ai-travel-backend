@@ -19,13 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class DayQueryPlanNode {
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setDayQueryPlans(
-                buildPlans(
-                        context.getCityProfile(),
-                        context.getRequirement(),
-                        context.getDayContexts()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<DayQueryPlan> plans =

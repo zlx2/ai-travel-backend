@@ -24,10 +24,6 @@ public class WeatherFetchNode {
 
     private final WeatherTool weatherTool;
 
-    public void execute(GenerateWorkflowContext context) {
-        TravelRequirementDTO requirement = context.getRequirement();
-        context.setWeatherForecast(fetchWeather(requirement));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);

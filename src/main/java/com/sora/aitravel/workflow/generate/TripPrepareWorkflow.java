@@ -1,8 +1,13 @@
 package com.sora.aitravel.workflow.generate;
 
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CANDIDATE_POOL;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SELECTED_QUOTE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.WEATHER_FORECAST;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
@@ -26,9 +31,6 @@ import org.springframework.stereotype.Component;
 public class TripPrepareWorkflow {
     private static final String WORKFLOW_NAME = "trip-prepare-workflow";
 
-    private final RequirementValidateNode requirementValidateNode;
-    private final RequirementLoadNode requirementLoadNode;
-    private final RouteScopeResolveNode routeScopeResolveNode;
     private final CityDataProfileNode cityDataProfileNode;
     private final CandidatePoolBuildNode candidatePoolBuildNode;
     private final AiMacroRoutePlanNode aiMacroRoutePlanNode;
@@ -46,10 +48,19 @@ public class TripPrepareWorkflow {
         this.graph = compile();
     }
 
-    public GenerateWorkflowContext execute(GenerateWorkflowContext context) {
-        return graph.invoke(TripGraphContextAdapter.toState(context))
-                .map(TripGraphContextAdapter::fromState)
-                .orElse(context);
+    public TripPrepareResult execute(TripPrepareInput input) {
+        Map<String, Object> initialState = TripGraphStateCodec.patch(
+                REQUIREMENT, input.getRequirement(),
+                SELECTED_QUOTE, input.getSelectedQuote(),
+                RENTAL_TRIP_CONTEXT, input.getRentalTripContext());
+        OverAllState finalState = graph.invoke(initialState)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程准备工作流执行失败"));
+        return new TripPrepareResult(
+                TripGraphStateCodec.required(finalState, REQUIREMENT, TravelRequirementDTO.class),
+                TripGraphStateCodec.optionalList(finalState, DAY_SKELETONS, DaySkeleton.class),
+                TripGraphStateCodec.optional(finalState, CITY_PROFILE, CityProfile.class).orElse(null),
+                TripGraphStateCodec.optional(finalState, WEATHER_FORECAST, String.class).orElse(null),
+                TripGraphStateCodec.optional(finalState, HOTEL_SEARCH_RESULT, String.class).orElse(null));
     }
 
     private CompiledGraph compile() {
@@ -59,26 +70,18 @@ public class TripPrepareWorkflow {
                             WORKFLOW_NAME,
                             TripGraphStateStrategies.build());
 
-            stateGraph.addNode("requirement-validate", stateNode("requirement-validate", requirementValidateNode::execute));
-            stateGraph.addNode("requirement-load", stateNode("requirement-load", requirementLoadNode::execute));
-            stateGraph.addNode("route-scope-resolve", stateNode("route-scope-resolve", routeScopeResolveNode::execute));
             stateGraph.addNode("city-data-profile", stateNode("city-data-profile", cityDataProfileNode::execute));
             stateGraph.addNode("candidate-pool-build", stateNode("candidate-pool-build", candidatePoolBuildNode::execute));
             stateGraph.addNode("ai-macro-route-plan", stateNode("ai-macro-route-plan", aiMacroRoutePlanNode::execute));
             stateGraph.addNode("amap-macro-route-fact", stateNode("amap-macro-route-fact", amapMacroRouteFactNode::execute));
             stateGraph.addNode("ai-route-critic", stateNode("ai-route-critic", aiRouteCriticNode::execute));
-            stateGraph.addNode(
-                    "macro-route-contract-validate",
-                    stateNode("macro-route-contract-validate", macroRouteContractValidateNode::execute));
+            stateGraph.addNode("macro-route-contract-validate", stateNode("macro-route-contract-validate", macroRouteContractValidateNode::execute));
             stateGraph.addNode("prepared-context-validate", stateNode("prepared-context-validate", this::validatePreparedState));
             stateGraph.addNode("weather-fetch", stateNode("weather-fetch", weatherFetchNode::execute));
             stateGraph.addNode("hotel-fetch", stateNode("hotel-fetch", hotelFetchNode::execute));
             stateGraph.addNode("day-state-init", stateNode("day-state-init", dayStateInitNode::execute));
 
-            stateGraph.addEdge(StateGraph.START, "requirement-validate");
-            stateGraph.addEdge("requirement-validate", "requirement-load");
-            stateGraph.addEdge("requirement-load", "route-scope-resolve");
-            stateGraph.addEdge("route-scope-resolve", "city-data-profile");
+            stateGraph.addEdge(StateGraph.START, "city-data-profile");
             stateGraph.addEdge("city-data-profile", "candidate-pool-build");
             stateGraph.addEdge("candidate-pool-build", "ai-macro-route-plan");
             stateGraph.addEdge("ai-macro-route-plan", "amap-macro-route-fact");

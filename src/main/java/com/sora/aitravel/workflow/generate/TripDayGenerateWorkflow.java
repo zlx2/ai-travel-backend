@@ -1,9 +1,18 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_CONTEXTS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_SKELETONS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.DAY_VALIDATION_REPORTS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.LOCKED_DAILY_PLANS;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.PREVIOUS_DAILY_PLANS;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REVISION_TEXT;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.SELECTED_QUOTE;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.TARGET_DAY_NO;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.WEATHER_FORECAST;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
@@ -43,10 +52,33 @@ public class TripDayGenerateWorkflow {
         this.graph = compile();
     }
 
-    public GenerateWorkflowContext execute(GenerateWorkflowContext context) {
-        return graph.invoke(TripGraphContextAdapter.toState(context))
-                .map(TripGraphContextAdapter::fromState)
-                .orElse(context);
+    public DayGenerateResult execute(DayGenerateInput input) {
+        Map<String, Object> initialState = TripGraphStateCodec.patch(
+                REQUIREMENT, input.getRequirement(),
+                DAY_SKELETONS, input.getDaySkeletons(),
+                SELECTED_QUOTE, input.getSelectedQuote(),
+                RENTAL_TRIP_CONTEXT, input.getRentalTripContext(),
+                CITY_PROFILE, input.getCityProfile(),
+                WEATHER_FORECAST, input.getWeatherForecast(),
+                HOTEL_SEARCH_RESULT, input.getHotelSearchResult(),
+                PREVIOUS_DAILY_PLANS, input.getPreviousDailyPlans(),
+                TARGET_DAY_NO, input.getTargetDayNo(),
+                REVISION_TEXT, input.getRevisionText());
+        OverAllState finalState = graph.invoke(initialState)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成失败"));
+        List<TripPlanDTO.DailyPlan> lockedPlans =
+                TripGraphStateCodec.optionalList(finalState, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class);
+        TripPlanDTO.DailyPlan dailyPlan = lockedPlans.stream()
+                .filter(item -> input.getTargetDayNo().equals(item.getDay()))
+                .findFirst()
+                .orElseGet(() -> lockedPlans.isEmpty() ? null : lockedPlans.get(0));
+        if (dailyPlan == null) {
+            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成结果为空，day=" + input.getTargetDayNo());
+        }
+        return new DayGenerateResult(
+                dailyPlan,
+                lockedPlans,
+                TripGraphStateCodec.optionalList(finalState, DAY_VALIDATION_REPORTS, DayPlanValidationReport.class));
     }
 
     private CompiledGraph compile() {

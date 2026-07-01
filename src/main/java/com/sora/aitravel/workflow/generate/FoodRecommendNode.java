@@ -37,12 +37,6 @@ public class FoodRecommendNode {
      *
      * <p>节点只负责调用美食服务和保存结果，不修改 DayDataFetchNode，也不参与后续候选排序和行程生成。
      */
-    public void execute(GenerateWorkflowContext context) {
-        context.setFoodRecommendationsByDay(
-                recommendByDay(
-                        context.getDayQueryPlans(),
-                        context.getCityProfile()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         Map<Integer, FoodRecommendResponse> recommendationsByDay =

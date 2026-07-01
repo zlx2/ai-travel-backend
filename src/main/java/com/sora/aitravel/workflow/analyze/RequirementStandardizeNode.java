@@ -2,16 +2,22 @@ package com.sora.aitravel.workflow.analyze;
 
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripAnalyzeRequest;
+import com.sora.aitravel.service.TravelRequirementReadyService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /** 用规则稳定 AI 抽取结果，不调用模型。 */
 @Slf4j
 @Component
 public class RequirementStandardizeNode {
+
+    @Autowired(required = false)
+    private TravelRequirementReadyService travelRequirementReadyService;
 
     public void execute(AnalyzeWorkflowContext context) {
         TravelRequirementDTO extracted = context.getExtractedRequirement();
@@ -131,7 +137,10 @@ public class RequirementStandardizeNode {
                                         extracted.getTravelDate())));
 
         context.setExtractedRequirement(standardized);
-        log.info("节点[requirement-standardize]：已用规则标准化 Analyze 抽取结果。");
+        if (travelRequirementReadyService != null) {
+            travelRequirementReadyService.resolveRouteScopeIfMissing(standardized);
+        }
+        log.info("节点[requirement-standardize]：已用规则标准化 Analyze 抽取结果并补全路线范围。");
     }
 
     private String normalizeBudgetType(String value) {

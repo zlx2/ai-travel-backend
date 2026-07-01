@@ -20,9 +20,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class AmapMacroRouteFactNode {
-    public void execute(GenerateWorkflowContext context) {
-        context.setMacroRouteFacts(buildFacts(context.getMacroRoutePlans(), context.getCandidatePool()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<MacroRouteFact> facts =

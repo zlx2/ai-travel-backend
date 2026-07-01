@@ -20,13 +20,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class AiRouteCriticNode {
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setRouteCriticResult(
-                review(
-                        context.getRequirement(),
-                        context.getMacroRoutePlans(),
-                        context.getMacroRouteFacts()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         RouteCriticResult result =

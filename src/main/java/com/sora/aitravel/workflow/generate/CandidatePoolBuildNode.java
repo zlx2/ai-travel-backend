@@ -18,9 +18,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class CandidatePoolBuildNode {
-    public void execute(GenerateWorkflowContext context) {
-        context.setCandidatePool(buildPool(context.getCityProfile(), context.getRentalTripContext()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         CandidatePool pool =

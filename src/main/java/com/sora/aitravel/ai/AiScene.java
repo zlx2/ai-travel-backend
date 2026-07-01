@@ -4,8 +4,7 @@ package com.sora.aitravel.ai;
 public enum AiScene {
     TRIP_ANALYZE("AI 分析"),
     TRIP_GENERATE("AI 行程生成"),
-    AI_CHAT("AI 聊天"),
-    TOOL_DEMO("AI 工具演示");
+    AI_CHAT("AI 聊天");
 
     private final String description;
 

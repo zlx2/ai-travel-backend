@@ -23,16 +23,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class MacroRouteContractValidateNode {
-    public void execute(GenerateWorkflowContext context) {
-        List<DaySkeleton> skeletons =
-                validateAndBuildSkeletons(
-                        context.getRouteCriticResult(),
-                        context.getMacroRoutePlans(),
-                        context.getCandidatePool(),
-                        context.getRequirement(),
-                        context.getSelectedQuote());
-        context.setDaySkeletons(skeletons);
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<DaySkeleton> skeletons =

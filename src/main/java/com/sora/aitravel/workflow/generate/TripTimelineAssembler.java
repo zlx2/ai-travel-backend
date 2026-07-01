@@ -42,10 +42,6 @@ public class TripTimelineAssembler {
     private static final int LAST_SPOT_END_LIMIT = 19 * 60 + 15;
     private static final double MAX_HOTEL_ANCHOR_DISTANCE_KM = 6.0;
 
-    public void execute(GenerateWorkflowContext context) {
-        assemble(inputFromContext(context));
-    }
-
     public Map<String, Object> execute(OverAllState state) {
         List<TripPlanDTO.DailyPlan> currentDays =
                 TripGraphStateCodec.optionalList(state, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class);
@@ -64,29 +60,11 @@ public class TripTimelineAssembler {
         return TripGraphStateCodec.patch(LOCKED_DAILY_PLANS, currentDays);
     }
 
-    private TimelineInput inputFromContext(GenerateWorkflowContext context) {
-        return new TimelineInput(
-                List.of(),
-                context.getLockedDailyPlans(),
-                context.getRequirement(),
-                context.getSelectedQuote(),
-                context.getRentalTripContext(),
-                context.getDaySkeletons(),
-                context.getRankedDayDataPackages());
-    }
-
     private void assemble(TimelineInput input) {
         assemble(input.getPreviousDays(), input.getCurrentDays(), input);
     }
 
     public void assemble(
-            List<TripPlanDTO.DailyPlan> previousDays,
-            List<TripPlanDTO.DailyPlan> currentDays,
-            GenerateWorkflowContext context) {
-        assemble(previousDays, currentDays, inputFromContext(context));
-    }
-
-    private void assemble(
             List<TripPlanDTO.DailyPlan> previousDays,
             List<TripPlanDTO.DailyPlan> currentDays,
             TimelineInput input) {
@@ -874,7 +852,7 @@ public class TripTimelineAssembler {
         return value == null ? "" : value.replace("市", "").replaceAll("\\s+", "").trim();
     }
 
-    private static final class TimelineInput {
+    public static final class TimelineInput {
         private final List<TripPlanDTO.DailyPlan> previousDays;
         private final List<TripPlanDTO.DailyPlan> currentDays;
         private final TravelRequirementDTO requirement;
@@ -883,7 +861,7 @@ public class TripTimelineAssembler {
         private final List<DaySkeleton> daySkeletons;
         private final List<DayDataPackage> rankedDayDataPackages;
 
-        private TimelineInput(
+        public TimelineInput(
                 List<TripPlanDTO.DailyPlan> previousDays,
                 List<TripPlanDTO.DailyPlan> currentDays,
                 TravelRequirementDTO requirement,

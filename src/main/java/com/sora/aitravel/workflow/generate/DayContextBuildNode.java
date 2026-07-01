@@ -26,37 +26,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class DayContextBuildNode {
 
-    public void execute(GenerateWorkflowContext context) {
-        if (context.getDaySkeletons() == null || context.getDaySkeletons().isEmpty()) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少逐日行程骨架，无法生成单日行程");
-        }
-        List<DayContext> dayContexts = new ArrayList<>();
-        List<String> usedPlaces = new ArrayList<>();
-        String hotelArea = resolveHotelArea(context);
-
-        for (DaySkeleton skeleton : context.getDaySkeletons()) {
-            dayContexts.add(
-                    new DayContext(
-                            skeleton.getDay(),
-                            skeleton,
-                            List.copyOf(usedPlaces),
-                            hotelArea,
-                            context.getRequirement().getPace(),
-                            context.getSelectedQuote() != null,
-                            rentalInstruction(context),
-                            context.getRentalTripContext() == null
-                                    ? null
-                                    : context.getRentalTripContext().getRouteStructure(),
-                            context.getRentalTripContext() == null
-                                    ? null
-                                    : context.getRentalTripContext().getDailyDrivingLimit(),
-                            context.getRevisionText()));
-            usedPlaces.add(skeleton.targetArea());
-        }
-
-        context.setDayContexts(dayContexts);
-        log.info("节点[day-context-build]：已构建每天上下文，count={}", dayContexts.size());
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<DaySkeleton> daySkeletons = TripGraphStateCodec.optionalList(state, DAY_SKELETONS, DaySkeleton.class);
@@ -95,10 +64,6 @@ public class DayContextBuildNode {
         return TripGraphStateCodec.patch(DAY_CONTEXTS, dayContexts);
     }
 
-    private String resolveHotelArea(GenerateWorkflowContext context) {
-        return resolveHotelArea(context.getCityProfile(), context.getRequirement());
-    }
-
     private String resolveHotelArea(CityProfile profile, TravelRequirementDTO requirement) {
         if (profile != null
                 && profile.hotelCandidates() != null
@@ -121,10 +86,6 @@ public class DayContextBuildNode {
 
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
-    }
-
-    private String rentalInstruction(GenerateWorkflowContext context) {
-        return rentalInstruction(context.getSelectedQuote(), context.getRentalTripContext());
     }
 
     private String rentalInstruction(

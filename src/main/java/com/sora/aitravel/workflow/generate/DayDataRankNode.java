@@ -22,9 +22,6 @@ public class DayDataRankNode {
 
     private static final int MAX_RANKED_CANDIDATES = 40;
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setRankedDayDataPackages(rankPackages(context.getRankedDayDataPackages(), context.getDayContexts()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<DayDataPackage> rankedPackages =

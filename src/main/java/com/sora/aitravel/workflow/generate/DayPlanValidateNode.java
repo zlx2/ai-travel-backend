@@ -32,15 +32,6 @@ public class DayPlanValidateNode {
     private final RouteShapeValidator routeShapeValidator;
     private final PoiIdentityService poiIdentityService;
 
-    public void execute(GenerateWorkflowContext context) {
-        context.setDayValidationReports(
-                validatePlans(
-                        context.getLockedDailyPlans(),
-                        context.getRankedDayDataPackages(),
-                        context.getRequirement(),
-                        context.getSelectedQuote(),
-                        context.isSingleDayGeneration()));
-    }
 
     public Map<String, Object> execute(OverAllState state) {
         List<DayPlanValidationReport> reports =
