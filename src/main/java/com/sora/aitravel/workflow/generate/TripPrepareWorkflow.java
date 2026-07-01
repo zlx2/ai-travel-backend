@@ -34,8 +34,7 @@ import org.springframework.stereotype.Component;
 public class TripPrepareWorkflow {
     private static final String WORKFLOW_NAME = "trip-prepare-workflow";
 
-    private final CityDataProfileNode cityDataProfileNode;
-    private final CandidatePoolBuildNode candidatePoolBuildNode;
+    private final DestinationPrepareNode destinationPrepareNode;
     private final AiMacroRoutePlanNode aiMacroRoutePlanNode;
     private final AmapMacroRouteFactNode amapMacroRouteFactNode;
     private final AiRouteCriticNode aiRouteCriticNode;
@@ -78,11 +77,8 @@ public class TripPrepareWorkflow {
             StateGraph stateGraph = new StateGraph(WORKFLOW_NAME, TripGraphStateStrategies.build());
 
             stateGraph.addNode(
-                    "city-data-profile",
-                    stateNode("city-data-profile", cityDataProfileNode::execute));
-            stateGraph.addNode(
-                    "candidate-pool-build",
-                    stateNode("candidate-pool-build", candidatePoolBuildNode::execute));
+                    "destination-prepare",
+                    stateNode("destination-prepare", destinationPrepareNode::execute));
             stateGraph.addNode(
                     "ai-macro-route-plan",
                     stateNode("ai-macro-route-plan", aiMacroRoutePlanNode::execute));
@@ -105,9 +101,8 @@ public class TripPrepareWorkflow {
             stateGraph.addNode(
                     "day-state-init", stateNode("day-state-init", dayStateInitNode::execute));
 
-            stateGraph.addEdge(StateGraph.START, "city-data-profile");
-            stateGraph.addEdge("city-data-profile", "candidate-pool-build");
-            stateGraph.addEdge("candidate-pool-build", "ai-macro-route-plan");
+            stateGraph.addEdge(StateGraph.START, "destination-prepare");
+            stateGraph.addEdge("destination-prepare", "ai-macro-route-plan");
             stateGraph.addEdge("ai-macro-route-plan", "amap-macro-route-fact");
             stateGraph.addEdge("amap-macro-route-fact", "ai-route-critic");
             stateGraph.addEdge("ai-route-critic", "macro-route-contract-validate");

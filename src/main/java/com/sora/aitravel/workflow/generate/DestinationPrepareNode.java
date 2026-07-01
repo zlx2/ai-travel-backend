@@ -1,11 +1,16 @@
 package com.sora.aitravel.workflow.generate;
 
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CANDIDATE_POOL;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.CITY_PROFILE;
+import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
 import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.REQUIREMENT;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.poi.Poi;
+import com.sora.aitravel.model.trip.generate.AreaAnchorCandidate;
+import com.sora.aitravel.model.trip.generate.CandidatePool;
 import com.sora.aitravel.model.trip.generate.CityProfile;
 import com.sora.aitravel.model.trip.generate.PoiCandidate;
 import com.sora.aitravel.service.AmapPoiCacheService;
@@ -24,7 +29,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CityDataProfileNode {
+public class DestinationPrepareNode {
 
     private static final int MAX_CANDIDATES = 80;
     private static final int MIN_SCENIC_PER_DAY = 4;
@@ -34,11 +39,14 @@ public class CityDataProfileNode {
     private final PoiIdentityService poiIdentityService;
 
     public Map<String, Object> execute(OverAllState state) {
-        CityProfile profile =
-                buildProfile(
-                        TripGraphStateCodec.required(
-                                state, REQUIREMENT, TravelRequirementDTO.class));
-        return TripGraphStateCodec.patch(CITY_PROFILE, profile);
+        TravelRequirementDTO requirement =
+                TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        RentalTripContextDTO rentalTripContext =
+                TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class)
+                        .orElse(null);
+        CityProfile profile = buildProfile(requirement);
+        CandidatePool pool = buildPool(profile, rentalTripContext);
+        return TripGraphStateCodec.patch(CITY_PROFILE, profile, CANDIDATE_POOL, pool);
     }
 
     private CityProfile buildProfile(TravelRequirementDTO requirement) {
@@ -76,7 +84,7 @@ public class CityDataProfileNode {
                         ensureCandidates(destination, "FOOD", mergedFood),
                         ensureCandidates(destination, "HOTEL", mergedHotel));
         log.info(
-                "节点[city-data-profile]：城市数据准备完成，destination={}, searchCities={}, scenic={}, food={}, hotel={}",
+                "节点[destination-prepare]：城市数据准备完成，destination={}, searchCities={}, scenic={}, food={}, hotel={}",
                 destination,
                 searchCities,
                 profile.scenicCandidates().size(),
@@ -148,7 +156,7 @@ public class CityDataProfileNode {
             String destination, TravelRequirementDTO requirement) {
         List<String> keywords = scenicKeywords(destination, requirement);
         List<PoiCandidate> candidates = searchMany(keywords, destination, "SCENIC");
-        log.info("节点[city-data-profile]：景点关键词={}，候选数={}", keywords, candidates.size());
+        log.info("节点[destination-prepare]：景点关键词={}，候选数={}", keywords, candidates.size());
         return candidates;
     }
 
@@ -180,7 +188,9 @@ public class CityDataProfileNode {
         }
 
         log.info(
-                "节点[city-data-profile]：景点候选补查完成，minimum={}, actual={}", minimum, candidates.size());
+                "节点[destination-prepare]：景点候选补查完成，minimum={}, actual={}",
+                minimum,
+                candidates.size());
         return candidates.values().stream().limit(MAX_CANDIDATES).toList();
     }
 
@@ -224,7 +234,7 @@ public class CityDataProfileNode {
             return candidates.stream().limit(MAX_CANDIDATES).toList();
         } catch (RuntimeException exception) {
             log.warn(
-                    "节点[city-data-profile]：高德 POI 查询失败，keywords={}，reason={}",
+                    "节点[destination-prepare]：高德 POI 查询失败，keywords={}，reason={}",
                     keywords,
                     exception.getMessage());
         }
@@ -250,7 +260,7 @@ public class CityDataProfileNode {
             return candidates.stream().limit(MAX_CANDIDATES).toList();
         } catch (RuntimeException exception) {
             log.warn(
-                    "节点[city-data-profile]：高德 POI 补查失败，keywords={}，reason={}",
+                    "节点[destination-prepare]：高德 POI 补查失败，keywords={}，reason={}",
                     keywords,
                     exception.getMessage());
         }
@@ -397,7 +407,7 @@ public class CityDataProfileNode {
         if (candidates != null && !candidates.isEmpty()) {
             return candidates;
         }
-        log.warn("节点[city-data-profile]：{} 没有可用真实候选，destination={}", category, destination);
+        log.warn("节点[destination-prepare]：{} 没有可用真实候选，destination={}", category, destination);
         return List.of();
     }
 
@@ -476,7 +486,125 @@ public class CityDataProfileNode {
                         .toList();
     }
 
-    private String firstNonBlank(String first, String second) {
-        return first != null && !first.isBlank() ? first : second;
+    private String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String value : values) {
+            if (value != null && !value.isBlank()) return value;
+        }
+        return null;
+    }
+
+    private CandidatePool buildPool(CityProfile profile, RentalTripContextDTO rentalTripContext) {
+        List<PoiCandidate> scenic =
+                profile == null || profile.getScenicCandidates() == null
+                        ? List.of()
+                        : profile.getScenicCandidates();
+        LinkedHashMap<String, AreaAnchorCandidate> anchors = new LinkedHashMap<>();
+        AreaAnchorCandidate pickup = pickupAnchor(rentalTripContext);
+        if (pickup != null) {
+            anchors.putIfAbsent(pickup.getId(), pickup);
+        }
+        addPoiAreas(anchors, profile == null ? null : profile.getFoodCandidates(), "MEAL_AREA");
+        addPoiAreas(anchors, profile == null ? null : profile.getHotelCandidates(), "STAY_AREA");
+        addScenicClusterAreas(anchors, scenic);
+        CandidatePool pool = new CandidatePool(scenic, new ArrayList<>(anchors.values()), pickup);
+        log.info(
+                "节点[destination-prepare]：候选池构建完成，scenic={}, anchors={}",
+                pool.getScenicCandidates().size(),
+                pool.getAreaAnchors().size());
+        return pool;
+    }
+
+    private void addPoiAreas(
+            LinkedHashMap<String, AreaAnchorCandidate> anchors,
+            List<PoiCandidate> candidates,
+            String role) {
+        if (candidates == null) {
+            return;
+        }
+        for (PoiCandidate c : candidates) {
+            if (c == null || c.getLocation() == null || c.getLocation().isBlank()) {
+                continue;
+            }
+            String area = firstNonBlank(c.getArea(), c.getBusinessArea(), c.getName());
+            String id = stableId(role, firstNonBlank(c.getSourcePoiId(), c.getName(), area));
+            anchors.putIfAbsent(
+                    id,
+                    new AreaAnchorCandidate(
+                            id,
+                            area,
+                            role,
+                            c.getCity(),
+                            area,
+                            c.getAddress(),
+                            c.getLocation(),
+                            c.getSource(),
+                            c.getSourcePoiId(),
+                            c.getBusinessTags()));
+        }
+    }
+
+    private void addScenicClusterAreas(
+            LinkedHashMap<String, AreaAnchorCandidate> anchors, List<PoiCandidate> candidates) {
+        if (candidates == null) {
+            return;
+        }
+        for (PoiCandidate c : candidates) {
+            if (c == null || c.getLocation() == null || c.getLocation().isBlank()) {
+                continue;
+            }
+            String area = firstNonBlank(c.getArea(), c.getBusinessArea(), c.getName());
+            if (area == null || area.isBlank()) {
+                continue;
+            }
+            String id =
+                    stableId(
+                            "SCENIC_CLUSTER",
+                            firstNonBlank(
+                                    c.getBusinessArea(),
+                                    c.getArea(),
+                                    c.getSourcePoiId(),
+                                    c.getName()));
+            anchors.putIfAbsent(
+                    id,
+                    new AreaAnchorCandidate(
+                            id,
+                            area,
+                            "SCENIC_CLUSTER",
+                            c.getCity(),
+                            firstNonBlank(c.getArea(), c.getBusinessArea(), area),
+                            c.getAddress(),
+                            c.getLocation(),
+                            c.getSource(),
+                            c.getSourcePoiId(),
+                            c.getBusinessTags()));
+        }
+    }
+
+    private AreaAnchorCandidate pickupAnchor(RentalTripContextDTO rental) {
+        if (rental == null || rental.getMatchedStore() == null) {
+            return null;
+        }
+        if (rental.getMatchedStore().getLng() == null
+                || rental.getMatchedStore().getLat() == null) {
+            return null;
+        }
+        String id = stableId("PICKUP", rental.getMatchedStore().getStoreCode());
+        return new AreaAnchorCandidate(
+                id,
+                firstNonBlank(rental.getMatchedStore().getDisplayName(), "取车区域"),
+                "PICKUP",
+                rental.getMatchedStore().getCityName(),
+                rental.getMatchedStore().getDisplayName(),
+                rental.getMatchedStore().getAddress(),
+                rental.getMatchedStore().getLng() + "," + rental.getMatchedStore().getLat(),
+                rental.getMatchedStore().getSource(),
+                rental.getMatchedStore().getAmapPoiId(),
+                List.of("取车", "租车"));
+    }
+
+    private String stableId(String prefix, String value) {
+        return (prefix + "_" + String.valueOf(value))
+                .replaceAll("[^A-Za-z0-9_\\u4e00-\\u9fa5]", "_");
     }
 }
