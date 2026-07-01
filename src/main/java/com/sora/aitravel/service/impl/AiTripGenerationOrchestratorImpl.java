@@ -10,8 +10,6 @@ import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.dto.workflow.generate.TripPrepareInput;
 import com.sora.aitravel.dto.workflow.generate.TripPrepareResult;
 import com.sora.aitravel.entity.AiTripGenerationSession;
-import com.sora.aitravel.service.AiTripGenerationOrchestrator;
-import com.sora.aitravel.service.AiTripGenerationSessionService;
 import com.sora.aitravel.workflow.generate.TripPrepareWorkflow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +19,13 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchestrator {
+public class AiTripGenerationOrchestratorImpl {
 
-    private final AiTripGenerationSessionService sessionService;
+    private final AiTripGenerationSessionServiceImpl sessionService;
     private final TripPrepareWorkflow tripPrepareWorkflow;
     private final TravelRequirementReadyServiceImpl travelRequirementReadyService;
     private final ObjectMapper objectMapper;
 
-    @Override
     public AiTripGenerationSession prepareSession(Long userId, TripGenerateRequest request) {
         travelRequirementReadyService.validateForGenerate(request);
         TravelRequirementDTO requirement = request.getRequirement();

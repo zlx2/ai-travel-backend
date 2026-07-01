@@ -16,9 +16,8 @@ import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.DaySkeleton;
-import com.sora.aitravel.service.AiTripDayGenerateService;
-import com.sora.aitravel.service.AiTripDayGenerationService;
-import com.sora.aitravel.service.AiTripGenerationSessionService;
+import com.sora.aitravel.service.impl.AiTripDayGenerationServiceImpl;
+import com.sora.aitravel.service.impl.AiTripGenerationSessionServiceImpl;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,13 +27,13 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
+public class AiTripDayGenerateOrchestrator {
 
     private static final TypeReference<List<DaySkeleton>> DAY_SKELETON_LIST =
             new TypeReference<>() {};
 
-    private final AiTripGenerationSessionService sessionService;
-    private final AiTripDayGenerationService dayGenerationService;
+    private final AiTripGenerationSessionServiceImpl sessionService;
+    private final AiTripDayGenerationServiceImpl dayGenerationService;
     private final TripDayGenerateWorkflow tripDayGenerateWorkflow;
     private final ObjectMapper objectMapper;
 
@@ -49,13 +48,11 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
      * @param forceRegenerate 是否强制重新生成，忽略已有结果
      * @return 生成记录（包含状态和结果JSON）
      */
-    @Override
     public AiTripDayGeneration generateDay(
             String sessionId, Integer dayNo, String requestMode, boolean forceRegenerate) {
         return generateDay(sessionId, dayNo, requestMode, forceRegenerate, null);
     }
 
-    @Override
     public AiTripDayGeneration generateDay(
             String sessionId,
             Integer dayNo,

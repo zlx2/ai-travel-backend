@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.sora.aitravel.entity.AiTripDayGeneration;
 import com.sora.aitravel.mapper.AiTripDayGenerationMapper;
-import com.sora.aitravel.service.AiTripDayGenerationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Service;
 /** AI 行程按天生成服务实现。 */
 @Service
 @RequiredArgsConstructor
-public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationService {
+public class AiTripDayGenerationServiceImpl {
 
     public static final String STATUS_PENDING = "PENDING"; // 待生成
     public static final String STATUS_QUEUED = "QUEUED"; // 排队中
@@ -31,7 +30,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param dayNo
      * @return
      */
-    @Override
     public AiTripDayGeneration getLatest(String sessionId, Integer dayNo) {
         return mapper.selectOne(
                 new LambdaQueryWrapper<AiTripDayGeneration>()
@@ -48,7 +46,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param dayNo
      * @return
      */
-    @Override
     public List<AiTripDayGeneration> listCurrentGeneratedBefore(String sessionId, Integer dayNo) {
         return mapper.selectList(
                 new LambdaQueryWrapper<AiTripDayGeneration>()
@@ -69,7 +66,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param requestMode
      * @return
      */
-    @Override
     public AiTripDayGeneration createPending(
             String sessionId,
             Long userId,
@@ -99,7 +95,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param requestMode
      * @return
      */
-    @Override
     public AiTripDayGeneration createQueuedIfAbsent(
             String sessionId, Long userId, Integer dayNo, String requestMode) {
         AiTripDayGeneration latest = getLatest(sessionId, dayNo);
@@ -132,7 +127,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      *
      * @param id
      */
-    @Override
     public void markQueued(Long id) {
         updateStatus(id, STATUS_QUEUED, null, null);
     }
@@ -142,7 +136,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      *
      * @param id
      */
-    @Override
     public void markGenerating(Long id) {
         updateStatus(id, STATUS_GENERATING, LocalDateTime.now(), null);
     }
@@ -153,7 +146,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param id
      * @param resultJson
      */
-    @Override
     public void markGenerated(Long id, String resultJson) {
         mapper.update(
                 null,
@@ -171,7 +163,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param id
      * @param errorMessage
      */
-    @Override
     public void markFailed(Long id, String errorMessage) {
         mapper.update(
                 null,
@@ -188,7 +179,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param sessionId
      * @param dayNo
      */
-    @Override
     public void supersedeDay(String sessionId, Integer dayNo) {
         mapper.update(
                 null,
@@ -207,7 +197,6 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
      * @param dayNo
      * @param generationVersion
      */
-    @Override
     public void switchCurrentVersion(String sessionId, Integer dayNo, Integer generationVersion) {
         mapper.update(
                 null,

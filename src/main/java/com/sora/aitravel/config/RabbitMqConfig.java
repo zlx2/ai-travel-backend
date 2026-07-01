@@ -2,7 +2,7 @@ package com.sora.aitravel.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.dto.message.TripDayGenerateMessage;
-import com.sora.aitravel.service.AiTripDayGenerateService;
+import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
@@ -31,7 +31,7 @@ public class RabbitMqConfig {
     public static final String TRIP_DAY_GENERATE_QUEUE = "trip.day.generate.queue";
     public static final String TRIP_DAY_GENERATE_ROUTING_KEY = "trip.day.generate";
 
-    private final AiTripDayGenerateService aiTripDayGenerateService;
+    private final AiTripDayGenerateOrchestrator aiTripDayGenerateService;
 
     @Bean
     public DirectExchange tripDayGenerateExchange() {
