@@ -19,18 +19,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class DayQueryPlanNode {
 
-
     public Map<String, Object> execute(OverAllState state) {
         List<DayQueryPlan> plans =
                 buildPlans(
                         TripGraphStateCodec.required(state, CITY_PROFILE, CityProfile.class),
-                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class),
                         TripGraphStateCodec.optionalList(state, DAY_CONTEXTS, DayContext.class));
         return TripGraphStateCodec.patch(DAY_QUERY_PLANS, plans);
     }
 
     private List<DayQueryPlan> buildPlans(
-            CityProfile cityProfile, TravelRequirementDTO requirement, List<DayContext> dayContexts) {
+            CityProfile cityProfile,
+            TravelRequirementDTO requirement,
+            List<DayContext> dayContexts) {
         List<DayQueryPlan> plans = new ArrayList<>();
         String city = cityProfile.getDestination();
         boolean wantsNight = hasPreference(requirement, "夜景") || hasPreference(requirement, "夜市");
@@ -122,7 +124,8 @@ public class DayQueryPlanNode {
         if (dayContext.getDay() == 1) {
             return List.of(city + " 近郊自驾", city + " 停车方便景区");
         }
-        String routeStructure = dayContext.getRouteStructure() == null ? "" : dayContext.getRouteStructure();
+        String routeStructure =
+                dayContext.getRouteStructure() == null ? "" : dayContext.getRouteStructure();
         if (routeStructure.contains("多城市") || routeStructure.contains("环线")) {
             return List.of(city + " 周边城市", city + " 自驾路线");
         }
@@ -135,7 +138,6 @@ public class DayQueryPlanNode {
 
     private boolean hasPreference(TravelRequirementDTO requirement, String keyword) {
         return requirement.getPreferences() != null
-                && requirement.getPreferences().stream()
-                        .anyMatch(item -> item.contains(keyword));
+                && requirement.getPreferences().stream().anyMatch(item -> item.contains(keyword));
     }
 }

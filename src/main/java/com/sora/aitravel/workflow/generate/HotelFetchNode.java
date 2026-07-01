@@ -31,9 +31,9 @@ public class HotelFetchNode {
      *
      * <p>根据用户需求中的目的地、出行日期和天数，调用 HotelTool 查询酒店信息。
      */
-
     public Map<String, Object> execute(OverAllState state) {
-        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        TravelRequirementDTO requirement =
+                TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
         return TripGraphStateCodec.patch(HOTEL_SEARCH_RESULT, fetchHotels(requirement));
     }
 

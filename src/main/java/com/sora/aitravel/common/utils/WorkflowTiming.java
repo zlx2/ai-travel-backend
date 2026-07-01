@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.common.utils;
 
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -14,11 +14,7 @@ public final class WorkflowTiming {
         try {
             action.run();
         } finally {
-            log.info(
-                    "行程生成耗时 workflow={} node={} elapsedMs={}",
-                    workflow,
-                    node,
-                    elapsedMs(start));
+            log.info("行程生成耗时 workflow={} node={} elapsedMs={}", workflow, node, elapsedMs(start));
         }
     }
 
@@ -27,11 +23,7 @@ public final class WorkflowTiming {
         try {
             return action.get();
         } finally {
-            log.info(
-                    "行程生成耗时 workflow={} node={} elapsedMs={}",
-                    workflow,
-                    node,
-                    elapsedMs(start));
+            log.info("行程生成耗时 workflow={} node={} elapsedMs={}", workflow, node, elapsedMs(start));
         }
     }
 

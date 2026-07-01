@@ -31,7 +31,11 @@ public class RentalContextResultMergeNode {
                 .arrivalPoint(context.getArrivalPoint())
                 .matchedStore(context.getMatchedStore())
                 .pickupPlan(pickupPlan)
-                .arrivalMode(arrivalMode(context.getArrivalPoint() == null ? null : context.getArrivalPoint().getName()))
+                .arrivalMode(
+                        arrivalMode(
+                                context.getArrivalPoint() == null
+                                        ? null
+                                        : context.getArrivalPoint().getName()))
                 .arrivalTimeRange("到达后取车")
                 .routeStructure(
                         context.getRequirement() == null
@@ -40,7 +44,10 @@ public class RentalContextResultMergeNode {
                                 : context.getRequirement().getRouteStructure())
                 .dailyDrivingLimit("近郊自驾（单日累计约2-4小时）")
                 .returnMode("同城还车")
-                .returnPoint(context.getArrivalPoint() == null ? null : context.getArrivalPoint().getName())
+                .returnPoint(
+                        context.getArrivalPoint() == null
+                                ? null
+                                : context.getArrivalPoint().getName())
                 .build();
     }
 
@@ -54,7 +61,9 @@ public class RentalContextResultMergeNode {
         if (arrivalName.contains("站")) {
             return "高铁/火车站到达";
         }
-        if (arrivalName.contains("酒店") || arrivalName.contains("宾馆") || arrivalName.contains("民宿")) {
+        if (arrivalName.contains("酒店")
+                || arrivalName.contains("宾馆")
+                || arrivalName.contains("民宿")) {
             return "酒店/住宿点出发";
         }
         return "指定地址交车";

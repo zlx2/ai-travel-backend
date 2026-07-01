@@ -8,6 +8,7 @@ import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.RANKE
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.poi.Poi;
 import com.sora.aitravel.service.AmapPoiCacheService;
+import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,18 +30,20 @@ public class DayDataFetchNode {
     private final AmapPoiCacheService amapPoiCacheService;
     private final PoiIdentityService poiIdentityService;
 
-
     public Map<String, Object> execute(OverAllState state) {
         List<DayDataPackage> packages =
                 fetchDataPackages(
-                        TripGraphStateCodec.optionalList(state, DAY_QUERY_PLANS, DayQueryPlan.class),
+                        TripGraphStateCodec.optionalList(
+                                state, DAY_QUERY_PLANS, DayQueryPlan.class),
                         TripGraphStateCodec.optionalList(state, DAY_CONTEXTS, DayContext.class),
                         TripGraphStateCodec.required(state, CITY_PROFILE, CityProfile.class));
         return TripGraphStateCodec.patch(RANKED_DAY_DATA_PACKAGES, packages);
     }
 
     private List<DayDataPackage> fetchDataPackages(
-            List<DayQueryPlan> dayQueryPlans, List<DayContext> dayContexts, CityProfile cityProfile) {
+            List<DayQueryPlan> dayQueryPlans,
+            List<DayContext> dayContexts,
+            CityProfile cityProfile) {
         List<DayDataPackage> packages = new ArrayList<>();
         for (DayQueryPlan plan : dayQueryPlans) {
             List<List<PoiCandidate>> scenicBatches = new ArrayList<>();

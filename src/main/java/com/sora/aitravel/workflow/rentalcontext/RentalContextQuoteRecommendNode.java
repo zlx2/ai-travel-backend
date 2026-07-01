@@ -19,9 +19,15 @@ public class RentalContextQuoteRecommendNode {
     public void execute(RentalContextPreviewWorkflowContext context) {
         RentalQuotePreviewResponse response = rentalQuoteService.preview(context.getRequirement());
         List<RentalQuoteOptionDTO> quoteOptions = response.getQuoteOptions();
-        context.setQuoteOptions(quoteOptions == null ? List.of() : quoteOptions.stream()
-                .map(option -> applyDynamicPickupPoint(option, context.getMatchedStore()))
-                .toList());
+        context.setQuoteOptions(
+                quoteOptions == null
+                        ? List.of()
+                        : quoteOptions.stream()
+                                .map(
+                                        option ->
+                                                applyDynamicPickupPoint(
+                                                        option, context.getMatchedStore()))
+                                .toList());
     }
 
     private RentalQuoteOptionDTO applyDynamicPickupPoint(

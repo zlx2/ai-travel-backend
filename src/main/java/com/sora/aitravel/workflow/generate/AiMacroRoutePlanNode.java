@@ -9,7 +9,6 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.ai.AiGateway;
-import com.sora.aitravel.ai.AiScene;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
@@ -80,18 +79,22 @@ public class AiMacroRoutePlanNode {
     private final AiGateway aiGateway;
     private final ObjectMapper objectMapper;
 
-
     public Map<String, Object> execute(OverAllState state) {
         List<MacroRoutePlan> plans =
                 generatePlans(
                         TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class),
-                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
-                        TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null));
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optional(
+                                        state, SELECTED_QUOTE, RentalQuoteOptionDTO.class)
+                                .orElse(null));
         return TripGraphStateCodec.patch(MACRO_ROUTE_PLANS, plans);
     }
 
     private List<MacroRoutePlan> generatePlans(
-            CandidatePool pool, TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
+            CandidatePool pool,
+            TravelRequirementDTO requirement,
+            RentalQuoteOptionDTO selectedQuote) {
         if (pool == null || pool.getAreaAnchors() == null || pool.getAreaAnchors().isEmpty()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少可用于路线骨架的区域候选");
         }
@@ -102,7 +105,8 @@ public class AiMacroRoutePlanNode {
                 countRole(macroAnchors, "PICKUP"),
                 countRole(macroAnchors, "SCENIC_CLUSTER"),
                 countRole(macroAnchors, "STAY_AREA"));
-        List<MacroRoutePlan> plans = generateRulePlans(pool, macroAnchors, requirement, selectedQuote);
+        List<MacroRoutePlan> plans =
+                generateRulePlans(pool, macroAnchors, requirement, selectedQuote);
         normalizeHardRouteContracts(pool, selectedQuote, plans);
         log.info("节点[ai-macro-route-plan]：已生成路线骨架候选，plans={}", plans.size());
         return plans;
@@ -114,30 +118,46 @@ public class AiMacroRoutePlanNode {
             TravelRequirementDTO requirement,
             RentalQuoteOptionDTO selectedQuote) {
         int days = value(requirement.getDays(), 1);
-        List<AreaAnchorCandidate> scenicAnchors = anchors.stream()
-                .filter(anchor -> "SCENIC_CLUSTER".equals(anchor.getRole()))
-                .toList();
-        List<AreaAnchorCandidate> stayAnchors = anchors.stream()
-                .filter(anchor -> "STAY_AREA".equals(anchor.getRole()))
-                .toList();
+        List<AreaAnchorCandidate> scenicAnchors =
+                anchors.stream()
+                        .filter(anchor -> "SCENIC_CLUSTER".equals(anchor.getRole()))
+                        .toList();
+        List<AreaAnchorCandidate> stayAnchors =
+                anchors.stream().filter(anchor -> "STAY_AREA".equals(anchor.getRole())).toList();
         if (scenicAnchors.isEmpty()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少可用于路线骨架的景点区域候选");
         }
         List<MacroRoutePlan> plans = new ArrayList<>();
         String routeShape = routeShape(requirement, selectedQuote);
-        List<AreaAnchorCandidate> ordered = orderScenicAnchors(routeShape, days, scenicAnchors, pool);
-        plans.add(rulePlan("plan_a", routeShape, days, ordered, stayAnchors, pool, selectedQuote, 0));
+        List<AreaAnchorCandidate> ordered =
+                orderScenicAnchors(routeShape, days, scenicAnchors, pool);
+        plans.add(
+                rulePlan("plan_a", routeShape, days, ordered, stayAnchors, pool, selectedQuote, 0));
         if (scenicAnchors.size() > 1) {
-            plans.add(rulePlan("plan_b", routeShape, days, ordered, stayAnchors, pool, selectedQuote, 1));
+            plans.add(
+                    rulePlan(
+                            "plan_b",
+                            routeShape,
+                            days,
+                            ordered,
+                            stayAnchors,
+                            pool,
+                            selectedQuote,
+                            1));
         }
         return plans;
     }
 
-    private String routeShape(TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
-        String text = (requirement.getRouteStructure() == null ? "" : requirement.getRouteStructure())
-                + " "
-                + (requirement.getRouteMode() == null ? "" : requirement.getRouteMode());
-        if (text.contains("不走回头") || text.contains("单向") || text.contains("一路") || text.contains("异地")) {
+    private String routeShape(
+            TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
+        String text =
+                (requirement.getRouteStructure() == null ? "" : requirement.getRouteStructure())
+                        + " "
+                        + (requirement.getRouteMode() == null ? "" : requirement.getRouteMode());
+        if (text.contains("不走回头")
+                || text.contains("单向")
+                || text.contains("一路")
+                || text.contains("异地")) {
             return "ONEWAY";
         }
         if (text.contains("固定住宿") || text.contains("不换酒店") || text.contains("基地")) {
@@ -146,19 +166,25 @@ public class AiMacroRoutePlanNode {
         if (selectedQuote != null && Boolean.TRUE.equals(selectedQuote.getIsOneWay())) {
             return "ONEWAY";
         }
-        if (selectedQuote != null && selectedQuote.getReturnMode() != null
-                && (selectedQuote.getReturnMode().contains("异地") || selectedQuote.getReturnMode().contains("ONE"))) {
+        if (selectedQuote != null
+                && selectedQuote.getReturnMode() != null
+                && (selectedQuote.getReturnMode().contains("异地")
+                        || selectedQuote.getReturnMode().contains("ONE"))) {
             return "ONEWAY";
         }
         return "LOOP";
     }
 
     private List<AreaAnchorCandidate> orderScenicAnchors(
-            String routeShape, int days, List<AreaAnchorCandidate> scenicAnchors, CandidatePool pool) {
+            String routeShape,
+            int days,
+            List<AreaAnchorCandidate> scenicAnchors,
+            CandidatePool pool) {
         AreaAnchorCandidate origin = pool == null ? null : pool.getPickupAnchor();
-        List<AreaAnchorCandidate> sorted = scenicAnchors.stream()
-                .sorted(Comparator.comparingDouble(anchor -> distanceFrom(origin, anchor)))
-                .toList();
+        List<AreaAnchorCandidate> sorted =
+                scenicAnchors.stream()
+                        .sorted(Comparator.comparingDouble(anchor -> distanceFrom(origin, anchor)))
+                        .toList();
         if (!"LOOP".equals(routeShape) || sorted.size() <= 2 || days <= 2) {
             return sorted;
         }
@@ -180,7 +206,7 @@ public class AiMacroRoutePlanNode {
         if (from == null || to == null) {
             return 0;
         }
-        return com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.distanceKm(
+        return com.sora.aitravel.service.route.GeoRouteCalculator.distanceKm(
                 from[0], from[1], to[0], to[1]);
     }
 
@@ -195,22 +221,26 @@ public class AiMacroRoutePlanNode {
             int offset) {
         List<MacroRouteDay> routeDays = new ArrayList<>();
         String previousStayId =
-                selectedQuote != null && pool.getPickupAnchor() != null ? pool.getPickupAnchor().getId() : null;
+                selectedQuote != null && pool.getPickupAnchor() != null
+                        ? pool.getPickupAnchor().getId()
+                        : null;
         for (int index = 0; index < days; index++) {
             AreaAnchorCandidate focus = scenicAnchors.get((index + offset) % scenicAnchors.size());
             AreaAnchorCandidate stay = nearestStayAnchor(focus, stayAnchors);
-            String startId = index == 0
-                    ? firstNonBlank(previousStayId, focus.getId())
-                    : firstNonBlank(previousStayId, focus.getId());
+            String startId =
+                    index == 0
+                            ? firstNonBlank(previousStayId, focus.getId())
+                            : firstNonBlank(previousStayId, focus.getId());
             String stayId = stay == null ? focus.getId() : stay.getId();
-            routeDays.add(new MacroRouteDay(
-                    index + 1,
-                    startId,
-                    List.of(focus.getId()),
-                    focus.getId(),
-                    stayId,
-                    firstNonBlank(focus.getName(), focus.getArea()) + "轻松游",
-                    "按候选区域和跨天住宿衔接生成"));
+            routeDays.add(
+                    new MacroRouteDay(
+                            index + 1,
+                            startId,
+                            List.of(focus.getId()),
+                            focus.getId(),
+                            stayId,
+                            firstNonBlank(focus.getName(), focus.getArea()) + "轻松游",
+                            "按候选区域和跨天住宿衔接生成"));
             previousStayId = stayId;
         }
         return new MacroRoutePlan(id, shape, routeDays, List.of(), "规则生成，减少 AI 调用");
@@ -227,16 +257,22 @@ public class AiMacroRoutePlanNode {
         }
         return stayAnchors.stream()
                 .filter(anchor -> parseLocation(anchor.getLocation()) != null)
-                .min(java.util.Comparator.comparingDouble(anchor -> {
-                    double[] location = parseLocation(anchor.getLocation());
-                    return com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.distanceKm(
-                            focusLocation[0], focusLocation[1], location[0], location[1]);
-                }))
+                .min(
+                        java.util.Comparator.comparingDouble(
+                                anchor -> {
+                                    double[] location = parseLocation(anchor.getLocation());
+                                    return com.sora.aitravel.service.route.GeoRouteCalculator
+                                            .distanceKm(
+                                                    focusLocation[0],
+                                                    focusLocation[1],
+                                                    location[0],
+                                                    location[1]);
+                                }))
                 .orElse(stayAnchors.get(0));
     }
 
     private double[] parseLocation(String location) {
-        return com.sora.aitravel.workflow.generate.route.GeoRouteCalculator.parseLocation(location);
+        return com.sora.aitravel.service.route.GeoRouteCalculator.parseLocation(location);
     }
 
     private String firstNonBlank(String first, String second) {
@@ -250,7 +286,9 @@ public class AiMacroRoutePlanNode {
         }
         boolean rentalEnabled = selectedQuote != null;
         String pickupId =
-                pool == null || pool.getPickupAnchor() == null ? null : pool.getPickupAnchor().getId();
+                pool == null || pool.getPickupAnchor() == null
+                        ? null
+                        : pool.getPickupAnchor().getId();
         for (MacroRoutePlan plan : plans) {
             if (plan.getDays() == null || plan.getDays().isEmpty()) {
                 continue;
@@ -303,14 +341,15 @@ public class AiMacroRoutePlanNode {
             return days;
         }
         for (JsonNode item : daysNode) {
-            days.add(new MacroRouteDay(
-                    item.path("day").asInt(),
-                    text(item, "startAreaId", null),
-                    strings(item.path("focusAreaIds")),
-                    text(item, "endAreaId", null),
-                    text(item, "stayAreaId", null),
-                    text(item, "theme", null),
-                    text(item, "reason", null)));
+            days.add(
+                    new MacroRouteDay(
+                            item.path("day").asInt(),
+                            text(item, "startAreaId", null),
+                            strings(item.path("focusAreaIds")),
+                            text(item, "endAreaId", null),
+                            text(item, "stayAreaId", null),
+                            text(item, "theme", null),
+                            text(item, "reason", null)));
         }
         return days;
     }
@@ -318,17 +357,24 @@ public class AiMacroRoutePlanNode {
     private String anchorText(List<AreaAnchorCandidate> anchors) {
         List<String> lines = new ArrayList<>();
         for (AreaAnchorCandidate anchor : anchors) {
-            lines.add("- id=" + anchor.getId()
-                    + "；role=" + anchor.getRole()
-                    + "；name=" + anchor.getName()
-                    + "；city=" + anchor.getCity()
-                    + "；area=" + anchor.getArea());
+            lines.add(
+                    "- id="
+                            + anchor.getId()
+                            + "；role="
+                            + anchor.getRole()
+                            + "；name="
+                            + anchor.getName()
+                            + "；city="
+                            + anchor.getCity()
+                            + "；area="
+                            + anchor.getArea());
         }
         return String.join("\n", lines);
     }
 
     private List<AreaAnchorCandidate> selectedMacroAnchors(CandidatePool pool) {
-        List<AreaAnchorCandidate> all = pool.getAreaAnchors() == null ? List.of() : pool.getAreaAnchors();
+        List<AreaAnchorCandidate> all =
+                pool.getAreaAnchors() == null ? List.of() : pool.getAreaAnchors();
         List<AreaAnchorCandidate> result = new ArrayList<>();
         addIfPresent(result, pool.getPickupAnchor());
         addRole(result, all, "SCENIC_CLUSTER", 24);
@@ -337,10 +383,18 @@ public class AiMacroRoutePlanNode {
     }
 
     private void addRole(
-            List<AreaAnchorCandidate> result, List<AreaAnchorCandidate> all, String role, int limit) {
+            List<AreaAnchorCandidate> result,
+            List<AreaAnchorCandidate> all,
+            String role,
+            int limit) {
         all.stream()
                 .filter(anchor -> role.equals(anchor.getRole()))
-                .filter(anchor -> result.stream().noneMatch(existing -> existing.getId().equals(anchor.getId())))
+                .filter(
+                        anchor ->
+                                result.stream()
+                                        .noneMatch(
+                                                existing ->
+                                                        existing.getId().equals(anchor.getId())))
                 .limit(limit)
                 .forEach(result::add);
     }
@@ -358,11 +412,12 @@ public class AiMacroRoutePlanNode {
     private List<String> strings(JsonNode node) {
         List<String> values = new ArrayList<>();
         if (node != null && node.isArray()) {
-            node.forEach(item -> {
-                if (!item.asText("").isBlank()) {
-                    values.add(item.asText());
-                }
-            });
+            node.forEach(
+                    item -> {
+                        if (!item.asText("").isBlank()) {
+                            values.add(item.asText());
+                        }
+                    });
         }
         return values;
     }

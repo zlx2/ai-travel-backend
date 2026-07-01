@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.WorkflowTiming;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
 import com.sora.aitravel.entity.AiTripGenerationSession;
@@ -13,7 +14,6 @@ import com.sora.aitravel.service.TravelRequirementReadyService;
 import com.sora.aitravel.workflow.generate.TripPrepareInput;
 import com.sora.aitravel.workflow.generate.TripPrepareResult;
 import com.sora.aitravel.workflow.generate.TripPrepareWorkflow;
-import com.sora.aitravel.workflow.generate.WorkflowTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,9 +44,15 @@ public class AiTripGenerationOrchestratorImpl implements AiTripGenerationOrchest
         long start = WorkflowTiming.start();
         try {
             TripPrepareResult result =
-                    timed("trip-prepare-workflow",
-                            () -> tripPrepareWorkflow.execute(
-                                    new TripPrepareInput(userId, requirement, request.getSelectedQuote(), request.getRentalTripContext())));
+                    timed(
+                            "trip-prepare-workflow",
+                            () ->
+                                    tripPrepareWorkflow.execute(
+                                            new TripPrepareInput(
+                                                    userId,
+                                                    requirement,
+                                                    request.getSelectedQuote(),
+                                                    request.getRentalTripContext())));
             timed(
                     "session-requirement-update",
                     () ->

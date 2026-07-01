@@ -1,5 +1,6 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.service.route;
 
+import com.sora.aitravel.workflow.generate.RouteAnchor;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -18,9 +19,12 @@ public class RouteOrderOptimizer {
         if (start == null || end == null) {
             throw new IllegalArgumentException("Route start and end are required");
         }
-        List<RouteAnchor> candidates = middle == null ? List.of() : middle.stream()
-                .filter(anchor -> anchor != null && anchor.hasLocation())
-                .toList();
+        List<RouteAnchor> candidates =
+                middle == null
+                        ? List.of()
+                        : middle.stream()
+                                .filter(anchor -> anchor != null && anchor.hasLocation())
+                                .toList();
         if (candidates.isEmpty()) {
             return List.of(start, end);
         }
@@ -38,8 +42,9 @@ public class RouteOrderOptimizer {
         for (int index = 0; index < n; index++) {
             RouteAnchor anchor = middle.get(index);
             int mask = 1 << index;
-            int cost = matrix.durationSeconds(start.getId(), anchor.getId())
-                    + positionPenalty(anchor, 1, n);
+            int cost =
+                    matrix.durationSeconds(start.getId(), anchor.getId())
+                            + positionPenalty(anchor, 1, n);
             dp.put(new State(mask, index), new Score(cost, -1));
         }
         for (int mask = 1; mask < states; mask++) {
@@ -56,9 +61,11 @@ public class RouteOrderOptimizer {
                     }
                     RouteAnchor nextAnchor = middle.get(next);
                     int nextMask = mask | (1 << next);
-                    int cost = current.cost()
-                            + matrix.durationSeconds(middle.get(last).getId(), nextAnchor.getId())
-                            + positionPenalty(nextAnchor, position + 1, n);
+                    int cost =
+                            current.cost()
+                                    + matrix.durationSeconds(
+                                            middle.get(last).getId(), nextAnchor.getId())
+                                    + positionPenalty(nextAnchor, position + 1, n);
                     State nextState = new State(nextMask, next);
                     Score existing = dp.get(nextState);
                     if (existing == null || cost < existing.cost()) {
@@ -110,11 +117,18 @@ public class RouteOrderOptimizer {
         while (!remaining.isEmpty()) {
             RouteAnchor current = cursor;
             int currentPosition = position;
-            RouteAnchor next = remaining.stream()
-                    .min(Comparator.comparingInt(anchor ->
-                            matrix.durationSeconds(current.getId(), anchor.getId())
-                                    + positionPenalty(anchor, currentPosition, middle.size())))
-                    .orElseThrow();
+            RouteAnchor next =
+                    remaining.stream()
+                            .min(
+                                    Comparator.comparingInt(
+                                            anchor ->
+                                                    matrix.durationSeconds(
+                                                                    current.getId(), anchor.getId())
+                                                            + positionPenalty(
+                                                                    anchor,
+                                                                    currentPosition,
+                                                                    middle.size())))
+                            .orElseThrow();
             ordered.add(next);
             remaining.remove(next);
             cursor = next;
@@ -152,7 +166,8 @@ public class RouteOrderOptimizer {
         return cost;
     }
 
-    private List<RouteAnchor> withStartEnd(RouteAnchor start, List<RouteAnchor> middle, RouteAnchor end) {
+    private List<RouteAnchor> withStartEnd(
+            RouteAnchor start, List<RouteAnchor> middle, RouteAnchor end) {
         List<RouteAnchor> result = new ArrayList<>();
         result.add(start);
         result.addAll(middle);

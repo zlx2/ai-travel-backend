@@ -16,7 +16,9 @@ public class RentalContextRequirementNode {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车上下文需求不能为空");
         }
         TravelRequirementDTO requirement = context.getRequest().getRequirement();
-        if (requirement.getDays() == null || requirement.getDays() < 1 || requirement.getDays() > 7) {
+        if (requirement.getDays() == null
+                || requirement.getDays() < 1
+                || requirement.getDays() > 7) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车天数必须在 1 到 7 天之间");
         }
         if (isBlank(requirement.getDestination())) {
@@ -37,19 +39,24 @@ public class RentalContextRequirementNode {
                                 firstRouteCity(requirement),
                                 requirement.getDestination()));
         rental.setRentalStartCity(rentalStartCity);
-        rental.setPickupCity(normalizeRentalCity(firstNotBlank(rental.getPickupCity(), rentalStartCity)));
-        rental.setReturnCity(firstNotBlank(rental.getReturnCity(), rental.getRentalEndCity(), rental.getPickupCity()));
+        rental.setPickupCity(
+                normalizeRentalCity(firstNotBlank(rental.getPickupCity(), rentalStartCity)));
+        rental.setReturnCity(
+                firstNotBlank(
+                        rental.getReturnCity(), rental.getRentalEndCity(), rental.getPickupCity()));
         rental.setRentalEndCity(firstNotBlank(rental.getRentalEndCity(), rental.getReturnCity()));
         rental.setPickupMode(firstNotBlank(rental.getPickupMode(), "DELIVERY"));
         rental.setReturnMode(firstNotBlank(rental.getReturnMode(), rental.getPickupMode()));
-        rental.setRentalDays(rental.getRentalDays() == null ? requirement.getDays() : rental.getRentalDays());
+        rental.setRentalDays(
+                rental.getRentalDays() == null ? requirement.getDays() : rental.getRentalDays());
         rental.setDeliveryRequired(true);
         rental.setIsOneWay(Boolean.TRUE.equals(rental.getIsOneWay()));
 
         requirement.setRouteMode(firstNotBlank(requirement.getRouteMode(), "LANDING_RENTAL_TRIP"));
         requirement.setTransportMode("RENTAL_CAR");
         requirement.setRentalIntent("SYSTEM_RECOMMENDED");
-        requirement.setPeopleCount(requirement.getPeopleCount() == null ? 2 : requirement.getPeopleCount());
+        requirement.setPeopleCount(
+                requirement.getPeopleCount() == null ? 2 : requirement.getPeopleCount());
         requirement.setPreferences(ensureRentalPreference(requirement.getPreferences()));
 
         context.setRequirement(requirement);
@@ -78,7 +85,11 @@ public class RentalContextRequirementNode {
         }
         if (requirement.getPreferences() != null
                 && requirement.getPreferences().stream()
-                        .anyMatch(item -> item.contains("自然") || item.contains("周边") || item.contains("亲子"))) {
+                        .anyMatch(
+                                item ->
+                                        item.contains("自然")
+                                                || item.contains("周边")
+                                                || item.contains("亲子"))) {
             reasons.add("偏好包含周边或自然场景，自驾衔接更顺畅");
         }
         if (reasons.isEmpty()) {

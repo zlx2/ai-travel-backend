@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.route;
+package com.sora.aitravel.service.route;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,13 +14,12 @@ class RouteShapeValidatorTest {
     @Test
     void shouldAllowLongButReasonableRentalDayRoute() {
         TripPlanDTO.DailyPlan plan = new TripPlanDTO.DailyPlan();
-        plan.setSpots(List.of(
-                spot(1, "成都东站", "104.141,30.629"),
-                spot(2, "都江堰景区", "103.616,31.001"),
-                spot(3, "青城山", "103.570,30.905")));
-        plan.setRouteLegs(List.of(
-                leg(1, 2, 82_000),
-                leg(2, 3, 25_000)));
+        plan.setSpots(
+                List.of(
+                        spot(1, "成都东站", "104.141,30.629"),
+                        spot(2, "都江堰景区", "103.616,31.001"),
+                        spot(3, "青城山", "103.570,30.905")));
+        plan.setRouteLegs(List.of(leg(1, 2, 82_000), leg(2, 3, 25_000)));
 
         List<String> warnings = validator.validate(plan, true);
 

@@ -7,7 +7,7 @@ import static com.sora.aitravel.workflow.generate.state.TripGraphStateKeys.MACRO
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
-import com.sora.aitravel.workflow.generate.route.GeoRouteCalculator;
+import com.sora.aitravel.service.route.GeoRouteCalculator;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,20 +24,21 @@ public class AmapMacroRouteFactNode {
     public Map<String, Object> execute(OverAllState state) {
         List<MacroRouteFact> facts =
                 buildFacts(
-                        TripGraphStateCodec.optionalList(state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
+                        TripGraphStateCodec.optionalList(
+                                state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
                         TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class));
         return TripGraphStateCodec.patch(MACRO_ROUTE_FACTS, facts);
     }
 
-    private List<MacroRouteFact> buildFacts(List<MacroRoutePlan> macroRoutePlans, CandidatePool candidatePool) {
+    private List<MacroRouteFact> buildFacts(
+            List<MacroRoutePlan> macroRoutePlans, CandidatePool candidatePool) {
         if (macroRoutePlans == null || macroRoutePlans.isEmpty()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少路线骨架候选，无法补充高德事实");
         }
         Map<String, AreaAnchorCandidate> anchors = anchorMap(candidatePool);
         macroRoutePlans.forEach(plan -> AreaAnchorResolver.canonicalizePlan(plan, anchors));
-        List<MacroRouteFact> facts = macroRoutePlans.stream()
-                .map(plan -> fact(plan, anchors))
-                .toList();
+        List<MacroRouteFact> facts =
+                macroRoutePlans.stream().map(plan -> fact(plan, anchors)).toList();
         log.info("节点[amap-macro-route-fact]：已补充宏观路线事实，plans={}", facts.size());
         return facts;
     }
@@ -56,35 +57,44 @@ public class AmapMacroRouteFactNode {
             totalDistance += distance;
             int minutes = (int) Math.ceil(seconds / 60.0);
             totalMinutes += minutes;
-            dayFacts.add(new MacroRouteDayFact(
-                    day.getDay(),
-                    minutes,
-                    distance,
-                    route.stream().map(id -> nameOf(anchors, id)).reduce((a, b) -> a + " -> " + b).orElse("")));
+            dayFacts.add(
+                    new MacroRouteDayFact(
+                            day.getDay(),
+                            minutes,
+                            distance,
+                            route.stream()
+                                    .map(id -> nameOf(anchors, id))
+                                    .reduce((a, b) -> a + " -> " + b)
+                                    .orElse("")));
             for (String focus : safe(day.getFocusAreaIds())) {
                 if (previousFocus.contains(focus)) {
-                    backtrackingSignals.add("Day " + day.getDay() + " 回到已访问区域：" + nameOf(anchors, focus));
+                    backtrackingSignals.add(
+                            "Day " + day.getDay() + " 回到已访问区域：" + nameOf(anchors, focus));
                 }
             }
             previousFocus.addAll(safe(day.getFocusAreaIds()));
         }
-        return new MacroRouteFact(plan.getId(), dayFacts, totalMinutes, totalDistance, backtrackingSignals);
+        return new MacroRouteFact(
+                plan.getId(), dayFacts, totalMinutes, totalDistance, backtrackingSignals);
     }
 
     private List<RouteLegMetric> estimatedRouteMetrics(
             List<String> route, Map<String, AreaAnchorCandidate> anchors) {
         List<RouteLegMetric> metrics = new ArrayList<>();
         for (int index = 0; index < route.size() - 1; index++) {
-            AreaAnchorCandidate from = AreaAnchorResolver.resolve(anchors, route.get(index), "routeAreaId");
-            AreaAnchorCandidate to = AreaAnchorResolver.resolve(anchors, route.get(index + 1), "routeAreaId");
+            AreaAnchorCandidate from =
+                    AreaAnchorResolver.resolve(anchors, route.get(index), "routeAreaId");
+            AreaAnchorCandidate to =
+                    AreaAnchorResolver.resolve(anchors, route.get(index + 1), "routeAreaId");
             int distanceMeters = estimateRoadDistanceMeters(from, to);
-            metrics.add(RouteLegMetric.builder()
-                    .fromId(from.getId())
-                    .toId(to.getId())
-                    .distanceMeters(distanceMeters)
-                    .durationSeconds(estimateDrivingSeconds(distanceMeters))
-                    .source("ESTIMATED_COORDINATE")
-                    .build());
+            metrics.add(
+                    RouteLegMetric.builder()
+                            .fromId(from.getId())
+                            .toId(to.getId())
+                            .distanceMeters(distanceMeters)
+                            .durationSeconds(estimateDrivingSeconds(distanceMeters))
+                            .source("ESTIMATED_COORDINATE")
+                            .build());
         }
         return metrics;
     }

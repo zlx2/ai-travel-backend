@@ -21,9 +21,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DayStateInitNode {
 
-
     public Map<String, Object> execute(OverAllState state) {
-        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        TravelRequirementDTO requirement =
+                TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
         log.info("节点[day-state-init]：初始化逐日生成状态，days={}", requirement.getDays());
         return TripGraphStateCodec.patch(
                 DAY_CONTEXTS, List.of(),

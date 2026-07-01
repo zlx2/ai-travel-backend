@@ -17,13 +17,14 @@ class RequirementStandardizeNodeTest {
     @DisplayName("明确租车自驾时覆盖公共交通误抽取，避免进入冲突态")
     void shouldNormalizeRentalTripTransportMode() {
         AnalyzeWorkflowContext context = new AnalyzeWorkflowContext();
-        context.setRequest(new TripAnalyzeRequest(
-                null,
-                "上海出发，飞到成都玩3天，成都双流机场下飞机，想租车自驾，喜欢自然风光、历史文化和美食，节奏轻松，预算在5000元以内。",
-                null,
-                null,
-                null,
-                null));
+        context.setRequest(
+                new TripAnalyzeRequest(
+                        null,
+                        "上海出发，飞到成都玩3天，成都双流机场下飞机，想租车自驾，喜欢自然风光、历史文化和美食，节奏轻松，预算在5000元以内。",
+                        null,
+                        null,
+                        null,
+                        null));
         TravelRequirementDTO extracted = new TravelRequirementDTO();
         extracted.setDeparture("上海");
         extracted.setDestination("成都");
@@ -32,7 +33,10 @@ class RequirementStandardizeNodeTest {
         extracted.setRouteCities(List.of("成都"));
         extracted.setTransportMode("PUBLIC_TRANSIT");
         extracted.setRentalIntent("USER_REQUIRED");
-        extracted.setRentalRequirement(new RentalRequirementDTO(true, null, null, null, null, "成都", "成都", null, 3, null, null, null, false));
+        extracted.setRentalRequirement(
+                new RentalRequirementDTO(
+                        true, null, null, null, null, "成都", "成都", null, 3, null, null, null,
+                        false));
         extracted.setDays(3);
         extracted.setBudget(5000);
         extracted.setBudgetType("TOTAL");

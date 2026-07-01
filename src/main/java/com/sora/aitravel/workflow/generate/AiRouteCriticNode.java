@@ -20,13 +20,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class AiRouteCriticNode {
 
-
     public Map<String, Object> execute(OverAllState state) {
         RouteCriticResult result =
                 review(
-                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
-                        TripGraphStateCodec.optionalList(state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
-                        TripGraphStateCodec.optionalList(state, MACRO_ROUTE_FACTS, MacroRouteFact.class));
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optionalList(
+                                state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
+                        TripGraphStateCodec.optionalList(
+                                state, MACRO_ROUTE_FACTS, MacroRouteFact.class));
         return TripGraphStateCodec.patch(ROUTE_CRITIC_RESULT, result);
     }
 
@@ -46,10 +48,14 @@ public class AiRouteCriticNode {
     }
 
     private RouteCriticResult ruleReview(List<MacroRoutePlan> macroRoutePlans) {
-        MacroRoutePlan selected = macroRoutePlans.stream()
-                .filter(plan -> plan.getDays() != null && !plan.getDays().isEmpty())
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少有效路线方案"));
+        MacroRoutePlan selected =
+                macroRoutePlans.stream()
+                        .filter(plan -> plan.getDays() != null && !plan.getDays().isEmpty())
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new BusinessException(
+                                                ErrorCode.AI_GENERATE_ERROR, "缺少有效路线方案"));
         return new RouteCriticResult(
                 selected.getId(),
                 null,

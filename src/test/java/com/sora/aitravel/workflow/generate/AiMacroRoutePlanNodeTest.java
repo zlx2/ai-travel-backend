@@ -16,15 +16,25 @@ class AiMacroRoutePlanNodeTest {
         AiMacroRoutePlanNode node = new AiMacroRoutePlanNode(null, null);
         CandidatePool pool = new CandidatePool();
         pool.setPickupAnchor(anchor("pickup", "杭州东站", "PICKUP", "120.2100,30.2900"));
-        List<AreaAnchorCandidate> scenic = List.of(
-                anchor("qiandao", "千岛湖", "SCENIC_CLUSTER", "119.0500,29.6100"),
-                anchor("xihu", "西湖", "SCENIC_CLUSTER", "120.1400,30.2500"),
-                anchor("jiuxi", "九溪", "SCENIC_CLUSTER", "120.1100,30.1700"));
+        List<AreaAnchorCandidate> scenic =
+                List.of(
+                        anchor("qiandao", "千岛湖", "SCENIC_CLUSTER", "119.0500,29.6100"),
+                        anchor("xihu", "西湖", "SCENIC_CLUSTER", "120.1400,30.2500"),
+                        anchor("jiuxi", "九溪", "SCENIC_CLUSTER", "120.1100,30.1700"));
 
         @SuppressWarnings("unchecked")
-        List<AreaAnchorCandidate> ordered = (List<AreaAnchorCandidate>)
-                invoke(node, "orderScenicAnchors", new Class[] {String.class, int.class, List.class, CandidatePool.class},
-                        "LOOP", 3, scenic, pool);
+        List<AreaAnchorCandidate> ordered =
+                (List<AreaAnchorCandidate>)
+                        invoke(
+                                node,
+                                "orderScenicAnchors",
+                                new Class[] {
+                                    String.class, int.class, List.class, CandidatePool.class
+                                },
+                                "LOOP",
+                                3,
+                                scenic,
+                                pool);
 
         assertEquals("xihu", ordered.get(0).getId());
         assertEquals("qiandao", ordered.get(1).getId());
@@ -37,15 +47,25 @@ class AiMacroRoutePlanNodeTest {
         AiMacroRoutePlanNode node = new AiMacroRoutePlanNode(null, null);
         CandidatePool pool = new CandidatePool();
         pool.setPickupAnchor(anchor("pickup", "杭州东站", "PICKUP", "120.2100,30.2900"));
-        List<AreaAnchorCandidate> scenic = List.of(
-                anchor("qiandao", "千岛湖", "SCENIC_CLUSTER", "119.0500,29.6100"),
-                anchor("xihu", "西湖", "SCENIC_CLUSTER", "120.1400,30.2500"),
-                anchor("jiuxi", "九溪", "SCENIC_CLUSTER", "120.1100,30.1700"));
+        List<AreaAnchorCandidate> scenic =
+                List.of(
+                        anchor("qiandao", "千岛湖", "SCENIC_CLUSTER", "119.0500,29.6100"),
+                        anchor("xihu", "西湖", "SCENIC_CLUSTER", "120.1400,30.2500"),
+                        anchor("jiuxi", "九溪", "SCENIC_CLUSTER", "120.1100,30.1700"));
 
         @SuppressWarnings("unchecked")
-        List<AreaAnchorCandidate> ordered = (List<AreaAnchorCandidate>)
-                invoke(node, "orderScenicAnchors", new Class[] {String.class, int.class, List.class, CandidatePool.class},
-                        "ONEWAY", 3, scenic, pool);
+        List<AreaAnchorCandidate> ordered =
+                (List<AreaAnchorCandidate>)
+                        invoke(
+                                node,
+                                "orderScenicAnchors",
+                                new Class[] {
+                                    String.class, int.class, List.class, CandidatePool.class
+                                },
+                                "ONEWAY",
+                                3,
+                                scenic,
+                                pool);
 
         assertEquals("xihu", ordered.get(0).getId());
         assertEquals("jiuxi", ordered.get(1).getId());
@@ -59,17 +79,23 @@ class AiMacroRoutePlanNodeTest {
         TravelRequirementDTO requirement = new TravelRequirementDTO();
         requirement.setRouteStructure("不走回头路，沿一个方向玩");
 
-        String shape = (String) invoke(
-                node,
-                "routeShape",
-                new Class[] {TravelRequirementDTO.class, com.sora.aitravel.dto.model.RentalQuoteOptionDTO.class},
-                requirement,
-                null);
+        String shape =
+                (String)
+                        invoke(
+                                node,
+                                "routeShape",
+                                new Class[] {
+                                    TravelRequirementDTO.class,
+                                    com.sora.aitravel.dto.model.RentalQuoteOptionDTO.class
+                                },
+                                requirement,
+                                null);
 
         assertEquals("ONEWAY", shape);
     }
 
-    private Object invoke(Object target, String name, Class<?>[] parameterTypes, Object... args) throws Exception {
+    private Object invoke(Object target, String name, Class<?>[] parameterTypes, Object... args)
+            throws Exception {
         Method method = target.getClass().getDeclaredMethod(name, parameterTypes);
         method.setAccessible(true);
         return method.invoke(target, args);

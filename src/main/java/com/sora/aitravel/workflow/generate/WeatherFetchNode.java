@@ -24,9 +24,9 @@ public class WeatherFetchNode {
 
     private final WeatherTool weatherTool;
 
-
     public Map<String, Object> execute(OverAllState state) {
-        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        TravelRequirementDTO requirement =
+                TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
         return TripGraphStateCodec.patch(WEATHER_FORECAST, fetchWeather(requirement));
     }
 

@@ -18,6 +18,8 @@ public class RentalContextStoreResolveNode {
         context.setMatchedStore(
                 rentalStoreService.resolveRentalStore(
                         new RentalStoreResolveCommand(
-                                arrival.getName(), arrival.getCityName(), RentalStoreUsageEnum.PICKUP)));
+                                arrival.getName(),
+                                arrival.getCityName(),
+                                RentalStoreUsageEnum.PICKUP)));
     }
 }

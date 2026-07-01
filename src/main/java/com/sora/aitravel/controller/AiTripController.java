@@ -249,7 +249,8 @@ public class AiTripController {
                 return day.getResultJson();
             }
             TravelRequirementDTO requirement =
-                    objectMapper.readValue(session.getRequirementJson(), TravelRequirementDTO.class);
+                    objectMapper.readValue(
+                            session.getRequirementJson(), TravelRequirementDTO.class);
             TripPlanDTO.DailyPlan dailyPlan =
                     objectMapper.readValue(day.getResultJson(), TripPlanDTO.DailyPlan.class);
             assembleTimelineIfMissing(
@@ -259,7 +260,11 @@ public class AiTripController {
                     readNullable(session.getSelectedQuoteJson(), RentalQuoteOptionDTO.class));
             return objectMapper.writeValueAsString(dailyPlan);
         } catch (Exception exception) {
-            log.warn("单日旧结果补 timeline 失败，sessionId={}, dayNo={}", sessionId, day.getDayNo(), exception);
+            log.warn(
+                    "单日旧结果补 timeline 失败，sessionId={}, dayNo={}",
+                    sessionId,
+                    day.getDayNo(),
+                    exception);
             return day.getResultJson();
         }
     }
@@ -275,10 +280,16 @@ public class AiTripController {
         RentalTripContextDTO rentalTripContext =
                 readNullable(session.getRentalTripContextJson(), RentalTripContextDTO.class);
         tripTimelineAssembler.assemble(
-                List.<TripPlanDTO.DailyPlan>of(), List.of(dailyPlan),
+                List.<TripPlanDTO.DailyPlan>of(),
+                List.of(dailyPlan),
                 new TripTimelineAssembler.TimelineInput(
-                        List.of(), List.of(dailyPlan), requirement, selectedQuote,
-                        rentalTripContext, List.of(), List.of()));
+                        List.of(),
+                        List.of(dailyPlan),
+                        requirement,
+                        selectedQuote,
+                        rentalTripContext,
+                        List.of(),
+                        List.of()));
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(

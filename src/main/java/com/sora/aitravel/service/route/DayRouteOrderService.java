@@ -1,13 +1,11 @@
-package com.sora.aitravel.workflow.generate.route;
+package com.sora.aitravel.service.route;
 
+import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.workflow.generate.AreaAnchorSnapshot;
 import com.sora.aitravel.workflow.generate.DayContext;
 import com.sora.aitravel.workflow.generate.PoiCandidate;
-import com.sora.aitravel.workflow.generate.PoiIdentityService;
 import com.sora.aitravel.workflow.generate.RouteAnchor;
 import com.sora.aitravel.workflow.generate.RouteLegMetric;
-import com.sora.aitravel.workflow.generate.RouteMatrix;
-import com.sora.aitravel.workflow.generate.RouteOrderOptimizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,8 +29,10 @@ public class DayRouteOrderService {
             throw new IllegalStateException("景点候选缺少坐标，无法进行顺路排序");
         }
         List<RouteAnchor> spotAnchors = selected.stream().map(this::routeAnchor).toList();
-        RouteAnchor fixedStart = snapshotAnchor(dayContext, dayContext.getSkeleton().getStartArea(), "DAY_START");
-        RouteAnchor fixedEnd = snapshotAnchor(dayContext, dayContext.getSkeleton().getStayArea(), "STAY_AREA");
+        RouteAnchor fixedStart =
+                snapshotAnchor(dayContext, dayContext.getSkeleton().getStartArea(), "DAY_START");
+        RouteAnchor fixedEnd =
+                snapshotAnchor(dayContext, dayContext.getSkeleton().getStayArea(), "STAY_AREA");
         List<RouteAnchor> ordered =
                 fixedStart != null && fixedEnd != null
                         ? optimizeWithFixedAnchors(spotAnchors, fixedStart, fixedEnd)
@@ -59,11 +59,15 @@ public class DayRouteOrderService {
                 if (start.getId().equals(end.getId())) {
                     continue;
                 }
-                List<RouteAnchor> middle = anchors.stream()
-                        .filter(anchor ->
-                                !anchor.getId().equals(start.getId()) && !anchor.getId().equals(end.getId()))
-                        .toList();
-                List<RouteAnchor> ordered = routeOrderOptimizer.optimize(start, middle, end, matrix);
+                List<RouteAnchor> middle =
+                        anchors.stream()
+                                .filter(
+                                        anchor ->
+                                                !anchor.getId().equals(start.getId())
+                                                        && !anchor.getId().equals(end.getId()))
+                                .toList();
+                List<RouteAnchor> ordered =
+                        routeOrderOptimizer.optimize(start, middle, end, matrix);
                 int cost = routeCost(ordered, matrix);
                 if (cost < bestCost) {
                     bestCost = cost;
@@ -77,7 +81,8 @@ public class DayRouteOrderService {
         return best;
     }
 
-    private List<PoiCandidate> mapToCandidates(List<PoiCandidate> selected, List<RouteAnchor> ordered) {
+    private List<PoiCandidate> mapToCandidates(
+            List<PoiCandidate> selected, List<RouteAnchor> ordered) {
         LinkedHashMap<String, PoiCandidate> byKey = new LinkedHashMap<>();
         selected.forEach(candidate -> byKey.put(poiIdentityService.dedupKey(candidate), candidate));
         return ordered.stream()
@@ -93,15 +98,20 @@ public class DayRouteOrderService {
                 if (origin.getId().equals(destination.getId())) {
                     continue;
                 }
-                int distanceMeters = GeoRouteCalculator.roadDistanceMeters(
-                        origin.getLng(), origin.getLat(), destination.getLng(), destination.getLat());
-                matrix.put(RouteLegMetric.builder()
-                        .fromId(origin.getId())
-                        .toId(destination.getId())
-                        .distanceMeters(distanceMeters)
-                        .durationSeconds(GeoRouteCalculator.drivingSeconds(distanceMeters))
-                        .source(SOURCE_ESTIMATED)
-                        .build());
+                int distanceMeters =
+                        GeoRouteCalculator.roadDistanceMeters(
+                                origin.getLng(),
+                                origin.getLat(),
+                                destination.getLng(),
+                                destination.getLat());
+                matrix.put(
+                        RouteLegMetric.builder()
+                                .fromId(origin.getId())
+                                .toId(destination.getId())
+                                .distanceMeters(distanceMeters)
+                                .durationSeconds(GeoRouteCalculator.drivingSeconds(distanceMeters))
+                                .source(SOURCE_ESTIMATED)
+                                .build());
             }
         }
         return matrix;
@@ -124,7 +134,8 @@ public class DayRouteOrderService {
                 .build();
     }
 
-    private RouteAnchor snapshotAnchor(DayContext dayContext, AreaAnchorSnapshot snapshot, String type) {
+    private RouteAnchor snapshotAnchor(
+            DayContext dayContext, AreaAnchorSnapshot snapshot, String type) {
         if (snapshot == null) {
             return null;
         }
@@ -150,7 +161,9 @@ public class DayRouteOrderService {
     private int routeCost(List<RouteAnchor> ordered, RouteMatrix matrix) {
         int cost = 0;
         for (int index = 0; index < ordered.size() - 1; index++) {
-            cost += matrix.durationSeconds(ordered.get(index).getId(), ordered.get(index + 1).getId());
+            cost +=
+                    matrix.durationSeconds(
+                            ordered.get(index).getId(), ordered.get(index + 1).getId());
         }
         return cost;
     }

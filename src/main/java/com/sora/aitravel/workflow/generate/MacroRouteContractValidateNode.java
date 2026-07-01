@@ -27,11 +27,17 @@ public class MacroRouteContractValidateNode {
     public Map<String, Object> execute(OverAllState state) {
         List<DaySkeleton> skeletons =
                 validateAndBuildSkeletons(
-                        TripGraphStateCodec.optional(state, ROUTE_CRITIC_RESULT, RouteCriticResult.class).orElse(null),
-                        TripGraphStateCodec.optionalList(state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
+                        TripGraphStateCodec.optional(
+                                        state, ROUTE_CRITIC_RESULT, RouteCriticResult.class)
+                                .orElse(null),
+                        TripGraphStateCodec.optionalList(
+                                state, MACRO_ROUTE_PLANS, MacroRoutePlan.class),
                         TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class),
-                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
-                        TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null));
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optional(
+                                        state, SELECTED_QUOTE, RentalQuoteOptionDTO.class)
+                                .orElse(null));
         return TripGraphStateCodec.patch(DAY_SKELETONS, skeletons);
     }
 
@@ -52,7 +58,8 @@ public class MacroRouteContractValidateNode {
             requireAnchor(anchors, day.getEndAreaId(), "endAreaId");
             requireAnchor(anchors, day.getStayAreaId(), "stayAreaId");
             if (day.getFocusAreaIds() == null || day.getFocusAreaIds().isEmpty()) {
-                throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线骨架缺少 focusAreaIds，day=" + day.getDay());
+                throw new BusinessException(
+                        ErrorCode.AI_GENERATE_ERROR, "路线骨架缺少 focusAreaIds，day=" + day.getDay());
             }
             day.getFocusAreaIds().forEach(id -> requireAnchor(anchors, id, "focusAreaIds"));
         }
@@ -62,7 +69,8 @@ public class MacroRouteContractValidateNode {
         return skeletons;
     }
 
-    private MacroRoutePlan selectedPlan(RouteCriticResult critic, List<MacroRoutePlan> macroRoutePlans) {
+    private MacroRoutePlan selectedPlan(
+            RouteCriticResult critic, List<MacroRoutePlan> macroRoutePlans) {
         if (critic != null && critic.getRevisedPlan() != null) {
             return critic.getRevisedPlan();
         }
@@ -70,29 +78,34 @@ public class MacroRouteContractValidateNode {
         return macroRoutePlans.stream()
                 .filter(plan -> selectedId == null || plan.getId().equals(selectedId))
                 .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线审稿未选中有效方案"));
+                .orElseThrow(
+                        () -> new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线审稿未选中有效方案"));
     }
 
     private List<DaySkeleton> buildSkeletons(
-            MacroRoutePlan plan, Map<String, AreaAnchorCandidate> anchors, TravelRequirementDTO requirement) {
+            MacroRoutePlan plan,
+            Map<String, AreaAnchorCandidate> anchors,
+            TravelRequirementDTO requirement) {
         return plan.getDays().stream()
-                .map(day -> {
-                    AreaAnchorCandidate focus = anchors.get(day.getFocusAreaIds().get(0));
-                    DaySkeleton skeleton = new DaySkeleton();
-                    skeleton.setDay(day.getDay());
-                    skeleton.setTheme(firstNonBlank(day.getTheme(), focus.getName() + "慢游"));
-                    skeleton.setTargetArea(focus.getName());
-                    skeleton.setIntensity(requirement.getPace());
-                    skeleton.setStartAreaId(day.getStartAreaId());
-                    skeleton.setFocusAreaId(day.getFocusAreaIds().get(0));
-                    skeleton.setEndAreaId(day.getEndAreaId());
-                    skeleton.setStayAreaId(day.getStayAreaId());
-                    skeleton.setStartArea(snapshot(anchors.get(day.getStartAreaId())));
-                    skeleton.setFocusArea(snapshot(focus));
-                    skeleton.setEndArea(snapshot(anchors.get(day.getEndAreaId())));
-                    skeleton.setStayArea(snapshot(anchors.get(day.getStayAreaId())));
-                    return skeleton;
-                })
+                .map(
+                        day -> {
+                            AreaAnchorCandidate focus = anchors.get(day.getFocusAreaIds().get(0));
+                            DaySkeleton skeleton = new DaySkeleton();
+                            skeleton.setDay(day.getDay());
+                            skeleton.setTheme(
+                                    firstNonBlank(day.getTheme(), focus.getName() + "慢游"));
+                            skeleton.setTargetArea(focus.getName());
+                            skeleton.setIntensity(requirement.getPace());
+                            skeleton.setStartAreaId(day.getStartAreaId());
+                            skeleton.setFocusAreaId(day.getFocusAreaIds().get(0));
+                            skeleton.setEndAreaId(day.getEndAreaId());
+                            skeleton.setStayAreaId(day.getStayAreaId());
+                            skeleton.setStartArea(snapshot(anchors.get(day.getStartAreaId())));
+                            skeleton.setFocusArea(snapshot(focus));
+                            skeleton.setEndArea(snapshot(anchors.get(day.getEndAreaId())));
+                            skeleton.setStayArea(snapshot(anchors.get(day.getStayAreaId())));
+                            return skeleton;
+                        })
                 .toList();
     }
 
@@ -120,7 +133,9 @@ public class MacroRouteContractValidateNode {
     }
 
     private void validateDailyHandoff(
-            RentalQuoteOptionDTO selectedQuote, MacroRoutePlan plan, Map<String, AreaAnchorCandidate> anchors) {
+            RentalQuoteOptionDTO selectedQuote,
+            MacroRoutePlan plan,
+            Map<String, AreaAnchorCandidate> anchors) {
         if (selectedQuote != null && !plan.getDays().isEmpty()) {
             AreaAnchorCandidate firstStart = anchors.get(plan.getDays().get(0).getStartAreaId());
             if (firstStart == null || !"PICKUP".equals(firstStart.getRole())) {

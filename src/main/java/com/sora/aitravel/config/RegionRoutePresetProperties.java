@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

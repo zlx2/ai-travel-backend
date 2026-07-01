@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.route;
+package com.sora.aitravel.service.route;
 
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import java.math.BigDecimal;
@@ -44,7 +44,8 @@ public class RouteShapeValidator {
                 warnings.add("路线段缺少起止顺序");
             }
         }
-        int maxTotal = rentalEnabled ? RENTAL_MAX_TOTAL_DISTANCE_METERS : CITY_MAX_TOTAL_DISTANCE_METERS;
+        int maxTotal =
+                rentalEnabled ? RENTAL_MAX_TOTAL_DISTANCE_METERS : CITY_MAX_TOTAL_DISTANCE_METERS;
         int maxSingle = rentalEnabled ? RENTAL_MAX_SINGLE_LEG_METERS : CITY_MAX_SINGLE_LEG_METERS;
         if (totalDistance > maxTotal) {
             warnings.add("当天路线总距离过长");
@@ -59,7 +60,8 @@ public class RouteShapeValidator {
         return warnings;
     }
 
-    private List<String> validateTimelineShape(TripPlanDTO.DailyPlan dailyPlan, boolean rentalEnabled) {
+    private List<String> validateTimelineShape(
+            TripPlanDTO.DailyPlan dailyPlan, boolean rentalEnabled) {
         List<TimelinePoint> points = timelinePoints(dailyPlan);
         if (points.size() < 4) {
             return List.of();
@@ -70,7 +72,8 @@ public class RouteShapeValidator {
         if (bestMeters > 0 && actualMeters > bestMeters * MAX_ROUTE_OVER_OPTIMAL_RATIO) {
             warnings.add("前端地图路线顺序明显绕路");
         }
-        int maxTotal = rentalEnabled ? RENTAL_MAX_TOTAL_DISTANCE_METERS : CITY_MAX_TOTAL_DISTANCE_METERS;
+        int maxTotal =
+                rentalEnabled ? RENTAL_MAX_TOTAL_DISTANCE_METERS : CITY_MAX_TOTAL_DISTANCE_METERS;
         if (actualMeters > maxTotal) {
             warnings.add("前端地图路线总距离过长");
         }
@@ -83,8 +86,16 @@ public class RouteShapeValidator {
         }
         return dailyPlan.getTimeline().stream()
                 .filter(node -> node.getLng() != null && node.getLat() != null)
-                .sorted(Comparator.comparing(node -> node.getOrder() == null ? Integer.MAX_VALUE : node.getOrder()))
-                .map(node -> new TimelinePoint(node.getLng().doubleValue(), node.getLat().doubleValue()))
+                .sorted(
+                        Comparator.comparing(
+                                node ->
+                                        node.getOrder() == null
+                                                ? Integer.MAX_VALUE
+                                                : node.getOrder()))
+                .map(
+                        node ->
+                                new TimelinePoint(
+                                        node.getLng().doubleValue(), node.getLat().doubleValue()))
                 .toList();
     }
 
@@ -105,21 +116,25 @@ public class RouteShapeValidator {
         for (TimelinePoint candidateStart : remaining) {
             List<TimelinePoint> candidates = new ArrayList<>(remaining);
             candidates.remove(candidateStart);
-            int meters = distanceMeters(start, candidateStart) + nearestNeighborMeters(candidateStart, candidates, end);
+            int meters =
+                    distanceMeters(start, candidateStart)
+                            + nearestNeighborMeters(candidateStart, candidates, end);
             best = Math.min(best, meters);
         }
         return best == Integer.MAX_VALUE ? 0 : best;
     }
 
-    private int nearestNeighborMeters(TimelinePoint start, List<TimelinePoint> middle, TimelinePoint end) {
+    private int nearestNeighborMeters(
+            TimelinePoint start, List<TimelinePoint> middle, TimelinePoint end) {
         List<TimelinePoint> remaining = new ArrayList<>(middle);
         TimelinePoint cursor = start;
         int meters = 0;
         while (!remaining.isEmpty()) {
             TimelinePoint current = cursor;
-            TimelinePoint next = remaining.stream()
-                    .min(Comparator.comparingInt(point -> distanceMeters(current, point)))
-                    .orElseThrow();
+            TimelinePoint next =
+                    remaining.stream()
+                            .min(Comparator.comparingInt(point -> distanceMeters(current, point)))
+                            .orElseThrow();
             meters += distanceMeters(cursor, next);
             cursor = next;
             remaining.remove(next);
@@ -165,7 +180,12 @@ public class RouteShapeValidator {
             return List.of();
         }
         return spots.stream()
-                .sorted(Comparator.comparing(spot -> spot.getOrder() == null ? Integer.MAX_VALUE : spot.getOrder()))
+                .sorted(
+                        Comparator.comparing(
+                                spot ->
+                                        spot.getOrder() == null
+                                                ? Integer.MAX_VALUE
+                                                : spot.getOrder()))
                 .toList();
     }
 

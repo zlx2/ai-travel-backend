@@ -22,11 +22,11 @@ public class DayDataRankNode {
 
     private static final int MAX_RANKED_CANDIDATES = 40;
 
-
     public Map<String, Object> execute(OverAllState state) {
         List<DayDataPackage> rankedPackages =
                 rankPackages(
-                        TripGraphStateCodec.optionalList(state, RANKED_DAY_DATA_PACKAGES, DayDataPackage.class),
+                        TripGraphStateCodec.optionalList(
+                                state, RANKED_DAY_DATA_PACKAGES, DayDataPackage.class),
                         TripGraphStateCodec.optionalList(state, DAY_CONTEXTS, DayContext.class));
         return TripGraphStateCodec.patch(RANKED_DAY_DATA_PACKAGES, rankedPackages);
     }
@@ -35,7 +35,10 @@ public class DayDataRankNode {
             List<DayDataPackage> dataPackages, List<DayContext> dayContexts) {
         List<DayDataPackage> rankedPackages = new ArrayList<>();
         Map<Integer, DayContext> contextByDay =
-                dayContexts.stream().collect(Collectors.toMap(DayContext::getDay, Function.identity(), (a, b) -> a));
+                dayContexts.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        DayContext::getDay, Function.identity(), (a, b) -> a));
         for (DayDataPackage dataPackage : dataPackages) {
             DayContext dayContext = findDayContext(contextByDay, dataPackage.getDay());
             rankedPackages.add(

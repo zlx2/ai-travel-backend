@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.route;
+package com.sora.aitravel.service.route;
 
 /** Shared coordinate route calculations for generation-time route planning. */
 public final class GeoRouteCalculator {
@@ -20,13 +20,16 @@ public final class GeoRouteCalculator {
             return null;
         }
         try {
-            return new double[] {Double.parseDouble(parts[0].trim()), Double.parseDouble(parts[1].trim())};
+            return new double[] {
+                Double.parseDouble(parts[0].trim()), Double.parseDouble(parts[1].trim())
+            };
         } catch (RuntimeException exception) {
             return null;
         }
     }
 
-    public static int roadDistanceMeters(double fromLng, double fromLat, double toLng, double toLat) {
+    public static int roadDistanceMeters(
+            double fromLng, double fromLat, double toLng, double toLat) {
         return roadDistanceMeters(fromLng, fromLat, toLng, toLat, DEFAULT_ROAD_DISTANCE_FACTOR);
     }
 
@@ -49,11 +52,12 @@ public final class GeoRouteCalculator {
     public static double distanceKm(double fromLng, double fromLat, double toLng, double toLat) {
         double latDistance = Math.toRadians(toLat - fromLat);
         double lngDistance = Math.toRadians(toLng - fromLng);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(fromLat))
-                        * Math.cos(Math.toRadians(toLat))
-                        * Math.sin(lngDistance / 2)
-                        * Math.sin(lngDistance / 2);
+        double a =
+                Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                        + Math.cos(Math.toRadians(fromLat))
+                                * Math.cos(Math.toRadians(toLat))
+                                * Math.sin(lngDistance / 2)
+                                * Math.sin(lngDistance / 2);
         return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }

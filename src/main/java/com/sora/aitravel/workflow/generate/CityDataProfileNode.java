@@ -7,6 +7,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.poi.Poi;
 import com.sora.aitravel.service.AmapPoiCacheService;
+import com.sora.aitravel.service.PoiIdentityService;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -30,10 +31,11 @@ public class CityDataProfileNode {
     private final AmapPoiCacheService amapPoiCacheService;
     private final PoiIdentityService poiIdentityService;
 
-
     public Map<String, Object> execute(OverAllState state) {
         CityProfile profile =
-                buildProfile(TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class));
+                buildProfile(
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class));
         return TripGraphStateCodec.patch(CITY_PROFILE, profile);
     }
 

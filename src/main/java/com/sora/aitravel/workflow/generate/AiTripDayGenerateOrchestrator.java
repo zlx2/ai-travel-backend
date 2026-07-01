@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.WorkflowTiming;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
@@ -36,12 +37,11 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
     /**
      * 生成指定日期的行程计划。
      *
-     * <p>整体流程：幂等检查 → 创建/复用生成记录 → 执行工作流节点 → 持久化结果。
-     * 支持强制重新生成（forceRegenerate=true）和异步复用（ASYNC模式）两种策略。</p>
+     * <p>整体流程：幂等检查 → 创建/复用生成记录 → 执行工作流节点 → 持久化结果。 支持强制重新生成（forceRegenerate=true）和异步复用（ASYNC模式）两种策略。
      *
-     * @param sessionId       生成会话ID
-     * @param dayNo           第几天（从1开始）
-     * @param requestMode     请求模式，如 "SYNC"（同步）、"ASYNC"（异步）
+     * @param sessionId 生成会话ID
+     * @param dayNo 第几天（从1开始）
+     * @param requestMode 请求模式，如 "SYNC"（同步）、"ASYNC"（异步）
      * @param forceRegenerate 是否强制重新生成，忽略已有结果
      * @return 生成记录（包含状态和结果JSON）
      */
@@ -104,7 +104,10 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
             timed("day-mark-generating", () -> dayGenerationService.markGenerating(day.getId()));
             DayGenerateInput input = timed("restore-input", () -> restoreInput(session, dayNo));
             input.setRevisionText(normalizeRevisionText(revisionText));
-            DayGenerateResult result = timed("trip-day-generate-workflow", () -> tripDayGenerateWorkflow.execute(input));
+            DayGenerateResult result =
+                    timed(
+                            "trip-day-generate-workflow",
+                            () -> tripDayGenerateWorkflow.execute(input));
             TripPlanDTO.DailyPlan generatedPlan = result.getDailyPlan();
             // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
             timed(
@@ -113,7 +116,9 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
                             dayGenerationService.markGenerated(
                                     day.getId(), writeJson(generatedPlan)));
             AiTripDayGeneration generated =
-                    timed("day-load-generated", () -> dayGenerationService.getLatest(sessionId, dayNo));
+                    timed(
+                            "day-load-generated",
+                            () -> dayGenerationService.getLatest(sessionId, dayNo));
             log.info(
                     "行程生成总耗时 workflow=generate-day sessionId={} day={} elapsedMs={}",
                     sessionId,
@@ -151,10 +156,8 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
         return session;
     }
 
-    /**
-     * 恢复生成工作流输入。
-     */
-     private DayGenerateInput restoreInput(AiTripGenerationSession session, Integer dayNo) {
+    /** 恢复生成工作流输入。 */
+    private DayGenerateInput restoreInput(AiTripGenerationSession session, Integer dayNo) {
         return new DayGenerateInput(
                 session.getUserId(),
                 read(session.getRequirementJson(), TravelRequirementDTO.class),
@@ -171,6 +174,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     /**
      * 读取已生成的前一天行程数据。
+     *
      * @param sessionId
      * @param dayNo
      * @return
@@ -183,6 +187,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     /**
      * 读取已生成的单日行程数据。
+     *
      * @param day
      * @return
      */
@@ -204,6 +209,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     /**
      * 从JSON字符串读取数据。
+     *
      * @param json
      * @param type
      * @param <T>
@@ -226,6 +232,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     /**
      * 从JSON字符串读取数据。
+     *
      * @param json
      * @param type
      * @param <T>
@@ -241,6 +248,7 @@ public class AiTripDayGenerateOrchestrator implements AiTripDayGenerateService {
 
     /**
      * 将数据写入JSON字符串。
+     *
      * @param value
      * @return
      */

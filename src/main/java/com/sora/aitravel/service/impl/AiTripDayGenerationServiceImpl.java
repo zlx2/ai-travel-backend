@@ -26,6 +26,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 获取某天最新一次版本的行程
+     *
      * @param sessionId
      * @param dayNo
      * @return
@@ -42,6 +43,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 查询已生成且当前生效的行程日数
+     *
      * @param sessionId
      * @param dayNo
      * @return
@@ -59,6 +61,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 创建待生成的行程
+     *
      * @param sessionId
      * @param userId
      * @param dayNo
@@ -89,6 +92,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 创建为指定行程会话的某天创建排队中的生成记录
+     *
      * @param sessionId
      * @param userId
      * @param dayNo
@@ -125,6 +129,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 状态为等待中
+     *
      * @param id
      */
     @Override
@@ -134,6 +139,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 修改状态为生成中
+     *
      * @param id
      */
     @Override
@@ -143,6 +149,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 修改状态为生成成功
+     *
      * @param id
      * @param resultJson
      */
@@ -160,6 +167,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 更新状态为生成失败
+     *
      * @param id
      * @param errorMessage
      */
@@ -175,7 +183,8 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-      * 更新状态为过期
+     * 更新状态为过期
+     *
      * @param sessionId
      * @param dayNo
      */
@@ -192,7 +201,8 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
     }
 
     /**
-      * 更新状态为切换当前版本为指定版本
+     * 更新状态为切换当前版本为指定版本
+     *
      * @param sessionId
      * @param dayNo
      * @param generationVersion
@@ -216,6 +226,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 更新状态
+     *
      * @param id
      * @param status
      * @param startedAt
@@ -239,6 +250,7 @@ public class AiTripDayGenerationServiceImpl implements AiTripDayGenerationServic
 
     /**
      * 去除错误信息中的换行符
+     *
      * @param errorMessage
      * @return
      */

@@ -1,5 +1,6 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.service;
 
+import com.sora.aitravel.workflow.generate.PoiCandidate;
 import org.springframework.stereotype.Component;
 
 /** Shared POI identity and name normalization rules. */

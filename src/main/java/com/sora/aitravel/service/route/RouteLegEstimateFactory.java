@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.route;
+package com.sora.aitravel.service.route;
 
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import java.util.ArrayList;
@@ -37,7 +37,8 @@ public class RouteLegEstimateFactory {
         leg.setFromOrder(from.getOrder());
         leg.setToOrder(to.getOrder());
         leg.setMode(estimate.mode());
-        leg.setSuggestion("从" + from.getName() + "前往" + to.getName() + "，" + estimate.description());
+        leg.setSuggestion(
+                "从" + from.getName() + "前往" + to.getName() + "，" + estimate.description());
         leg.setDistanceMeters(estimate.distanceMeters());
         leg.setDurationMinutes(estimate.durationMinutes());
         leg.setEstimatedCost(estimate.cost());
@@ -73,7 +74,11 @@ public class RouteLegEstimateFactory {
         int durationMinutes =
                 (int) Math.ceil(GeoRouteCalculator.travelSeconds(distanceMeters, speedKmh) / 60.0);
         Integer cost =
-                walking ? 0 : rentalEnabled ? estimateDrivingCost(distanceMeters) : estimateTaxiCost(distanceMeters);
+                walking
+                        ? 0
+                        : rentalEnabled
+                                ? estimateDrivingCost(distanceMeters)
+                                : estimateTaxiCost(distanceMeters);
         String mode = walking ? MODE_WALK : rentalEnabled ? MODE_DRIVING : MODE_TAXI;
         return new RouteEstimate(
                 distanceMeters,
@@ -87,8 +92,10 @@ public class RouteLegEstimateFactory {
         if (spot == null) {
             return null;
         }
-        java.math.BigDecimal lng = spot.getEntranceLng() == null ? spot.getLng() : spot.getEntranceLng();
-        java.math.BigDecimal lat = spot.getEntranceLat() == null ? spot.getLat() : spot.getEntranceLat();
+        java.math.BigDecimal lng =
+                spot.getEntranceLng() == null ? spot.getLng() : spot.getEntranceLng();
+        java.math.BigDecimal lat =
+                spot.getEntranceLat() == null ? spot.getLat() : spot.getEntranceLat();
         if (lng == null || lat == null) {
             return null;
         }
@@ -96,7 +103,11 @@ public class RouteLegEstimateFactory {
     }
 
     private String description(
-            int distanceMeters, Integer durationMinutes, Integer cost, boolean walking, boolean rentalEnabled) {
+            int distanceMeters,
+            Integer durationMinutes,
+            Integer cost,
+            boolean walking,
+            boolean rentalEnabled) {
         return formatDistance(distanceMeters)
                 + "，约 "
                 + durationMinutes
@@ -107,7 +118,9 @@ public class RouteLegEstimateFactory {
     }
 
     private Integer estimateDrivingCost(Integer distanceMeters) {
-        return distanceMeters == null ? null : Math.max(3, (int) Math.ceil(distanceMeters / 1000.0 * 0.8));
+        return distanceMeters == null
+                ? null
+                : Math.max(3, (int) Math.ceil(distanceMeters / 1000.0 * 0.8));
     }
 
     private Integer estimateTaxiCost(Integer distanceMeters) {

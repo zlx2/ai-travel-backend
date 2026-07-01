@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate.route;
+package com.sora.aitravel.service.route;
 
 import com.sora.aitravel.workflow.generate.PoiCandidate;
 import java.util.ArrayList;

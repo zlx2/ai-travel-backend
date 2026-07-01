@@ -21,7 +21,11 @@ public class AlipayNotifyController {
     public String notify(HttpServletRequest request) {
         Map<String, String> params = new HashMap<>();
         request.getParameterMap()
-                .forEach((key, values) -> params.put(key, values == null || values.length == 0 ? "" : values[0]));
+                .forEach(
+                        (key, values) ->
+                                params.put(
+                                        key,
+                                        values == null || values.length == 0 ? "" : values[0]));
         return alipayPaymentService.handleNotify(params) ? "success" : "failure";
     }
 }

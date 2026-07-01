@@ -1,4 +1,4 @@
-package com.sora.aitravel.workflow.generate;
+package com.sora.aitravel.service.route;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
@@ -8,6 +8,8 @@ import cn.hutool.json.JSONUtil;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.config.AmapProperties;
+import com.sora.aitravel.workflow.generate.RouteAnchor;
+import com.sora.aitravel.workflow.generate.RouteLegMetric;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,17 +36,19 @@ public class AmapRouteMatrixService implements RouteMatrixService {
 
     @Override
     public RouteMatrix buildDrivingMatrix(List<RouteAnchor> anchors) {
-        List<RouteAnchor> usable = anchors == null ? List.of() : anchors.stream()
-                .filter(RouteAnchor::hasLocation)
-                .toList();
+        List<RouteAnchor> usable =
+                anchors == null
+                        ? List.of()
+                        : anchors.stream().filter(RouteAnchor::hasLocation).toList();
         if (usable.size() < 2) {
             return new RouteMatrix(usable);
         }
         RouteMatrix matrix = new RouteMatrix(usable);
         for (RouteAnchor destination : usable) {
-            List<RouteAnchor> origins = usable.stream()
-                    .filter(origin -> !origin.getId().equals(destination.getId()))
-                    .toList();
+            List<RouteAnchor> origins =
+                    usable.stream()
+                            .filter(origin -> !origin.getId().equals(destination.getId()))
+                            .toList();
             for (List<RouteAnchor> chunk : chunks(origins, MAX_ORIGINS_PER_REQUEST)) {
                 List<RouteAnchor> missing = new ArrayList<>();
                 for (RouteAnchor origin : chunk) {
@@ -59,10 +63,11 @@ public class AmapRouteMatrixService implements RouteMatrixService {
                     continue;
                 }
                 List<RouteLegMetric> fetched = fetchDistance(destination, missing);
-                fetched.forEach(metric -> {
-                    metricCache.put(cacheKey(metric.getFromId(), metric.getToId()), metric);
-                    matrix.put(metric);
-                });
+                fetched.forEach(
+                        metric -> {
+                            metricCache.put(cacheKey(metric.getFromId(), metric.getToId()), metric);
+                            matrix.put(metric);
+                        });
             }
         }
         return matrix;
@@ -71,9 +76,9 @@ public class AmapRouteMatrixService implements RouteMatrixService {
     @Override
     public List<RouteLegMetric> buildDrivingRouteMetrics(List<RouteAnchor> orderedAnchors) {
         List<RouteAnchor> route =
-                orderedAnchors == null ? List.of() : orderedAnchors.stream()
-                        .filter(RouteAnchor::hasLocation)
-                        .toList();
+                orderedAnchors == null
+                        ? List.of()
+                        : orderedAnchors.stream().filter(RouteAnchor::hasLocation).toList();
         if (route.size() < 2) {
             return List.of();
         }
@@ -91,18 +96,25 @@ public class AmapRouteMatrixService implements RouteMatrixService {
                     .computeIfAbsent(destination.getId(), key -> new ArrayList<>())
                     .add(origin);
         }
-        Map<String, RouteAnchor> byId = route.stream()
-                .collect(java.util.stream.Collectors.toMap(RouteAnchor::getId, anchor -> anchor, (a, b) -> a));
+        Map<String, RouteAnchor> byId =
+                route.stream()
+                        .collect(
+                                java.util.stream.Collectors.toMap(
+                                        RouteAnchor::getId, anchor -> anchor, (a, b) -> a));
         for (Map.Entry<String, List<RouteAnchor>> entry : missingByDestination.entrySet()) {
             RouteAnchor destination = byId.get(entry.getKey());
             for (List<RouteAnchor> chunk : chunks(entry.getValue(), MAX_ORIGINS_PER_REQUEST)) {
                 List<RouteLegMetric> fetched = fetchDistance(destination, chunk);
-                fetched.forEach(metric -> metricCache.put(cacheKey(metric.getFromId(), metric.getToId()), metric));
+                fetched.forEach(
+                        metric ->
+                                metricCache.put(
+                                        cacheKey(metric.getFromId(), metric.getToId()), metric));
             }
         }
         result.clear();
         for (int index = 0; index < route.size() - 1; index++) {
-            RouteLegMetric metric = metricCache.get(cacheKey(route.get(index), route.get(index + 1)));
+            RouteLegMetric metric =
+                    metricCache.get(cacheKey(route.get(index), route.get(index + 1)));
             if (metric != null) {
                 result.add(metric);
             }
@@ -122,13 +134,14 @@ public class AmapRouteMatrixService implements RouteMatrixService {
         for (int index = 0; index < origins.size(); index++) {
             RouteAnchor origin = origins.get(index);
             JSONObject item = results.getJSONObject(index);
-            metrics.add(RouteLegMetric.builder()
-                    .fromId(origin.getId())
-                    .toId(destination.getId())
-                    .distanceMeters(parseInt(item.getStr("distance")))
-                    .durationSeconds(parseInt(item.getStr("duration")))
-                    .source(SOURCE_AMAP)
-                    .build());
+            metrics.add(
+                    RouteLegMetric.builder()
+                            .fromId(origin.getId())
+                            .toId(destination.getId())
+                            .distanceMeters(parseInt(item.getStr("distance")))
+                            .durationSeconds(parseInt(item.getStr("duration")))
+                            .source(SOURCE_AMAP)
+                            .build());
         }
         return metrics;
     }
@@ -143,7 +156,8 @@ public class AmapRouteMatrixService implements RouteMatrixService {
                             .form(
                                     "origins",
                                     String.join(
-                                            "|", origins.stream().map(RouteAnchor::location).toList()))
+                                            "|",
+                                            origins.stream().map(RouteAnchor::location).toList()))
                             .form("destination", destination.location())
                             .form("type", "1")
                             .execute()
@@ -213,7 +227,9 @@ public class AmapRouteMatrixService implements RouteMatrixService {
     }
 
     private Duration timeout() {
-        return amapProperties.getTimeout() == null ? Duration.ofSeconds(10) : amapProperties.getTimeout();
+        return amapProperties.getTimeout() == null
+                ? Duration.ofSeconds(10)
+                : amapProperties.getTimeout();
     }
 
     private int parseInt(String value) {

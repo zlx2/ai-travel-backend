@@ -10,7 +10,8 @@ final class AreaAnchorResolver {
 
     private AreaAnchorResolver() {}
 
-    static AreaAnchorCandidate resolve(Map<String, AreaAnchorCandidate> anchors, String rawId, String field) {
+    static AreaAnchorCandidate resolve(
+            Map<String, AreaAnchorCandidate> anchors, String rawId, String field) {
         if (rawId == null || rawId.isBlank()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线骨架缺少区域引用：" + field);
         }
@@ -30,10 +31,12 @@ final class AreaAnchorResolver {
             throw new BusinessException(
                     ErrorCode.AI_GENERATE_ERROR, "路线骨架区域引用不唯一：" + field + "=" + rawId);
         }
-        throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "路线骨架引用无效区域：" + field + "=" + rawId);
+        throw new BusinessException(
+                ErrorCode.AI_GENERATE_ERROR, "路线骨架引用无效区域：" + field + "=" + rawId);
     }
 
-    static String canonicalId(Map<String, AreaAnchorCandidate> anchors, String rawId, String field) {
+    static String canonicalId(
+            Map<String, AreaAnchorCandidate> anchors, String rawId, String field) {
         return resolve(anchors, rawId, field).getId();
     }
 

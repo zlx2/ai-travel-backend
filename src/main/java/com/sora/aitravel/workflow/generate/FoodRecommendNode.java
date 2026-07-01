@@ -37,12 +37,13 @@ public class FoodRecommendNode {
      *
      * <p>节点只负责调用美食服务和保存结果，不修改 DayDataFetchNode，也不参与后续候选排序和行程生成。
      */
-
     public Map<String, Object> execute(OverAllState state) {
         Map<Integer, FoodRecommendResponse> recommendationsByDay =
                 recommendByDay(
-                        TripGraphStateCodec.optionalList(state, DAY_QUERY_PLANS, DayQueryPlan.class),
-                        TripGraphStateCodec.optional(state, CITY_PROFILE, CityProfile.class).orElse(null));
+                        TripGraphStateCodec.optionalList(
+                                state, DAY_QUERY_PLANS, DayQueryPlan.class),
+                        TripGraphStateCodec.optional(state, CITY_PROFILE, CityProfile.class)
+                                .orElse(null));
         return TripGraphStateCodec.patch(FOOD_RECOMMENDATIONS_BY_DAY, recommendationsByDay);
     }
 

@@ -58,8 +58,10 @@ class RentalContextPreviewWorkflowTest {
                 .isEqualTo("DELIVERY_PICKUP");
         assertThat(response.getQuoteOptions()).hasSize(3);
         assertThat(response.getRequirement().getTransportMode()).isEqualTo("RENTAL_CAR");
-        assertThat(response.getRequirement().getRentalRequirement().getRentalStartCity()).isEqualTo("杭州");
-        assertThat(response.getRequirement().getRentalRequirement().getPickupCity()).isEqualTo("杭州");
+        assertThat(response.getRequirement().getRentalRequirement().getRentalStartCity())
+                .isEqualTo("杭州");
+        assertThat(response.getRequirement().getRentalRequirement().getPickupCity())
+                .isEqualTo("杭州");
         assertThat(response.getRequirement().getRentalRequirement().getNeedRental()).isTrue();
         assertThat(response.getRequirement().getRentalRequirement().getDeliveryRequired()).isTrue();
         assertThat(response.getRequirement().getRentalRequirement().getDeliveryAddress())

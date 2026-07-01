@@ -34,11 +34,12 @@ public class InfoExtractNode {
         if (input == null || input.isBlank()) {
             return null;
         }
-        String destination = firstNonBlank(
-                context.getRequest().getSelectedDestination(),
-                match(input, "去([\\u4e00-\\u9fa5A-Za-z]{2,8})(?:玩|旅游|旅行|自驾|游)"),
-                match(input, "到([\\u4e00-\\u9fa5A-Za-z]{2,8})(?:玩|旅游|旅行|自驾|游)"),
-                match(input, "飞到([\\u4e00-\\u9fa5A-Za-z]{2,8})"));
+        String destination =
+                firstNonBlank(
+                        context.getRequest().getSelectedDestination(),
+                        match(input, "去([\\u4e00-\\u9fa5A-Za-z]{2,8})(?:玩|旅游|旅行|自驾|游)"),
+                        match(input, "到([\\u4e00-\\u9fa5A-Za-z]{2,8})(?:玩|旅游|旅行|自驾|游)"),
+                        match(input, "飞到([\\u4e00-\\u9fa5A-Za-z]{2,8})"));
         Integer days = numberBefore(input, "天");
         Integer budget = budget(input);
         if (destination == null || days == null) {
@@ -51,15 +52,22 @@ public class InfoExtractNode {
         String primaryDestination = routeCities.isEmpty() ? destination : routeCities.get(0);
         requirement.setDestination(primaryDestination);
         requirement.setRouteMode(rental ? "LANDING_RENTAL_TRIP" : "DESTINATION_CITY_TRIP");
-        requirement.setRouteStructure(routeCities.size() > 1 || containsAny(input, "多城市", "串联") ? "MULTI_CITY" : "SINGLE_CITY");
-        requirement.setRouteCities(routeCities.isEmpty() ? List.of(primaryDestination) : routeCities);
+        requirement.setRouteStructure(
+                routeCities.size() > 1 || containsAny(input, "多城市", "串联")
+                        ? "MULTI_CITY"
+                        : "SINGLE_CITY");
+        requirement.setRouteCities(
+                routeCities.isEmpty() ? List.of(primaryDestination) : routeCities);
         requirement.setTransportMode(rental ? "RENTAL_CAR" : null);
         requirement.setRentalIntent(rental ? "USER_REQUIRED" : null);
         if (rental) {
             RentalRequirementDTO rentalRequirement = new RentalRequirementDTO();
             rentalRequirement.setNeedRental(true);
             rentalRequirement.setPickupCity(primaryDestination);
-            rentalRequirement.setReturnCity(routeCities.isEmpty() ? primaryDestination : routeCities.get(routeCities.size() - 1));
+            rentalRequirement.setReturnCity(
+                    routeCities.isEmpty()
+                            ? primaryDestination
+                            : routeCities.get(routeCities.size() - 1));
             rentalRequirement.setRentalDays(days);
             requirement.setRentalRequirement(rentalRequirement);
         }
@@ -83,7 +91,10 @@ public class InfoExtractNode {
                 }
             }
         }
-        String arrivalCity = match(input, "([\\u4e00-\\u9fa5A-Za-z]{2,8})(?:东站|西站|南站|北站|站|机场|客运站|汽车站)(?:下车|落地|到达)");
+        String arrivalCity =
+                match(
+                        input,
+                        "([\\u4e00-\\u9fa5A-Za-z]{2,8})(?:东站|西站|南站|北站|站|机场|客运站|汽车站)(?:下车|落地|到达)");
         String cleanArrivalCity = cleanCity(arrivalCity);
         if (cleanArrivalCity != null && !cities.contains(cleanArrivalCity)) {
             cities.add(0, cleanArrivalCity);
@@ -95,10 +106,11 @@ public class InfoExtractNode {
         if (value == null || value.isBlank()) {
             return null;
         }
-        String text = value.trim()
-                .replaceAll("(东站|西站|南站|北站|站|机场|客运站|汽车站)$", "")
-                .replaceAll("(?<=[\\u4e00-\\u9fa5]{2})(东|西|南|北)$", "")
-                .replaceAll("(市|地区)$", "");
+        String text =
+                value.trim()
+                        .replaceAll("(东站|西站|南站|北站|站|机场|客运站|汽车站)$", "")
+                        .replaceAll("(?<=[\\u4e00-\\u9fa5]{2})(东|西|南|北)$", "")
+                        .replaceAll("(市|地区)$", "");
         return text.isBlank() ? null : text;
     }
 

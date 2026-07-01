@@ -23,14 +23,17 @@ public class CandidatePoolBuildNode {
         CandidatePool pool =
                 buildPool(
                         TripGraphStateCodec.required(state, CITY_PROFILE, CityProfile.class),
-                        TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class).orElse(null));
+                        TripGraphStateCodec.optional(
+                                        state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class)
+                                .orElse(null));
         return TripGraphStateCodec.patch(CANDIDATE_POOL, pool);
     }
 
     private CandidatePool buildPool(CityProfile profile, RentalTripContextDTO rentalTripContext) {
-        List<PoiCandidate> scenic = profile == null || profile.getScenicCandidates() == null
-                ? List.of()
-                : profile.getScenicCandidates();
+        List<PoiCandidate> scenic =
+                profile == null || profile.getScenicCandidates() == null
+                        ? List.of()
+                        : profile.getScenicCandidates();
         LinkedHashMap<String, AreaAnchorCandidate> anchors = new LinkedHashMap<>();
         AreaAnchorCandidate pickup = pickupAnchor(rentalTripContext);
         if (pickup != null) {
@@ -55,11 +58,18 @@ public class CandidatePoolBuildNode {
             return;
         }
         for (PoiCandidate candidate : candidates) {
-            if (candidate == null || candidate.getLocation() == null || candidate.getLocation().isBlank()) {
+            if (candidate == null
+                    || candidate.getLocation() == null
+                    || candidate.getLocation().isBlank()) {
                 continue;
             }
-            String area = firstNonBlank(candidate.getArea(), candidate.getBusinessArea(), candidate.getName());
-            String id = stableId(role, firstNonBlank(candidate.getSourcePoiId(), candidate.getName(), area));
+            String area =
+                    firstNonBlank(
+                            candidate.getArea(), candidate.getBusinessArea(), candidate.getName());
+            String id =
+                    stableId(
+                            role,
+                            firstNonBlank(candidate.getSourcePoiId(), candidate.getName(), area));
             anchors.putIfAbsent(
                     id,
                     new AreaAnchorCandidate(
@@ -82,17 +92,25 @@ public class CandidatePoolBuildNode {
             return;
         }
         for (PoiCandidate candidate : candidates) {
-            if (candidate == null || candidate.getLocation() == null || candidate.getLocation().isBlank()) {
+            if (candidate == null
+                    || candidate.getLocation() == null
+                    || candidate.getLocation().isBlank()) {
                 continue;
             }
-            String area = firstNonBlank(candidate.getArea(), candidate.getBusinessArea(), candidate.getName());
+            String area =
+                    firstNonBlank(
+                            candidate.getArea(), candidate.getBusinessArea(), candidate.getName());
             if (area == null || area.isBlank()) {
                 continue;
             }
             String id =
                     stableId(
                             "SCENIC_CLUSTER",
-                            firstNonBlank(candidate.getBusinessArea(), candidate.getArea(), candidate.getSourcePoiId(), candidate.getName()));
+                            firstNonBlank(
+                                    candidate.getBusinessArea(),
+                                    candidate.getArea(),
+                                    candidate.getSourcePoiId(),
+                                    candidate.getName()));
             anchors.putIfAbsent(
                     id,
                     new AreaAnchorCandidate(
@@ -113,7 +131,8 @@ public class CandidatePoolBuildNode {
         if (rental == null || rental.getMatchedStore() == null) {
             return null;
         }
-        if (rental.getMatchedStore().getLng() == null || rental.getMatchedStore().getLat() == null) {
+        if (rental.getMatchedStore().getLng() == null
+                || rental.getMatchedStore().getLat() == null) {
             return null;
         }
         String id = stableId("PICKUP", rental.getMatchedStore().getStoreCode());
@@ -131,7 +150,8 @@ public class CandidatePoolBuildNode {
     }
 
     private String stableId(String prefix, String value) {
-        return (prefix + "_" + String.valueOf(value)).replaceAll("[^A-Za-z0-9_\\u4e00-\\u9fa5]", "_");
+        return (prefix + "_" + String.valueOf(value))
+                .replaceAll("[^A-Za-z0-9_\\u4e00-\\u9fa5]", "_");
     }
 
     private String firstNonBlank(String... values) {

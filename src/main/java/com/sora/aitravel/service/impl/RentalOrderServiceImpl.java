@@ -169,7 +169,8 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .rentalDepositCent(fee.getRentalDepositCent())
                 .violationDepositCent(fee.getViolationDepositCent())
                 .depositFreeThresholdScore(fee.getDepositFreeThresholdScore())
-                .totalPriceCent(value(fee.getTotalPriceCent()) + value(request.getProtectionFeeCent()))
+                .totalPriceCent(
+                        value(fee.getTotalPriceCent()) + value(request.getProtectionFeeCent()))
                 .priceTemplateId(quote.getPriceTemplateId())
                 .priceSnapshot(toJson(quote.getPriceSnapshot()))
                 .contactName(request.getContactName())

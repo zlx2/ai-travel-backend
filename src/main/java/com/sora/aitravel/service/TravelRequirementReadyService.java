@@ -2,9 +2,9 @@ package com.sora.aitravel.service;
 
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.config.RegionRoutePresetProperties;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripGenerateRequest;
-import com.sora.aitravel.workflow.generate.RegionRoutePresetProperties;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,16 +29,20 @@ public class TravelRequirementReadyService {
         if (r.getDays() == null || r.getDays() < 1 || r.getDays() > 7) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "天数需在1-7之间");
         }
-        boolean rental = "ROAD_TRIP".equals(r.getRouteMode()) || "LANDING_RENTAL_TRIP".equals(r.getRouteMode())
-                || "RENTAL_CAR".equals(r.getTransportMode()) || "SELF_DRIVE".equals(r.getTransportMode())
-                || "USER_REQUIRED".equals(r.getRentalIntent());
+        boolean rental =
+                "ROAD_TRIP".equals(r.getRouteMode())
+                        || "LANDING_RENTAL_TRIP".equals(r.getRouteMode())
+                        || "RENTAL_CAR".equals(r.getTransportMode())
+                        || "SELF_DRIVE".equals(r.getTransportMode())
+                        || "USER_REQUIRED".equals(r.getRentalIntent());
         if (rental && request.getSelectedQuote() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车需先确认报价");
         }
         if ("ROAD_TRIP".equals(r.getRouteMode())) {
-            boolean has = (r.getRouteCities() != null && !r.getRouteCities().isEmpty())
-                    || (r.getRouteRegion() != null && !r.getRouteRegion().isBlank())
-                    || (r.getDestination() != null && !r.getDestination().isBlank());
+            boolean has =
+                    (r.getRouteCities() != null && !r.getRouteCities().isEmpty())
+                            || (r.getRouteRegion() != null && !r.getRouteRegion().isBlank())
+                            || (r.getDestination() != null && !r.getDestination().isBlank());
             if (!has) throw new BusinessException(ErrorCode.PARAM_ERROR, "自驾需目的地/区域/城市");
             return;
         }
@@ -50,7 +54,8 @@ public class TravelRequirementReadyService {
     public void resolveRouteScopeIfMissing(TravelRequirementDTO r) {
         if (r == null) return;
         if (r.getRouteCities() != null && !r.getRouteCities().isEmpty()) {
-            if (r.getRouteRegion() == null || r.getRouteRegion().isBlank()) r.setRouteRegion(r.getDestination());
+            if (r.getRouteRegion() == null || r.getRouteRegion().isBlank())
+                r.setRouteRegion(r.getDestination());
             if (r.getRouteMode() == null || r.getRouteMode().isBlank())
                 r.setRouteMode(r.getRouteCities().size() > 1 ? "REGION" : "CITY");
             if (r.getRouteStructure() == null || r.getRouteStructure().isBlank())
@@ -70,12 +75,20 @@ public class TravelRequirementReadyService {
                 r.setRouteMode("REGION");
                 r.setRouteStructure(preset.getCities().size() > 1 ? "MULTI_CITY" : "SINGLE_CITY");
             } else {
-                String fc = group.getDefaultCity() != null && !group.getDefaultCity().isBlank()
-                        ? group.getDefaultCity() : dst;
-                r.setRouteRegion(name); r.setRouteCities(List.of(fc)); r.setRouteMode("REGION"); r.setRouteStructure("SINGLE_CITY");
+                String fc =
+                        group.getDefaultCity() != null && !group.getDefaultCity().isBlank()
+                                ? group.getDefaultCity()
+                                : dst;
+                r.setRouteRegion(name);
+                r.setRouteCities(List.of(fc));
+                r.setRouteMode("REGION");
+                r.setRouteStructure("SINGLE_CITY");
             }
             return;
         }
-        r.setRouteRegion(dst); r.setRouteCities(List.of(dst)); r.setRouteMode("CITY"); r.setRouteStructure("SINGLE_CITY");
+        r.setRouteRegion(dst);
+        r.setRouteCities(List.of(dst));
+        r.setRouteMode("CITY");
+        r.setRouteStructure("SINGLE_CITY");
     }
 }

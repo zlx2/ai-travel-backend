@@ -13,7 +13,8 @@ import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
-import com.sora.aitravel.workflow.generate.route.RouteShapeValidator;
+import com.sora.aitravel.service.PoiIdentityService;
+import com.sora.aitravel.service.route.RouteShapeValidator;
 import com.sora.aitravel.workflow.generate.state.TripGraphStateCodec;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -32,15 +33,20 @@ public class DayPlanValidateNode {
     private final RouteShapeValidator routeShapeValidator;
     private final PoiIdentityService poiIdentityService;
 
-
     public Map<String, Object> execute(OverAllState state) {
         List<DayPlanValidationReport> reports =
                 validatePlans(
-                        TripGraphStateCodec.optionalList(state, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class),
-                        TripGraphStateCodec.optionalList(state, RANKED_DAY_DATA_PACKAGES, DayDataPackage.class),
-                        TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class),
-                        TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null),
-                        TripGraphStateCodec.optional(state, SINGLE_DAY_GENERATION, Boolean.class).orElse(false));
+                        TripGraphStateCodec.optionalList(
+                                state, LOCKED_DAILY_PLANS, TripPlanDTO.DailyPlan.class),
+                        TripGraphStateCodec.optionalList(
+                                state, RANKED_DAY_DATA_PACKAGES, DayDataPackage.class),
+                        TripGraphStateCodec.required(
+                                state, REQUIREMENT, TravelRequirementDTO.class),
+                        TripGraphStateCodec.optional(
+                                        state, SELECTED_QUOTE, RentalQuoteOptionDTO.class)
+                                .orElse(null),
+                        TripGraphStateCodec.optional(state, SINGLE_DAY_GENERATION, Boolean.class)
+                                .orElse(false));
         return TripGraphStateCodec.patch(DAY_VALIDATION_REPORTS, reports);
     }
 
@@ -54,7 +60,8 @@ public class DayPlanValidateNode {
         Set<String> usedSpotNames = new HashSet<>();
         for (TripPlanDTO.DailyPlan dailyPlan : lockedDailyPlans) {
             DayDataPackage dataPackage = findDataPackage(rankedDayDataPackages, dailyPlan.getDay());
-            List<String> warnings = validateDay(dailyPlan, dataPackage, usedSpotNames, selectedQuote != null);
+            List<String> warnings =
+                    validateDay(dailyPlan, dataPackage, usedSpotNames, selectedQuote != null);
             reports.add(
                     new DayPlanValidationReport(dailyPlan.getDay(), warnings.isEmpty(), warnings));
             log.info(
@@ -127,7 +134,8 @@ public class DayPlanValidateNode {
                         item -> {
                             allowedPoiIds.add(item.getSourcePoiId());
                             allowedNames.add(item.getName());
-                            normalizedAllowedNames.add(poiIdentityService.normalizeName(item.getName()));
+                            normalizedAllowedNames.add(
+                                    poiIdentityService.normalizeName(item.getName()));
                         });
 
         for (TripPlanDTO.Spot spot : spots) {
@@ -173,7 +181,8 @@ public class DayPlanValidateNode {
                 .anyMatch(name -> name.contains(spotName) || spotName.contains(name));
     }
 
-    private DayDataPackage findDataPackage(List<DayDataPackage> rankedDayDataPackages, Integer day) {
+    private DayDataPackage findDataPackage(
+            List<DayDataPackage> rankedDayDataPackages, Integer day) {
         return rankedDayDataPackages.stream()
                 .filter(item -> item.getDay().equals(day))
                 .findFirst()

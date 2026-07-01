@@ -26,19 +26,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class DayContextBuildNode {
 
-
     public Map<String, Object> execute(OverAllState state) {
-        List<DaySkeleton> daySkeletons = TripGraphStateCodec.optionalList(state, DAY_SKELETONS, DaySkeleton.class);
+        List<DaySkeleton> daySkeletons =
+                TripGraphStateCodec.optionalList(state, DAY_SKELETONS, DaySkeleton.class);
         if (daySkeletons.isEmpty()) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "缺少逐日行程骨架，无法生成单日行程");
         }
-        TravelRequirementDTO requirement = TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
+        TravelRequirementDTO requirement =
+                TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
         RentalQuoteOptionDTO selectedQuote =
-                TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class).orElse(null);
+                TripGraphStateCodec.optional(state, SELECTED_QUOTE, RentalQuoteOptionDTO.class)
+                        .orElse(null);
         RentalTripContextDTO rentalTripContext =
-                TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class).orElse(null);
-        CityProfile cityProfile = TripGraphStateCodec.optional(state, CITY_PROFILE, CityProfile.class).orElse(null);
-        String revisionText = TripGraphStateCodec.optional(state, REVISION_TEXT, String.class).orElse(null);
+                TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class)
+                        .orElse(null);
+        CityProfile cityProfile =
+                TripGraphStateCodec.optional(state, CITY_PROFILE, CityProfile.class).orElse(null);
+        String revisionText =
+                TripGraphStateCodec.optional(state, REVISION_TEXT, String.class).orElse(null);
 
         List<DayContext> dayContexts = new ArrayList<>();
         List<String> usedPlaces = new ArrayList<>();
@@ -54,8 +59,12 @@ public class DayContextBuildNode {
                             requirement.getPace(),
                             selectedQuote != null,
                             rentalInstruction(selectedQuote, rentalTripContext),
-                            rentalTripContext == null ? null : rentalTripContext.getRouteStructure(),
-                            rentalTripContext == null ? null : rentalTripContext.getDailyDrivingLimit(),
+                            rentalTripContext == null
+                                    ? null
+                                    : rentalTripContext.getRouteStructure(),
+                            rentalTripContext == null
+                                    ? null
+                                    : rentalTripContext.getDailyDrivingLimit(),
                             revisionText));
             usedPlaces.add(skeleton.targetArea());
         }
@@ -77,9 +86,7 @@ public class DayContextBuildNode {
             return profile.getPopularAreas().get(0);
         }
         if (requirement != null) {
-            return firstNonBlank(
-                    requirement.getDestination(),
-                    requirement.getRouteRegion());
+            return firstNonBlank(requirement.getDestination(), requirement.getRouteRegion());
         }
         return null;
     }
@@ -94,9 +101,7 @@ public class DayContextBuildNode {
             return null;
         }
         String vehicle =
-                firstNonBlank(
-                        selectedQuote.getDisplayName(),
-                        selectedQuote.getGroupName());
+                firstNonBlank(selectedQuote.getDisplayName(), selectedQuote.getGroupName());
         String pickup =
                 rentalTripContext.getPickupPlan() == null
                         ? null

@@ -68,7 +68,9 @@ public class AmapApiServiceImpl implements AmapApiService {
     }
 
     private Duration timeout() {
-        return amapProperties.getTimeout() == null ? Duration.ofSeconds(10) : amapProperties.getTimeout();
+        return amapProperties.getTimeout() == null
+                ? Duration.ofSeconds(10)
+                : amapProperties.getTimeout();
     }
 
     private void putIfNotBlank(Map<String, Object> params, String key, String value) {
@@ -79,7 +81,8 @@ public class AmapApiServiceImpl implements AmapApiService {
 
     private String executeGet(String url, Map<String, Object> params) {
         try {
-            HttpRequest request = HttpUtil.createGet(url).timeout((int) timeout().toMillis()).form(params);
+            HttpRequest request =
+                    HttpUtil.createGet(url).timeout((int) timeout().toMillis()).form(params);
             try (HttpResponse response = request.execute()) {
                 String body = response.body();
                 log.debug("高德 POI 请求 url={}, response={}", request.getUrl(), body);
@@ -162,12 +165,13 @@ public class AmapApiServiceImpl implements AmapApiService {
         }
         return photos.stream()
                 .map(JSONObject.class::cast)
-                .map(photo -> {
-                    PoiPhoto value = new PoiPhoto();
-                    value.setTitle(photo.getStr("title"));
-                    value.setUrl(photo.getStr("url"));
-                    return value;
-                })
+                .map(
+                        photo -> {
+                            PoiPhoto value = new PoiPhoto();
+                            value.setTitle(photo.getStr("title"));
+                            value.setUrl(photo.getStr("url"));
+                            return value;
+                        })
                 .toList();
     }
 }

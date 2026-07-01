@@ -54,8 +54,7 @@ class RentalStoreServiceImplTest {
         JSONObject target = poi("成都东站", "150200", "", 0, 0);
 
         JSONObject selected =
-                service.selectBestRentalStore(
-                        pois, RentalStoreUsageEnum.PICKUP, target, "成都东站");
+                service.selectBestRentalStore(pois, RentalStoreUsageEnum.PICKUP, target, "成都东站");
         RentalStoreDTO response =
                 service.buildRentalStoreResponse(selected, "成都东站", RentalStoreUsageEnum.PICKUP);
 

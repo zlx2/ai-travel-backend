@@ -209,7 +209,8 @@ public class RentalStoreServiceImpl implements RentalStoreService {
 
     private RentalStoreDTO buildPlanGoServicePoint(
             JSONObject targetPoi, String targetName, RentalStoreUsageEnum usage) {
-        return buildRentalStoreResponse(planGoServicePointPoi(targetPoi, targetName, usage), targetName, usage);
+        return buildRentalStoreResponse(
+                planGoServicePointPoi(targetPoi, targetName, usage), targetName, usage);
     }
 
     private JSONObject planGoServicePointPoi(

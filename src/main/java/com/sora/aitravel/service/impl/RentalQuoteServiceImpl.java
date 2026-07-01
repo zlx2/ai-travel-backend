@@ -8,13 +8,13 @@ import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.response.RentalQuotePreviewResponse;
-import com.sora.aitravel.entity.RentalPickupPoi;
 import com.sora.aitravel.entity.RentalOrder;
+import com.sora.aitravel.entity.RentalPickupPoi;
 import com.sora.aitravel.entity.RentalPriceTemplate;
 import com.sora.aitravel.entity.RentalVehicleGroup;
 import com.sora.aitravel.entity.RentalVehicleModel;
-import com.sora.aitravel.mapper.RentalPickupPoiMapper;
 import com.sora.aitravel.mapper.RentalOrderMapper;
+import com.sora.aitravel.mapper.RentalPickupPoiMapper;
 import com.sora.aitravel.mapper.RentalPriceTemplateMapper;
 import com.sora.aitravel.mapper.RentalVehicleGroupMapper;
 import com.sora.aitravel.mapper.RentalVehicleModelMapper;
@@ -123,7 +123,10 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         List<RentalQuoteOptionDTO> result = new ArrayList<>();
         for (RentalOrder order : orders) {
             if (result.stream()
-                    .anyMatch(item -> Objects.equals(item.getVehicleGroupId(), order.getVehicleGroupId()))) {
+                    .anyMatch(
+                            item ->
+                                    Objects.equals(
+                                            item.getVehicleGroupId(), order.getVehicleGroupId()))) {
                 continue;
             }
             RentalVehicleGroup group = vehicleGroupMapper.selectById(order.getVehicleGroupId());
@@ -480,7 +483,9 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         snapshot.put("groupCode", group.getGroupCode());
         snapshot.put("vehicleModelId", model == null ? null : model.getId());
         snapshot.put("vehicleModelName", modelName(model, group));
-        snapshot.put("rentalDays", order.getRentalDays() == null ? null : order.getRentalDays().intValue());
+        snapshot.put(
+                "rentalDays",
+                order.getRentalDays() == null ? null : order.getRentalDays().intValue());
         snapshot.put("feeBreakdown", fee);
         return RentalQuoteOptionDTO.builder()
                 .quoteId("O-" + order.getId() + "-" + group.getId())
