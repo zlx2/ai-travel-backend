@@ -64,6 +64,9 @@ public class RouteShapeValidatorImpl {
     private List<String> validateTimelineShape(
             TripPlanDTO.DailyPlan dailyPlan, boolean rentalEnabled) {
         List<TimelinePoint> points = timelinePoints(dailyPlan);
+        if (points.stream().anyMatch(point -> !reasonableChinaCoordinate(point))) {
+            return List.of("前端地图路线包含异常坐标");
+        }
         if (points.size() < 4) {
             return List.of();
         }
@@ -146,6 +149,13 @@ public class RouteShapeValidatorImpl {
 
     private int distanceMeters(TimelinePoint from, TimelinePoint to) {
         return GeoRouteCalculator.roadDistanceMeters(from.lng(), from.lat(), to.lng(), to.lat());
+    }
+
+    private boolean reasonableChinaCoordinate(TimelinePoint point) {
+        return point.lng() >= 73.0
+                && point.lng() <= 136.5
+                && point.lat() >= 17.0
+                && point.lat() <= 54.5;
     }
 
     private boolean hasBacktracking(List<TripPlanDTO.Spot> spots) {

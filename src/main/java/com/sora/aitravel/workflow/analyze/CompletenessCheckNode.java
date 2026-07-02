@@ -18,15 +18,12 @@ public class CompletenessCheckNode {
         List<QuestionDTO> questions = new ArrayList<>();
 
         if (requirement == null) {
-            questions.add(new QuestionDTO("userInput", "我还没有理解你的旅行需求，可以再描述一下出发地、想玩几天和偏好吗？", true));
+            questions.add(new QuestionDTO("userInput", "我还没有理解你的旅行需求，可以再描述一下想去哪、玩几天和偏好吗？", true));
             context.setQuestions(questions);
             context.setStatus(AnalyzeStatusEnum.NEED_MORE_INFO.name());
             return;
         }
 
-        if (isBlank(requirement.getDeparture())) {
-            questions.add(new QuestionDTO("departure", "你准备从哪个城市出发？", true));
-        }
         if (isBlank(requirement.getDestination())) {
             questions.add(new QuestionDTO("destination", "你这次想去哪个目标城市？", true));
         }

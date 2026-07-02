@@ -1,6 +1,5 @@
 package com.sora.aitravel.workflow.generate;
 
-import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.REQUIREMENT;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.WEATHER_FORECAST;
 
@@ -10,18 +9,13 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.service.AmapApiService;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ExternalContextPrepareNode {
 
     private static final String OPEN_METEO_GEO_URL =
@@ -29,14 +23,10 @@ public class ExternalContextPrepareNode {
     private static final String OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
     private static final Map<Integer, String> WEATHER_CODES = weatherCodes();
 
-    private final AmapApiService amapApiService;
-
     public Map<String, Object> execute(OverAllState state) {
         TravelRequirementDTO requirement =
                 TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
-        return TripGraphStateCodec.patch(
-                WEATHER_FORECAST, fetchWeather(requirement),
-                HOTEL_SEARCH_RESULT, fetchHotels(requirement));
+        return TripGraphStateCodec.patch(WEATHER_FORECAST, fetchWeather(requirement));
     }
 
     private String fetchWeather(TravelRequirementDTO requirement) {
@@ -53,34 +43,6 @@ public class ExternalContextPrepareNode {
         } catch (Exception e) {
             log.error("节点[external-context-prepare]：天气查询失败，destination={}", destination, e);
             return "天气数据暂不可用：" + e.getMessage();
-        }
-    }
-
-    private String fetchHotels(TravelRequirementDTO requirement) {
-        String destination = primarySearchCity(requirement);
-        if (destination == null || destination.isBlank()) {
-            log.warn("节点[external-context-prepare]：目的地为空，跳过酒店查询");
-            return null;
-        }
-        String travelDate = requirement.getTravelDate();
-        LocalDate checkIn =
-                travelDate != null ? LocalDate.parse(travelDate) : LocalDate.now().plusDays(1);
-        LocalDate checkOut =
-                checkIn.plusDays(requirement.getDays() != null ? requirement.getDays() : 3);
-        String checkInStr = checkIn.format(DateTimeFormatter.ISO_LOCAL_DATE);
-        String checkOutStr = checkOut.format(DateTimeFormatter.ISO_LOCAL_DATE);
-        try {
-            log.info(
-                    "节点[external-context-prepare]：查询 {} 酒店，入住={}，离店={}",
-                    destination,
-                    checkInStr,
-                    checkOutStr);
-            String data = queryHotels(destination, checkInStr, checkOutStr);
-            log.info("节点[external-context-prepare]：酒店获取成功，长度={}", data.length());
-            return data;
-        } catch (Exception e) {
-            log.error("节点[external-context-prepare]：酒店查询失败，destination={}", destination, e);
-            return "酒店数据暂不可用：" + e.getMessage();
         }
     }
 
@@ -169,37 +131,6 @@ public class ExternalContextPrepareNode {
             result.set("forecastDays", days.size()).set("forecast", days);
         }
         return result.toString();
-    }
-
-    private String queryHotels(String city, String checkIn, String checkOut) {
-        JSONObject json =
-                amapApiService.searchPoiTextRaw("酒店", "100100", city, true, 8, 1, "business");
-        if (!"1".equals(json.getStr("status"))) {
-            return JSONUtil.createObj()
-                    .set("city", city)
-                    .set("error", "高德酒店查询失败：" + json.getStr("info", "unknown"))
-                    .toString();
-        }
-        JSONArray hotels = new JSONArray();
-        JSONArray pois = json.getJSONArray("pois");
-        for (int i = 0; pois != null && i < Math.min(pois.size(), 6); i++) {
-            JSONObject poi = pois.getJSONObject(i);
-            hotels.add(
-                    JSONUtil.createObj()
-                            .set("name", poi.getStr("name"))
-                            .set("address", poi.getStr("address"))
-                            .set("tel", poi.getStr("tel"))
-                            .set("type", poi.getStr("type"))
-                            .set("rating", poi.getByPath("biz_ext.rating"))
-                            .set("location", poi.getStr("location")));
-        }
-        return JSONUtil.createObj()
-                .set("city", city)
-                .set("checkIn", checkIn)
-                .set("checkOut", checkOut)
-                .set("source", "高德地图")
-                .set("hotels", hotels)
-                .toString();
     }
 
     private static Map<Integer, String> weatherCodes() {

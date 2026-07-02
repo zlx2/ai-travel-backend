@@ -80,8 +80,8 @@ public class DayCandidatePrepareNode {
             packages.add(
                     new DayDataPackage(
                             plan.getDay(),
-                            merge(scenic, cityCandidates(cityProfile.scenicCandidates(), dayCity)),
-                            merge(food, cityCandidates(cityProfile.foodCandidates(), dayCity)),
+                            merge(cityCandidates(cityProfile.scenicCandidates(), dayCity), scenic),
+                            merge(cityCandidates(cityProfile.foodCandidates(), dayCity), food),
                             cityCandidates(cityProfile.hotelCandidates(), dayCity),
                             List.of()));
         }
@@ -184,7 +184,7 @@ public class DayCandidatePrepareNode {
         }
         List<PoiCandidate> filtered =
                 candidates.stream().filter(candidate -> sameCity(candidate, city)).toList();
-        return filtered.isEmpty() ? candidates : filtered;
+        return filtered;
     }
 
     private boolean sameCity(PoiCandidate candidate, String city) {
@@ -197,17 +197,14 @@ public class DayCandidatePrepareNode {
     private String dayCity(List<DayContext> dayContexts, Integer day) {
         return dayContexts.stream()
                 .filter(item -> item.getDay().equals(day))
-                .map(item -> item.skeleton().targetArea())
-                .map(this::cityFromTargetArea)
+                .map(
+                        item ->
+                                item.skeleton() == null || item.skeleton().getFocusArea() == null
+                                        ? null
+                                        : item.skeleton().getFocusArea().getCity())
+                .filter(city -> city != null && !city.isBlank())
                 .findFirst()
                 .orElse(null);
-    }
-
-    private String cityFromTargetArea(String targetArea) {
-        if (targetArea == null) {
-            return null;
-        }
-        return targetArea.replaceAll("(核心城区|休闲街区|夜间活跃区域|自然景区周边|老城与美食街区|热门游览区域)$", "");
     }
 
     private String normalizeCity(String value) {
