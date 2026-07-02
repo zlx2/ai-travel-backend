@@ -14,6 +14,11 @@ public class RouteLegEstimateFactoryImpl {
     private static final String MODE_DRIVING = "DRIVING";
     private static final String SOURCE_ESTIMATED = "ESTIMATED";
     private static final double WALKING_ROUTE_MAX_KM = 2.0;
+    private static final double DRIVING_SPEED_SHORT_KMH = 35.0;
+    private static final double DRIVING_SPEED_MEDIUM_KMH = 40.0;
+    private static final double DRIVING_SPEED_LONG_KMH = 45.0;
+    private static final double DRIVING_SPEED_SHORT_THRESHOLD_KM = 5.0;
+    private static final double DRIVING_SPEED_LONG_THRESHOLD_KM = 10.0;
 
     public List<TripPlanDTO.RouteLeg> build(List<TripPlanDTO.Spot> spots, boolean rentalEnabled) {
         List<TripPlanDTO.RouteLeg> legs = new ArrayList<>();
@@ -70,7 +75,7 @@ public class RouteLegEstimateFactoryImpl {
                 walking
                         ? GeoRouteCalculator.WALKING_SPEED_KMH
                         : rentalEnabled
-                                ? GeoRouteCalculator.DEFAULT_DRIVING_SPEED_KMH
+                                ? (directKm > DRIVING_SPEED_LONG_THRESHOLD_KM ? DRIVING_SPEED_LONG_KMH : directKm > DRIVING_SPEED_SHORT_THRESHOLD_KM ? DRIVING_SPEED_MEDIUM_KMH : DRIVING_SPEED_SHORT_KMH)
                                 : GeoRouteCalculator.CITY_DRIVING_SPEED_KMH;
         int durationMinutes =
                 (int) Math.ceil(GeoRouteCalculator.travelSeconds(distanceMeters, speedKmh) / 60.0);
@@ -129,7 +134,13 @@ public class RouteLegEstimateFactoryImpl {
             return null;
         }
         double km = distanceMeters / 1000.0;
-        return (int) Math.ceil(13 + Math.max(0, km - 3) * 2.5);
+        double baseFare = 13;
+        int baseKm = 3;
+        double perKm = 2.5;
+        double perMinute = 0.5;
+        int durationMinutes = (int) Math.ceil(km * GeoRouteCalculator.DEFAULT_ROAD_DISTANCE_FACTOR / GeoRouteCalculator.CITY_DRIVING_SPEED_KMH * 60);
+        double fare = baseFare + Math.max(0, km - baseKm) * perKm + durationMinutes * perMinute;
+        return (int) Math.ceil(fare);
     }
 
     private String formatDistance(int meters) {
