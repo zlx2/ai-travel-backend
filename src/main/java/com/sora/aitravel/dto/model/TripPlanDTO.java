@@ -41,6 +41,7 @@ public class TripPlanDTO {
         private Anchor startAnchor;
         private Anchor endAnchor;
         private List<TimelineNode> timeline;
+        private List<NearbyHotel> nearbyHotels;
     }
 
     @Data
@@ -87,6 +88,7 @@ public class TripPlanDTO {
         private Integer toOrder;
         private String fromAnchor;
         private String toAnchor;
+        private List<NearbyHotel> nearbyHotels;
     }
 
     @Data
@@ -203,5 +205,21 @@ public class TripPlanDTO {
         private String poiSource;
         private String routeSource;
         private String priceSource;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class NearbyHotel {
+        private String name;
+        private String address;
+        private String tel;
+        private String rating;
+        private BigDecimal lng;
+        private BigDecimal lat;
+        private String coordType;
+        private Integer distanceMeters;
+        private String estimatedPrice;
+        private String source;
     }
 }

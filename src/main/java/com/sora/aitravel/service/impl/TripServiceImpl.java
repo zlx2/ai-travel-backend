@@ -10,6 +10,7 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.common.result.PageResult;
 import com.sora.aitravel.common.utils.DateTimeUtils;
+import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.dto.request.SaveTripRequest;
 import com.sora.aitravel.dto.request.UpdateTripRequest;
 import com.sora.aitravel.dto.response.TripDetailResponse;
@@ -38,6 +39,7 @@ public class TripServiceImpl implements TripService {
 
     private final TripMapper tripMapper;
     private final ObjectMapper objectMapper;
+    private final NearbyHotelService nearbyHotelService;
 
     @Override
     @Transactional
@@ -109,7 +111,67 @@ public class TripServiceImpl implements TripService {
     @Override
     public TripDetailResponse getDetail(Long id) {
         Trip trip = requireCurrentUserTrip(id);
-        return toDetailResponse(trip);
+        TripDetailResponse response = toDetailResponse(trip);
+        enrichWithNearbyHotels(response);
+        return response;
+    }
+
+    private void enrichWithNearbyHotels(TripDetailResponse response) {
+        try {
+            if (response.getTripPlanJson() == null) {
+                return;
+            }
+            TripPlanDTO tripPlan =
+                    objectMapper.convertValue(response.getTripPlanJson(), TripPlanDTO.class);
+            if (tripPlan.getDailyPlans() == null || tripPlan.getDailyPlans().isEmpty()) {
+                return;
+            }
+            boolean needsFill =
+                    tripPlan.getDailyPlans().stream()
+                            .anyMatch(
+                                    d ->
+                                            d.getNearbyHotels() == null
+                                                    || d.getNearbyHotels().isEmpty());
+            if (needsFill) {
+                nearbyHotelService.fillNearbyHotels(tripPlan.getDailyPlans());
+                for (TripPlanDTO.DailyPlan day : tripPlan.getDailyPlans()) {
+                    enrichStayAreaNode(day);
+                }
+                response.setTripPlanJson(tripPlan);
+            }
+        } catch (Exception exception) {
+            // 静默失败，不影响主流程
+        }
+    }
+
+    private void enrichStayAreaNode(TripPlanDTO.DailyPlan dailyPlan) {
+        List<TripPlanDTO.NearbyHotel> hotels = dailyPlan.getNearbyHotels();
+        if (hotels == null || hotels.isEmpty() || dailyPlan.getTimeline() == null) {
+            return;
+        }
+        dailyPlan.getTimeline().stream()
+                .filter(node -> "STAY_AREA".equals(node.getType()))
+                .findFirst()
+                .ifPresent(
+                        stayNode -> {
+                            TripPlanDTO.NearbyHotel first = hotels.get(0);
+                            stayNode.setTitle(first.getName());
+                            stayNode.setLng(first.getLng());
+                            stayNode.setLat(first.getLat());
+                            stayNode.setCoordType(first.getCoordType());
+                            stayNode.setAddress(first.getAddress());
+                            stayNode.setNearbyHotels(hotels);
+                            stayNode.setCompact(false);
+                            stayNode.setTags(
+                                    java.util.List.of(
+                                            "酒店",
+                                            first.getDistanceMeters() != null
+                                                    ? first.getDistanceMeters() + "m"
+                                                    : "",
+                                            first.getEstimatedPrice() != null
+                                                    ? first.getEstimatedPrice()
+                                                    : ""));
+                        });
     }
 
     @Override

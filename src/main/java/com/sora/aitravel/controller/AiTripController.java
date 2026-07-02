@@ -18,6 +18,7 @@ import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.impl.AiTripDayGenerationServiceImpl;
 import com.sora.aitravel.service.impl.AiTripGenerationOrchestratorImpl;
 import com.sora.aitravel.service.impl.AiTripGenerationSessionServiceImpl;
+import com.sora.aitravel.service.impl.NearbyHotelService;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
 import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
@@ -58,6 +59,7 @@ public class AiTripController {
     private final RabbitTemplate rabbitTemplate;
     private final TripTimelineAssembler tripTimelineAssembler;
     private final JsonCodec jsonCodec;
+    private final NearbyHotelService nearbyHotelService;
 
     /**
      * AI 分析用户旅行需求（需登录）。
@@ -390,17 +392,97 @@ public class AiTripController {
                         session.getRentalTripContextJson(),
                         RentalTripContextDTO.class,
                         "生成会话上下文解析失败");
+
+        // 加载前一天已生成的行程并填充酒店，使次日起点从酒店出发
+        List<TripPlanDTO.DailyPlan> previousDays =
+                loadAndEnrichPreviousDays(session, value(dailyPlan.getDay()));
+
         tripTimelineAssembler.assemble(
-                List.<TripPlanDTO.DailyPlan>of(),
+                previousDays,
                 List.of(dailyPlan),
                 new TripTimelineAssembler.TimelineInput(
-                        List.of(),
+                        previousDays,
                         List.of(dailyPlan),
                         requirement,
                         selectedQuote,
                         rentalTripContext,
                         List.of(),
                         List.of()));
+
+        // 搜索最后景点附近的酒店
+        if (dailyPlan.getNearbyHotels() == null || dailyPlan.getNearbyHotels().isEmpty()) {
+            nearbyHotelService.fillNearbyHotels(List.of(dailyPlan));
+        }
+        enrichStayAreaNode(dailyPlan);
+    }
+
+    /** 加载当前会话中已生成的前一天行程，并为其填充酒店数据。 */
+    private List<TripPlanDTO.DailyPlan> loadAndEnrichPreviousDays(
+            AiTripGenerationSession session, int currentDayNo) {
+        if (currentDayNo <= 1) {
+            return List.of();
+        }
+        try {
+            var generatedDays =
+                    aiTripDayGenerationService.listCurrentGeneratedBefore(
+                            session.getSessionId(), currentDayNo);
+            if (generatedDays == null || generatedDays.isEmpty()) {
+                return List.of();
+            }
+            List<TripPlanDTO.DailyPlan> previousDays = new java.util.ArrayList<>();
+            for (var gen : generatedDays) {
+                if (gen.getResultJson() == null || !"GENERATED".equals(gen.getStatus())) {
+                    continue;
+                }
+                TripPlanDTO.DailyPlan day =
+                        jsonCodec.readNullable(
+                                gen.getResultJson(),
+                                TripPlanDTO.DailyPlan.class,
+                                "加载前一天行程解析失败");
+                if (day != null) {
+                    if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
+                        nearbyHotelService.fillNearbyHotels(List.of(day));
+                    }
+                    enrichStayAreaNode(day);
+                    previousDays.add(day);
+                }
+            }
+            return previousDays;
+        } catch (Exception exception) {
+            log.warn("加载前一天行程失败，将使用空列表继续", exception);
+            return List.of();
+        }
+    }
+
+    /** 将附近酒店数据填充到 STAY_AREA 时间线节点上，供前端地图渲染标记。 */
+    private void enrichStayAreaNode(TripPlanDTO.DailyPlan dailyPlan) {
+        List<TripPlanDTO.NearbyHotel> hotels = dailyPlan.getNearbyHotels();
+        if (hotels == null || hotels.isEmpty() || dailyPlan.getTimeline() == null) {
+            return;
+        }
+        dailyPlan.getTimeline().stream()
+                .filter(node -> "STAY_AREA".equals(node.getType()))
+                .findFirst()
+                .ifPresent(
+                        stayNode -> {
+                            TripPlanDTO.NearbyHotel first = hotels.get(0);
+                            stayNode.setTitle(first.getName());
+                            stayNode.setLng(first.getLng());
+                            stayNode.setLat(first.getLat());
+                            stayNode.setCoordType(first.getCoordType());
+                            stayNode.setAddress(first.getAddress());
+                            stayNode.setNearbyHotels(hotels);
+                            stayNode.setCompact(false);
+                            stayNode.setTags(
+                                    List.of(
+                                            "酒店",
+                                            first.getDistanceMeters() != null
+                                                    ? first.getDistanceMeters() + "m"
+                                                    : "",
+                                            first.getEstimatedPrice() != null
+                                                    ? first.getEstimatedPrice()
+                                                    : ""));
+                        });
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(

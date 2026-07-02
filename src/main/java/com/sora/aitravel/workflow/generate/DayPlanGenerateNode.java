@@ -260,6 +260,7 @@ public class DayPlanGenerateNode {
                 estimatedCost,
                 null,
                 null,
+                null,
                 null);
     }
 
