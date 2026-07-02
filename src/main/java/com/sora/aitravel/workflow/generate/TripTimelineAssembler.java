@@ -16,7 +16,6 @@ import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.model.AreaAnchorSnapshot;
 import com.sora.aitravel.model.DayDataPackage;
 import com.sora.aitravel.model.DaySkeleton;
-import com.sora.aitravel.model.PoiCandidate;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,9 +40,15 @@ public class TripTimelineAssembler {
     private static final int DINNER_EARLIEST = 17 * 60 + 40;
     private static final int DINNER_LATEST = 18 * 60 + 50;
     private static final int HOTEL_EARLIEST = 20 * 60;
-    private static final int HOTEL_LATEST = 21 * 60;
-    private static final int LAST_SPOT_END_LIMIT = 19 * 60 + 15;
-    private static final double MAX_HOTEL_ANCHOR_DISTANCE_KM = 6.0;
+    private static final int HOTEL_LATEST = 22 * 60 + 30;
+    private static final int DAYTIME_END_LIMIT = 18 * 60 + 45;
+    private static final int NIGHT_END_LIMIT = 23 * 60;
+    private static final int MIN_VISIT_MINUTES = 45;
+    private static final int LUNCH_DURATION_MINUTES = 60;
+    private static final int DINNER_DURATION_MINUTES = 75;
+    private static final int MEAL_SETTLE_BUFFER_MINUTES = 15;
+    private static final double NEXT_DAY_DIRECTION_THRESHOLD_KM = 45.0;
+    private static final double STAY_DIRECTION_SHIFT_RATIO = 0.35;
 
     public Map<String, Object> execute(OverAllState state) {
         List<TripPlanDTO.DailyPlan> currentDays =
@@ -110,12 +115,13 @@ public class TripTimelineAssembler {
         int order = 1;
 
         if (value(day.getDay()) > 1 && previousEnd != null) {
-            timeline.add(dayStartNode(order++, clock.time(), previousEnd, firstSpot));
-            clock.move(20);
             if (firstSpot != null) {
                 timeline.add(
                         transferNode(order++, clock.time(), previousEnd, firstSpot, day, input));
                 clock.move(transferMinutes(previousEnd, firstSpot, day, input) + 10);
+            } else {
+                timeline.add(dayStartNode(order++, clock.time(), previousEnd, null));
+                clock.move(20);
             }
         }
 
@@ -134,25 +140,24 @@ public class TripTimelineAssembler {
         }
 
         int nextDaytimeIndex = 0;
-        if (!daytimeSpots.isEmpty() && clock.minutes() < 11 * 60 + 20) {
-            TripPlanDTO.Spot firstDaytimeSpot = daytimeSpots.get(0);
-            int morningDuration = morningSpotDuration(clock.minutes(), firstDaytimeSpot);
-            if (morningDuration >= 45
-                    || canFitSpotBefore(clock.minutes(), firstDaytimeSpot, LUNCH_LATEST, input)) {
-                timeline.add(
-                        spotNode(
-                                order++,
-                                clock.time(),
-                                firstDaytimeSpot,
-                                startRouteSuggestion(previousEnd, day, firstDaytimeSpot, input),
-                                morningDuration >= 45
-                                        ? morningDuration
-                                        : duration(firstDaytimeSpot)));
-                clock.move(
-                        (morningDuration >= 45 ? morningDuration : duration(firstDaytimeSpot))
-                                + routeBuffer(input));
-                nextDaytimeIndex = 1;
+        while (nextDaytimeIndex < daytimeSpots.size() && clock.minutes() < LUNCH_EARLIEST) {
+            TripPlanDTO.Spot current = daytimeSpots.get(nextDaytimeIndex);
+            TripPlanDTO.Spot next = nextSpot(daytimeSpots, nextDaytimeIndex);
+            int visitMinutes =
+                    visitDurationBeforeWindow(
+                            clock.minutes(), current, LUNCH_LATEST, lunchTransferBuffer(input));
+            if (visitMinutes < MIN_VISIT_MINUTES) {
+                break;
             }
+            timeline.add(
+                    spotNode(
+                            order++,
+                            clock.time(),
+                            current,
+                            startRouteSuggestion(previousEnd, day, current, input),
+                            visitMinutes));
+            clock.move(visitMinutes + transitionMinutes(day, current, next, input, true));
+            nextDaytimeIndex++;
         }
 
         TripPlanDTO.Spot lunchReference =
@@ -166,19 +171,24 @@ public class TripTimelineAssembler {
                         input,
                         lunchReference));
         clock.reset(
-                Math.max(
-                        addMinutes(timeline.get(timeline.size() - 1).getStartTime(), 65),
-                        13 * 60 + 20));
+                addMinutes(timeline.get(timeline.size() - 1).getStartTime(), LUNCH_DURATION_MINUTES)
+                        + MEAL_SETTLE_BUFFER_MINUTES);
 
         for (int index = nextDaytimeIndex; index < daytimeSpots.size(); index++) {
             TripPlanDTO.Spot previous = index == 0 ? null : daytimeSpots.get(index - 1);
             TripPlanDTO.Spot spot = daytimeSpots.get(index);
-            if (!canFitSpotBefore(clock.minutes(), spot, LAST_SPOT_END_LIMIT, input)) {
+            TripPlanDTO.Spot next = nextSpot(daytimeSpots, index);
+            if (clock.minutes() >= DINNER_EARLIEST
+                    || !canFitVisitBefore(
+                            clock.minutes(),
+                            spot,
+                            DINNER_LATEST,
+                            transitionMinutes(day, spot, next, input, true))) {
                 break;
             }
             timeline.add(
                     spotNode(order++, clock.time(), spot, routeSuggestion(day, previous, spot)));
-            clock.move(duration(spot) + routeBuffer(input));
+            clock.move(duration(spot) + transitionMinutes(day, spot, next, input, true));
         }
 
         TripPlanDTO.Spot dinnerReference = lastTimelineSpot(timeline, spots);
@@ -191,12 +201,18 @@ public class TripTimelineAssembler {
                         input,
                         dinnerReference));
         clock.reset(
-                Math.max(
-                        addMinutes(timeline.get(timeline.size() - 1).getStartTime(), 80),
-                        19 * 60 + 20));
+                addMinutes(
+                                timeline.get(timeline.size() - 1).getStartTime(),
+                                DINNER_DURATION_MINUTES)
+                        + MEAL_SETTLE_BUFFER_MINUTES);
 
         for (TripPlanDTO.Spot nightSpot : nightSpots) {
-            if (!canFitSpotBefore(clock.minutes(), nightSpot, LAST_SPOT_END_LIMIT, input)) {
+            int nightDuration = Math.min(duration(nightSpot), 110);
+            if (clock.minutes() < 19 * 60 + 20) {
+                clock.reset(19 * 60 + 20);
+            }
+            if (!canFitVisitBefore(
+                    clock.minutes(), nightDuration, NIGHT_END_LIMIT, nightTransferBuffer(input))) {
                 break;
             }
             timeline.add(
@@ -204,8 +220,9 @@ public class TripTimelineAssembler {
                             order++,
                             clock.time(),
                             nightSpot,
-                            routeSuggestion(day, null, nightSpot)));
-            clock.move(duration(nightSpot) + routeBuffer(input));
+                            routeSuggestion(day, null, nightSpot),
+                            nightDuration));
+            clock.move(nightDuration + nightTransferBuffer(input));
         }
 
         TripPlanDTO.TimelineNode hotel =
@@ -318,41 +335,33 @@ public class TripTimelineAssembler {
     }
 
     private TripPlanDTO.TimelineNode mealNode(
-            int order,
+            Integer order,
             String time,
             String type,
             TripPlanDTO.DailyPlan day,
             TimelineInput input,
             TripPlanDTO.Spot routeReference) {
-        TripPlanDTO.FoodSuggestion food = foodSuggestion(day, type, routeReference);
-        String title = TYPE_LUNCH_AREA.equals(type) ? "午餐区域" : "晚餐区域";
+        String title = TYPE_LUNCH_AREA.equals(type) ? "午餐时间" : "晚餐时间";
         TripPlanDTO.TimelineNode node = compactNode(order, type, time, title);
         String area =
                 firstNonBlank(
-                        food == null ? null : food.getArea(),
-                        firstNonBlank(day.getDiningArea(), "就近用餐"));
+                        day.getDiningArea(),
+                        firstNonBlank(
+                                routeReference == null ? null : routeReference.getArea(), "就近用餐"));
         node.setSubtitle(area + "附近");
         node.setDescription("在" + area + "附近安排用餐，作为区域推荐点展示。");
+        node.setCity(day.getCity());
         node.setArea(area);
-        if (food != null) {
-            node.setCity(food.getCity());
-            node.setAddress(food.getAddress());
-            node.setLng(food.getLng());
-            node.setLat(food.getLat());
-            node.setCoordType(firstNonBlank(food.getCoordType(), "GCJ02"));
-        }
         node.setDurationMinutes(TYPE_LUNCH_AREA.equals(type) ? 60 : 75);
         node.setDurationText(TYPE_LUNCH_AREA.equals(type) ? "约1小时" : "约1小时15分钟");
         int people =
                 input.getRequirement() == null || input.getRequirement().getPeopleCount() == null
                         ? 1
                         : input.getRequirement().getPeopleCount();
-        Integer averageCost = food == null ? null : food.getAverageCost();
-        if (averageCost != null) {
-            node.setEstimatedCost(averageCost * people);
-            node.setCostText("约¥" + averageCost + "/人");
-        }
-        node.setSource(food == null ? "RULE_ESTIMATED" : food.getSource());
+        int averageCost = TYPE_LUNCH_AREA.equals(type) ? 65 : 75;
+        node.setEstimatedCost(averageCost * people);
+        node.setCostText("约¥" + averageCost + "/人");
+        node.setSource("AREA_ESTIMATED");
         node.setTags(List.of(title, "餐饮"));
         return withEndTime(node);
     }
@@ -408,7 +417,7 @@ public class TripTimelineAssembler {
     }
 
     private TripPlanDTO.TimelineNode compactNode(
-            int order, String type, String time, String title) {
+            Integer order, String type, String time, String title) {
         TripPlanDTO.TimelineNode node = new TripPlanDTO.TimelineNode();
         node.setOrder(order);
         node.setType(type);
@@ -467,65 +476,82 @@ public class TripTimelineAssembler {
 
     private TripPlanDTO.Anchor hotelAnchor(TripPlanDTO.DailyPlan day, TimelineInput input) {
         TripPlanDTO.Spot lastSpot = lastSpot(day);
-        PoiCandidate hotel = hotelCandidate(day, input);
-        if (hotel != null) {
-            BigDecimal[] location = parseLocation(hotel.getLocation());
-            if (location[0] != null
-                    && location[1] != null
-                    && isNearLastSpot(lastSpot, location, MAX_HOTEL_ANCHOR_DISTANCE_KM)) {
-                return new TripPlanDTO.Anchor(
-                        TYPE_STAY_AREA,
-                        firstNonBlank(
-                                hotel.getName(),
-                                firstNonBlank(hotel.getArea(), day.getCity() + "住宿区域")),
-                        firstNonBlank(hotel.getCity(), day.getCity()),
-                        firstNonBlank(hotel.getArea(), hotel.getBusinessArea()),
-                        hotel.getAddress(),
-                        location[0],
-                        location[1],
-                        "GCJ02");
-            }
-        }
         TripPlanDTO.Anchor nearLastSpot = spotAnchor(lastSpot, TYPE_STAY_AREA);
         if (nearLastSpot != null) {
+            TripPlanDTO.Anchor directionalStay = directionalStayAnchor(day, nearLastSpot, input);
+            if (directionalStay != null) {
+                return directionalStay;
+            }
             nearLastSpot.setName(
-                    firstNonBlank(nearLastSpot.getArea(), nearLastSpot.getName()) + "住宿区域");
+                    firstNonBlank(nearLastSpot.getArea(), nearLastSpot.getName()) + "住宿范围");
             return nearLastSpot;
         }
         DaySkeleton skeleton = skeleton(day, input);
-        TripPlanDTO.Anchor plannedStay =
-                snapshotAnchor(skeleton == null ? null : skeleton.getStayArea(), TYPE_STAY_AREA);
+        TripPlanDTO.Anchor plannedStay = plannedStayAnchor(skeleton);
         if (plannedStay != null) {
             return plannedStay;
         }
-        TripPlanDTO.Anchor anchor = spotAnchor(lastSpot, TYPE_STAY_AREA);
+        TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
+        anchor.setType(TYPE_STAY_AREA);
+        anchor.setName(firstNonBlank(day.getDiningArea(), firstNonBlank(day.getCity(), "住宿区域")));
+        anchor.setCity(day.getCity());
+        anchor.setArea(day.getDiningArea());
+        return anchor;
+    }
+
+    private TripPlanDTO.Anchor plannedStayAnchor(DaySkeleton skeleton) {
+        TripPlanDTO.Anchor anchor =
+                snapshotAnchor(skeleton == null ? null : skeleton.getStayArea(), TYPE_STAY_AREA);
         if (anchor == null) {
-            anchor = new TripPlanDTO.Anchor();
-            anchor.setType(TYPE_STAY_AREA);
-            anchor.setName(
-                    firstNonBlank(day.getDiningArea(), firstNonBlank(day.getCity(), "住宿区域")));
-            anchor.setCity(day.getCity());
-            anchor.setArea(day.getDiningArea());
-        } else {
-            anchor.setType(TYPE_STAY_AREA);
-            anchor.setName(firstNonBlank(anchor.getArea(), anchor.getName()) + "住宿区域");
+            anchor =
+                    snapshotAnchor(skeleton == null ? null : skeleton.getEndArea(), TYPE_STAY_AREA);
+        }
+        if (anchor == null) {
+            anchor =
+                    snapshotAnchor(
+                            skeleton == null ? null : skeleton.getFocusArea(), TYPE_STAY_AREA);
+        }
+        if (anchor == null) {
+            anchor =
+                    snapshotAnchor(
+                            skeleton == null ? null : skeleton.getStartArea(), TYPE_STAY_AREA);
+        }
+        if (anchor != null) {
+            anchor.setName(firstNonBlank(anchor.getArea(), anchor.getName()) + "住宿范围");
         }
         return anchor;
     }
 
-    private boolean isNearLastSpot(
-            TripPlanDTO.Spot lastSpot, BigDecimal[] location, double maxDistanceKm) {
-        double[] spotLocation = spotLocation(lastSpot);
-        if (spotLocation == null
-                || location == null
-                || location[0] == null
-                || location[1] == null) {
-            return false;
+    private TripPlanDTO.Anchor directionalStayAnchor(
+            TripPlanDTO.DailyPlan day, TripPlanDTO.Anchor nearLastSpot, TimelineInput input) {
+        DaySkeleton nextSkeleton = skeletonByDay(value(day.getDay()) + 1, input);
+        TripPlanDTO.Anchor nextFocus =
+                snapshotAnchor(
+                        nextSkeleton == null ? null : nextSkeleton.getFocusArea(), "NEXT_FOCUS");
+        double[] from = anchorLocation(nearLastSpot);
+        double[] to = anchorLocation(nextFocus);
+        if (from == null || to == null) {
+            return null;
         }
-        return distanceKm(
-                        spotLocation,
-                        new double[] {location[0].doubleValue(), location[1].doubleValue()})
-                <= maxDistanceKm;
+        double distance = distanceKm(from, to);
+        if (distance < NEXT_DAY_DIRECTION_THRESHOLD_KM) {
+            return null;
+        }
+        double ratio = STAY_DIRECTION_SHIFT_RATIO;
+        BigDecimal lng = BigDecimal.valueOf(from[0] + (to[0] - from[0]) * ratio);
+        BigDecimal lat = BigDecimal.valueOf(from[1] + (to[1] - from[1]) * ratio);
+        return new TripPlanDTO.Anchor(
+                TYPE_STAY_AREA,
+                firstNonBlank(nearLastSpot.getArea(), nearLastSpot.getName())
+                        + "至"
+                        + firstNonBlank(nextFocus.getArea(), nextFocus.getName())
+                        + "方向住宿范围",
+                firstNonBlank(nextFocus.getCity(), nearLastSpot.getCity()),
+                firstNonBlank(nearLastSpot.getArea(), nextFocus.getArea()),
+                "靠近次日方向，便于第二天出发",
+                lng,
+                lat,
+                "GCJ02");
     }
 
     private TripPlanDTO.Anchor snapshotAnchor(AreaAnchorSnapshot snapshot, String type) {
@@ -551,8 +577,15 @@ public class TripTimelineAssembler {
         if (day == null || input == null || input.getDaySkeletons() == null) {
             return null;
         }
+        return skeletonByDay(value(day.getDay()), input);
+    }
+
+    private DaySkeleton skeletonByDay(Integer day, TimelineInput input) {
+        if (day == null || input == null || input.getDaySkeletons() == null) {
+            return null;
+        }
         return input.getDaySkeletons().stream()
-                .filter(item -> value(item.getDay()).equals(value(day.getDay())))
+                .filter(item -> value(item.getDay()).equals(value(day)))
                 .findFirst()
                 .orElse(null);
     }
@@ -640,30 +673,6 @@ public class TripTimelineAssembler {
         return spots.isEmpty() ? null : spots.get(spots.size() - 1);
     }
 
-    private TripPlanDTO.FoodSuggestion foodSuggestion(
-            TripPlanDTO.DailyPlan day, String type, TripPlanDTO.Spot routeReference) {
-        if (day == null || day.getFoodSuggestions() == null) {
-            return null;
-        }
-        String meal = TYPE_LUNCH_AREA.equals(type) ? "LUNCH" : "DINNER";
-        List<TripPlanDTO.FoodSuggestion> matched =
-                day.getFoodSuggestions().stream()
-                        .filter(item -> meal.equalsIgnoreCase(item.getMeal()))
-                        .toList();
-        List<TripPlanDTO.FoodSuggestion> candidates =
-                matched.isEmpty() ? day.getFoodSuggestions() : matched;
-        if (routeReference != null && spotLocation(routeReference) != null) {
-            double[] reference = spotLocation(routeReference);
-            return candidates.stream()
-                    .filter(item -> foodLocation(item) != null)
-                    .min(
-                            Comparator.comparingDouble(
-                                    item -> distanceKm(reference, foodLocation(item))))
-                    .orElse(candidates.isEmpty() ? null : candidates.get(0));
-        }
-        return candidates.isEmpty() ? null : candidates.get(0);
-    }
-
     private TripPlanDTO.Spot referenceSpot(
             List<TripPlanDTO.Spot> spots, int previousIndex, int nextIndex) {
         if (spots == null || spots.isEmpty()) {
@@ -676,6 +685,13 @@ public class TripTimelineAssembler {
             return spots.get(nextIndex);
         }
         return spots.get(spots.size() - 1);
+    }
+
+    private TripPlanDTO.Spot nextSpot(List<TripPlanDTO.Spot> spots, int currentIndex) {
+        if (spots == null || currentIndex + 1 >= spots.size()) {
+            return null;
+        }
+        return spots.get(currentIndex + 1);
     }
 
     private TripPlanDTO.Spot lastTimelineSpot(
@@ -697,21 +713,68 @@ public class TripTimelineAssembler {
         return spots.get(spots.size() - 1);
     }
 
-    private boolean canFitSpotBefore(
-            int startMinutes, TripPlanDTO.Spot spot, int latestEndMinutes, TimelineInput input) {
-        int projectedEnd = startMinutes + duration(spot) + routeBuffer(input);
+    private boolean canFitVisitBefore(
+            int startMinutes, TripPlanDTO.Spot spot, int latestEndMinutes, int transitionMinutes) {
+        return canFitVisitBefore(startMinutes, duration(spot), latestEndMinutes, transitionMinutes);
+    }
+
+    private boolean canFitVisitBefore(
+            int startMinutes, int visitMinutes, int latestEndMinutes, int transitionMinutes) {
+        int projectedEnd = startMinutes + visitMinutes + transitionMinutes;
         return projectedEnd <= latestEndMinutes;
     }
 
-    private int morningSpotDuration(int startMinutes, TripPlanDTO.Spot spot) {
-        if (spot == null || startMinutes >= LUNCH_EARLIEST) {
+    private int visitDurationBeforeWindow(
+            int startMinutes, TripPlanDTO.Spot spot, int latestEndMinutes, int transitionMinutes) {
+        if (spot == null || startMinutes >= latestEndMinutes) {
             return 0;
         }
-        int available = LUNCH_EARLIEST - startMinutes - 10;
-        if (available < 45) {
+        int available = latestEndMinutes - startMinutes - transitionMinutes;
+        if (available < MIN_VISIT_MINUTES) {
             return 0;
         }
-        return Math.min(duration(spot), Math.min(available, 90));
+        return Math.min(duration(spot), available);
+    }
+
+    private int transitionMinutes(
+            TripPlanDTO.DailyPlan day,
+            TripPlanDTO.Spot current,
+            TripPlanDTO.Spot next,
+            TimelineInput input,
+            boolean beforeMeal) {
+        if (next == null) {
+            return beforeMeal ? lunchTransferBuffer(input) : nightTransferBuffer(input);
+        }
+        Integer routeMinutes = routeLegMinutes(day, current, next);
+        int base = routeMinutes == null ? routeBuffer(input) : routeMinutes;
+        return Math.max(15, base + 8);
+    }
+
+    private Integer routeLegMinutes(
+            TripPlanDTO.DailyPlan day, TripPlanDTO.Spot current, TripPlanDTO.Spot next) {
+        if (day == null
+                || day.getRouteLegs() == null
+                || current == null
+                || next == null
+                || current.getOrder() == null
+                || next.getOrder() == null) {
+            return null;
+        }
+        return day.getRouteLegs().stream()
+                .filter(leg -> current.getOrder().equals(leg.getFromOrder()))
+                .filter(leg -> next.getOrder().equals(leg.getToOrder()))
+                .map(TripPlanDTO.RouteLeg::getDurationMinutes)
+                .filter(value -> value != null && value > 0)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private int lunchTransferBuffer(TimelineInput input) {
+        return hasRental(input) ? 25 : 18;
+    }
+
+    private int nightTransferBuffer(TimelineInput input) {
+        return hasRental(input) ? 25 : 20;
     }
 
     private double[] spotLocation(TripPlanDTO.Spot spot) {
@@ -726,11 +789,11 @@ public class TripTimelineAssembler {
         return new double[] {lng.doubleValue(), lat.doubleValue()};
     }
 
-    private double[] foodLocation(TripPlanDTO.FoodSuggestion food) {
-        if (food == null || food.getLng() == null || food.getLat() == null) {
+    private double[] anchorLocation(TripPlanDTO.Anchor anchor) {
+        if (anchor == null || anchor.getLng() == null || anchor.getLat() == null) {
             return null;
         }
-        return new double[] {food.getLng().doubleValue(), food.getLat().doubleValue()};
+        return new double[] {anchor.getLng().doubleValue(), anchor.getLat().doubleValue()};
     }
 
     private double distanceKm(double[] from, double[] to) {
@@ -739,39 +802,6 @@ public class TripTimelineAssembler {
         }
         return com.sora.aitravel.service.route.GeoRouteCalculator.distanceKm(
                 from[0], from[1], to[0], to[1]);
-    }
-
-    private PoiCandidate hotelCandidate(TripPlanDTO.DailyPlan day, TimelineInput input) {
-        if (input == null || input.getRankedDayDataPackages() == null) {
-            return null;
-        }
-        List<PoiCandidate> hotels =
-                input.getRankedDayDataPackages().stream()
-                        .filter(item -> value(item.getDay()).equals(value(day.getDay())))
-                        .findFirst()
-                        .map(DayDataPackage::hotelCandidates)
-                        .filter(list -> list != null && !list.isEmpty())
-                        .orElse(List.of());
-        if (hotels.isEmpty()) {
-            return null;
-        }
-        double[] reference = spotLocation(lastSpot(day));
-        if (reference == null) {
-            return hotels.get(0);
-        }
-        return hotels.stream()
-                .filter(item -> parseLocation(item.getLocation())[0] != null)
-                .min(
-                        Comparator.comparingDouble(
-                                item -> {
-                                    BigDecimal[] location = parseLocation(item.getLocation());
-                                    double[] hotelLocation =
-                                            new double[] {
-                                                location[0].doubleValue(), location[1].doubleValue()
-                                            };
-                                    return distanceKm(reference, hotelLocation);
-                                }))
-                .orElse(hotels.get(0));
     }
 
     private boolean isNightSpot(TripPlanDTO.Spot spot) {

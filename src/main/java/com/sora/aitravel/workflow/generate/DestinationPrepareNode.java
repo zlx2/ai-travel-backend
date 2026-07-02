@@ -14,6 +14,7 @@ import com.sora.aitravel.model.CandidatePool;
 import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.service.AmapPoiCacheService;
+import com.sora.aitravel.service.TravelKnowledgeService;
 import com.sora.aitravel.service.impl.PoiIdentityServiceImpl;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/** 查询目的地基础 POI 数据池：景点、餐饮区域和住宿区域。 */
+/** 查询目的地基础数据池：规范景点、骨架片区和餐饮候选。 */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -36,6 +37,7 @@ public class DestinationPrepareNode {
 
     private final AmapPoiCacheService amapPoiCacheService;
     private final PoiIdentityServiceImpl poiIdentityService;
+    private final TravelKnowledgeService travelKnowledgeService;
 
     public Map<String, Object> execute(OverAllState state) {
         TravelRequirementDTO requirement =
@@ -43,45 +45,53 @@ public class DestinationPrepareNode {
         RentalTripContextDTO rentalTripContext =
                 TripGraphStateCodec.optional(state, RENTAL_TRIP_CONTEXT, RentalTripContextDTO.class)
                         .orElse(null);
-        CityProfile profile = buildProfile(requirement);
-        CandidatePool pool = buildPool(profile, rentalTripContext);
+        String destination = displayDestination(requirement);
+        List<String> searchCities = resolveSearchCities(requirement, destination);
+        CityProfile profile = buildProfile(requirement, destination, searchCities);
+        CandidatePool pool = buildPool(profile, rentalTripContext, searchCities);
         return TripGraphStateCodec.patch(CITY_PROFILE, profile, CANDIDATE_POOL, pool);
     }
 
-    private CityProfile buildProfile(TravelRequirementDTO requirement) {
-        String destination = displayDestination(requirement);
-        List<String> searchCities = resolveSearchCities(requirement, destination);
-
+    private CityProfile buildProfile(
+            TravelRequirementDTO requirement, String destination, List<String> searchCities) {
         List<PoiCandidate> scenicCandidates = new ArrayList<>();
         List<PoiCandidate> foodCandidates = new ArrayList<>();
-        List<PoiCandidate> hotelCandidates = new ArrayList<>();
+
+        List<PoiCandidate> normalizedScenic = travelKnowledgeService.scenicCandidates(searchCities);
+        if (!normalizedScenic.isEmpty()) {
+            scenicCandidates.addAll(normalizedScenic);
+            log.info(
+                    "节点[destination-prepare]：使用规范旅行景点库，cities={}，scenic={}",
+                    searchCities,
+                    normalizedScenic.size());
+        }
 
         for (String city : searchCities) {
-            scenicCandidates.addAll(
-                    ensureEnoughScenicCandidates(
-                            city, requirement, searchScenicCandidates(city, requirement)));
+            if (normalizedScenic.isEmpty()) {
+                List<PoiCandidate> amapScenic =
+                        ensureEnoughScenicCandidates(
+                                city, requirement, searchScenicCandidates(city, requirement));
+                travelKnowledgeService.cacheAmapScenicCandidates(city, amapScenic);
+                scenicCandidates.addAll(amapScenic);
+            }
             foodCandidates.addAll(searchMany(foodKeywords(city), city, "FOOD"));
-            hotelCandidates.addAll(
-                    searchMany(List.of(city + " 商圈", city + " 酒店", city + " 地铁站"), city, "HOTEL"));
         }
 
         List<PoiCandidate> mergedScenic =
                 limitBalanced(searchCities, scenicCandidates, MAX_CANDIDATES);
         List<PoiCandidate> mergedFood = limitBalanced(searchCities, foodCandidates, MAX_CANDIDATES);
-        List<PoiCandidate> mergedHotel =
-                limitBalanced(searchCities, hotelCandidates, MAX_CANDIDATES);
 
         CityProfile profile =
                 new CityProfile(
                         destination,
-                        popularAreas(destination, mergedHotel, mergedScenic),
+                        popularAreas(destination, List.of(), mergedScenic),
                         searchCities.stream()
                                 .flatMap(city -> List.of(city + "火车站", city + "机场").stream())
                                 .distinct()
                                 .toList(),
                         ensureCandidates(destination, "SCENIC", mergedScenic),
                         ensureCandidates(destination, "FOOD", mergedFood),
-                        ensureCandidates(destination, "HOTEL", mergedHotel));
+                        List.of());
         log.info(
                 "节点[destination-prepare]：城市数据准备完成，destination={}, searchCities={}, scenic={}, food={}, hotel={}",
                 destination,
@@ -493,7 +503,10 @@ public class DestinationPrepareNode {
         return null;
     }
 
-    private CandidatePool buildPool(CityProfile profile, RentalTripContextDTO rentalTripContext) {
+    private CandidatePool buildPool(
+            CityProfile profile,
+            RentalTripContextDTO rentalTripContext,
+            List<String> searchCities) {
         List<PoiCandidate> scenic =
                 profile == null || profile.getScenicCandidates() == null
                         ? List.of()
@@ -503,15 +516,35 @@ public class DestinationPrepareNode {
         if (pickup != null) {
             anchors.putIfAbsent(pickup.getId(), pickup);
         }
+        addNormalizedAreas(anchors, searchCities);
         addPoiAreas(anchors, profile == null ? null : profile.getFoodCandidates(), "MEAL_AREA");
-        addPoiAreas(anchors, profile == null ? null : profile.getHotelCandidates(), "STAY_AREA");
-        addScenicClusterAreas(anchors, scenic);
+        if (anchors.values().stream()
+                .noneMatch(anchor -> "SCENIC_CLUSTER".equals(anchor.getRole()))) {
+            addScenicClusterAreas(anchors, scenic);
+        }
         CandidatePool pool = new CandidatePool(scenic, new ArrayList<>(anchors.values()), pickup);
         log.info(
                 "节点[destination-prepare]：候选池构建完成，scenic={}, anchors={}",
                 pool.getScenicCandidates().size(),
                 pool.getAreaAnchors().size());
         return pool;
+    }
+
+    private void addNormalizedAreas(
+            LinkedHashMap<String, AreaAnchorCandidate> anchors, List<String> searchCities) {
+        List<AreaAnchorCandidate> normalizedAreas =
+                travelKnowledgeService.areaAnchors(searchCities);
+        for (AreaAnchorCandidate area : normalizedAreas) {
+            if (area != null && area.getLocation() != null && !area.getLocation().isBlank()) {
+                anchors.putIfAbsent(area.getId(), area);
+            }
+        }
+        if (!normalizedAreas.isEmpty()) {
+            log.info(
+                    "节点[destination-prepare]：使用规范旅行片区库，cities={}，areas={}",
+                    searchCities,
+                    normalizedAreas.size());
+        }
     }
 
     private void addPoiAreas(

@@ -75,7 +75,11 @@ public class RouteLegEstimateFactoryImpl {
                 walking
                         ? GeoRouteCalculator.WALKING_SPEED_KMH
                         : rentalEnabled
-                                ? (directKm > DRIVING_SPEED_LONG_THRESHOLD_KM ? DRIVING_SPEED_LONG_KMH : directKm > DRIVING_SPEED_SHORT_THRESHOLD_KM ? DRIVING_SPEED_MEDIUM_KMH : DRIVING_SPEED_SHORT_KMH)
+                                ? (directKm > DRIVING_SPEED_LONG_THRESHOLD_KM
+                                        ? DRIVING_SPEED_LONG_KMH
+                                        : directKm > DRIVING_SPEED_SHORT_THRESHOLD_KM
+                                                ? DRIVING_SPEED_MEDIUM_KMH
+                                                : DRIVING_SPEED_SHORT_KMH)
                                 : GeoRouteCalculator.CITY_DRIVING_SPEED_KMH;
         int durationMinutes =
                 (int) Math.ceil(GeoRouteCalculator.travelSeconds(distanceMeters, speedKmh) / 60.0);
@@ -138,7 +142,13 @@ public class RouteLegEstimateFactoryImpl {
         int baseKm = 3;
         double perKm = 2.5;
         double perMinute = 0.5;
-        int durationMinutes = (int) Math.ceil(km * GeoRouteCalculator.DEFAULT_ROAD_DISTANCE_FACTOR / GeoRouteCalculator.CITY_DRIVING_SPEED_KMH * 60);
+        int durationMinutes =
+                (int)
+                        Math.ceil(
+                                km
+                                        * GeoRouteCalculator.DEFAULT_ROAD_DISTANCE_FACTOR
+                                        / GeoRouteCalculator.CITY_DRIVING_SPEED_KMH
+                                        * 60);
         double fare = baseFare + Math.max(0, km - baseKm) * perKm + durationMinutes * perMinute;
         return (int) Math.ceil(fare);
     }
