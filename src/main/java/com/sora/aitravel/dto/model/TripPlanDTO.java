@@ -219,6 +219,7 @@ public class TripPlanDTO {
         private BigDecimal lat;
         private String coordType;
         private Integer distanceMeters;
+        private Integer estimatedCost;
         private String estimatedPrice;
         private String source;
     }

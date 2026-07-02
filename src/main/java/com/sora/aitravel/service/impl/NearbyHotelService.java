@@ -139,6 +139,7 @@ public class NearbyHotelService {
                 hotel.setRating(business.getStr("rating"));
             }
 
+            hotel.setEstimatedCost(estimateCost(hotel.getRating(), hotel.getName()));
             hotel.setEstimatedPrice(estimatePrice(hotel.getRating(), hotel.getName()));
 
             if (hotel.getName() != null && hotel.getLng() != null && hotel.getLat() != null) {
@@ -174,25 +175,29 @@ public class NearbyHotelService {
         return day.getCity();
     }
 
+    /** 根据评分和名称关键词估算酒店具体参考金额（元/晚）。 */
+    private int estimateCost(String rating, String name) {
+        double score = parseRating(rating);
+        boolean isLuxury = isLuxuryHotel(name);
+        if (isLuxury || score >= 4.7) {
+            return 550;
+        }
+        if (score >= 4.5) {
+            return 475;
+        }
+        if (score >= 4.0) {
+            return 350;
+        }
+        if (score >= 3.5) {
+            return 240;
+        }
+        return 215;
+    }
+
     /** 根据评分和名称关键词估算酒店均价区间。 */
     private String estimatePrice(String rating, String name) {
-        double score = 0;
-        if (rating != null && !rating.isBlank()) {
-            try {
-                score = Double.parseDouble(rating);
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        boolean isLuxury =
-                name != null
-                        && (name.contains("度假")
-                                || name.contains("精品")
-                                || name.contains("国际")
-                                || name.contains("大酒店")
-                                || name.contains("威斯汀")
-                                || name.contains("希尔顿")
-                                || name.contains("万豪")
-                                || name.contains("香格里拉"));
+        double score = parseRating(rating);
+        boolean isLuxury = isLuxuryHotel(name);
         if (isLuxury || score >= 4.7) {
             return "¥500-900/晚";
         }
@@ -206,5 +211,30 @@ public class NearbyHotelService {
             return "¥180-300/晚";
         }
         return "¥150-280/晚";
+    }
+
+    private double parseRating(String rating) {
+        if (rating == null || rating.isBlank()) {
+            return 0;
+        }
+        try {
+            return Double.parseDouble(rating);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private boolean isLuxuryHotel(String name) {
+        if (name == null) {
+            return false;
+        }
+        return name.contains("度假")
+                || name.contains("精品")
+                || name.contains("国际")
+                || name.contains("大酒店")
+                || name.contains("威斯汀")
+                || name.contains("希尔顿")
+                || name.contains("万豪")
+                || name.contains("香格里拉");
     }
 }

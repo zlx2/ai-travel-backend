@@ -401,9 +401,14 @@ public class TripTimelineAssembler {
         node.setSubtitle("建议住在" + firstNonBlank(hotelAnchor.getArea(), hotelAnchor.getName()));
         node.setDescription("今晚建议住在该区域，方便休息并衔接下一天出发。");
         applyAnchor(node, hotelAnchor);
-        node.setDurationMinutes(30);
-        node.setDurationText("约30分钟");
         node.setSource("STAY_AREA");
+        if (day.getNearbyHotels() != null && !day.getNearbyHotels().isEmpty()) {
+            TripPlanDTO.NearbyHotel first = day.getNearbyHotels().get(0);
+            if (first.getEstimatedCost() != null) {
+                node.setEstimatedCost(first.getEstimatedCost());
+                node.setCostText("约¥" + first.getEstimatedCost() + "/晚");
+            }
+        }
         node.setTags(List.of("住宿区域", "休息"));
         return withEndTime(node);
     }
