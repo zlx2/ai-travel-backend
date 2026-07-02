@@ -6,6 +6,8 @@ import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.internal.util.AlipaySignature;
 import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.config.AlipayProperties;
@@ -16,6 +18,7 @@ import com.sora.aitravel.service.AlipayPaymentService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +34,7 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
 
     private final AlipayProperties properties;
     private final RentalOrderMapper rentalOrderMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     public AlipayPagePayResponse createRentalPagePay(Long userId, Long orderId) {
@@ -44,17 +48,9 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         }
 
         AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
-        request.setNotifyUrl(properties.getNotifyUrl());
-        request.setReturnUrl(properties.getReturnUrl());
-        request.setBizContent(
-                """
-                {"out_trade_no":"%s","total_amount":"%s","subject":"%s","product_code":"%s"}
-                """
-                        .formatted(
-                                order.getOrderNo(),
-                                yuan(order.getTotalPriceCent()),
-                                "PlanGo租车订单-" + order.getOrderNo(),
-                                PRODUCT_CODE));
+        request.setNotifyUrl(configValue(properties.getNotifyUrl()));
+        request.setReturnUrl(configValue(properties.getReturnUrl()));
+        request.setBizContent(buildBizContent(order));
         try {
             String formHtml = alipayClient().pageExecute(request, "POST").getBody();
             return AlipayPagePayResponse.builder()
@@ -101,6 +97,10 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         if ("paid".equals(order.getPaymentStatus())) {
             return true;
         }
+        if (!"pending".equals(order.getOrderStatus())) {
+            log.warn("支付宝异步通知订单状态不可支付，orderNo={}, orderStatus={}", orderNo, order.getOrderStatus());
+            return false;
+        }
         order.setPaymentStatus("paid");
         order.setOrderStatus("confirmed");
         order.setUpdateTime(LocalDateTime.now());
@@ -110,25 +110,38 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
 
     private AlipayClient alipayClient() {
         return new DefaultAlipayClient(
-                properties.getGatewayUrl(),
-                properties.getAppId(),
-                properties.getAppPrivateKey(),
+                configValue(properties.getGatewayUrl()),
+                configValue(properties.getAppId()),
+                keyValue(properties.getAppPrivateKey()),
                 "json",
-                properties.getCharset(),
-                properties.getAlipayPublicKey(),
-                properties.getSignType());
+                configValue(properties.getCharset()),
+                keyValue(properties.getAlipayPublicKey()),
+                configValue(properties.getSignType()));
     }
 
     private boolean verify(Map<String, String> params) {
         try {
             return AlipaySignature.rsaCheckV1(
                     params,
-                    properties.getAlipayPublicKey(),
-                    properties.getCharset(),
-                    properties.getSignType());
+                    keyValue(properties.getAlipayPublicKey()),
+                    configValue(properties.getCharset()),
+                    configValue(properties.getSignType()));
         } catch (AlipayApiException exception) {
             log.warn("支付宝异步通知验签异常", exception);
             return false;
+        }
+    }
+
+    private String buildBizContent(RentalOrder order) {
+        Map<String, String> bizContent = new LinkedHashMap<>();
+        bizContent.put("out_trade_no", order.getOrderNo());
+        bizContent.put("total_amount", yuan(order.getTotalPriceCent()));
+        bizContent.put("subject", "PlanGo租车订单-" + order.getOrderNo());
+        bizContent.put("product_code", PRODUCT_CODE);
+        try {
+            return objectMapper.writeValueAsString(bizContent);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "支付宝支付参数生成失败");
         }
     }
 
@@ -155,10 +168,10 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
             throw new BusinessException(
                     ErrorCode.PARAM_ERROR, "支付宝沙箱支付未启用：请设置 ALIPAY_ENABLED=true");
         }
-        if (isBlank(properties.getAppId())
-                || isBlank(properties.getAppPrivateKey())
-                || isBlank(properties.getAlipayPublicKey())
-                || isBlank(properties.getNotifyUrl())) {
+        if (isBlank(configValue(properties.getAppId()))
+                || isBlank(keyValue(properties.getAppPrivateKey()))
+                || isBlank(keyValue(properties.getAlipayPublicKey()))
+                || isBlank(configValue(properties.getNotifyUrl()))) {
             throw new BusinessException(
                     ErrorCode.PARAM_ERROR, "支付宝沙箱配置不完整：需要 APP_ID、应用私钥、支付宝公钥和 notifyUrl");
         }
@@ -166,5 +179,33 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String configValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() >= 2
+                && ((trimmed.startsWith("\"") && trimmed.endsWith("\""))
+                        || (trimmed.startsWith("'") && trimmed.endsWith("'")))) {
+            return trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        return trimmed;
+    }
+
+    private String keyValue(String value) {
+        String normalized = configValue(value);
+        if (normalized == null) {
+            return null;
+        }
+        return normalized
+                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .replace("-----END RSA PRIVATE KEY-----", "")
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s+", "");
     }
 }
