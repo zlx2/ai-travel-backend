@@ -23,12 +23,10 @@ import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
 import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -223,8 +221,8 @@ public class AiTripController {
                                 null,
                                 null);
 
-                        assembleTimelineIfMissing(session, requirement, dailyPlan,
-                                request.getSelectedQuote());
+                        assembleTimelineIfMissing(
+                                session, requirement, dailyPlan, request.getSelectedQuote());
 
                         sendProgress(
                                 emitter,
@@ -242,13 +240,11 @@ public class AiTripController {
                                                 + "日旅行方案",
                                         displayDestination(requirement),
                                         requirement.getDays(),
-                                        "已生成第 " + dailyPlan.getDay()
-                                                + " 天行程，后续天数将按需生成。",
+                                        "已生成第 " + dailyPlan.getDay() + " 天行程，后续天数将按需生成。",
                                         null,
                                         List.of(dailyPlan),
                                         budgetSummary(List.of(dailyPlan)),
-                                        List.of(
-                                                "下一天行程会在后台预生成，点击对应日期时优先返回已生成版本。"),
+                                        List.of("下一天行程会在后台预生成，点击对应日期时优先返回已生成版本。"),
                                         new TripPlanDTO.DataQuality(
                                                 "AMAP",
                                                 "AMAP",
@@ -265,14 +261,7 @@ public class AiTripController {
 
                         enqueueNextDay(session.getSessionId(), 1);
 
-                        sendProgress(
-                                emitter,
-                                "progress",
-                                "finalizing",
-                                "正在封装行程结果",
-                                95,
-                                null,
-                                null);
+                        sendProgress(emitter, "progress", "finalizing", "正在封装行程结果", 95, null, null);
 
                         TripGenerateResponse result =
                                 new TripGenerateResponse(
@@ -285,14 +274,12 @@ public class AiTripController {
                                         tripPlan,
                                         buildDayStatuses(requirement.getDays(), day));
 
-                        sendProgress(emitter, "done", "done",
-                                "第 1 天行程生成完成", 100, result, null);
+                        sendProgress(emitter, "done", "done", "第 1 天行程生成完成", 100, result, null);
                         emitter.complete();
                     } catch (Exception ex) {
                         log.warn("AI 行程流式生成失败", ex);
                         sendProgress(
-                                emitter, "error", "error", "行程生成失败", null, null,
-                                "行程生成失败，请稍后重试");
+                                emitter, "error", "error", "行程生成失败", null, null, "行程生成失败，请稍后重试");
                         emitter.complete();
                     }
                 });

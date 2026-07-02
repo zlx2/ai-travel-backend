@@ -22,7 +22,6 @@ import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.DayContext;
 import com.sora.aitravel.model.DayQueryPlan;
 import com.sora.aitravel.model.DaySkeleton;
-import com.sora.aitravel.model.PoiCandidate;
 import com.sora.aitravel.model.QueryItem;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -72,15 +71,13 @@ public class DayInputPrepareNode {
 
         List<DayContext> dayContexts = new ArrayList<>();
         List<String> usedPlaces = new ArrayList<>();
-        String hotelArea = resolveHotelArea(cityProfile, requirement);
-
         for (DaySkeleton skeleton : daySkeletons) {
             dayContexts.add(
                     new DayContext(
                             skeleton.getDay(),
                             skeleton,
                             List.copyOf(usedPlaces),
-                            hotelArea,
+                            stayAreaName(skeleton),
                             requirement.getPace(),
                             selectedQuote != null,
                             rentalInstruction(selectedQuote, rentalTripContext),
@@ -189,9 +186,6 @@ public class DayInputPrepareNode {
                             "查询午餐和晚餐候选"));
             queries.add(
                     new QueryItem(
-                            "HOTEL", dayContext.hotelArea(), city, null, null, null, "确认住宿区域上下文"));
-            queries.add(
-                    new QueryItem(
                             "TRANSPORT",
                             null,
                             city,
@@ -241,22 +235,11 @@ public class DayInputPrepareNode {
                 && requirement.getPreferences().stream().anyMatch(item -> item.contains(keyword));
     }
 
-    private String resolveHotelArea(CityProfile profile, TravelRequirementDTO requirement) {
-        if (profile != null
-                && profile.hotelCandidates() != null
-                && !profile.hotelCandidates().isEmpty()) {
-            PoiCandidate hotel = profile.hotelCandidates().get(0);
-            return firstNonBlank(hotel.getName(), hotel.getArea());
+    private String stayAreaName(DaySkeleton skeleton) {
+        if (skeleton == null || skeleton.getStayArea() == null) {
+            return null;
         }
-        if (profile != null
-                && profile.getPopularAreas() != null
-                && !profile.getPopularAreas().isEmpty()) {
-            return profile.getPopularAreas().get(0);
-        }
-        if (requirement != null) {
-            return firstNonBlank(requirement.getDestination(), requirement.getRouteRegion());
-        }
-        return null;
+        return firstNonBlank(skeleton.getStayArea().getName(), skeleton.getStayArea().getArea());
     }
 
     private String firstNonBlank(String first, String second) {

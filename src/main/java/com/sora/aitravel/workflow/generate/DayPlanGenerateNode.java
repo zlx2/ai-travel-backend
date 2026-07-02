@@ -47,6 +47,7 @@ public class DayPlanGenerateNode {
     private static final int LIGHT_DAILY_SPOTS = 3;
     private static final int COMPACT_ROUTE_POOL_LIMIT = 24;
     private static final int AI_DAY_PLAN_CANDIDATE_LIMIT = 4;
+    private static final int MAX_SAME_DAY_TYPE_COUNT = 1;
     private static final double LONG_RENTAL_DAY_KM = 90.0;
     private static final double LONG_RENTAL_LEG_KM = 85.0;
     private static final double EN_ROUTE_MIN_FROM_START_KM = 8.0;
@@ -91,8 +92,8 @@ public class DayPlanGenerateNode {
     private static final RoutePolicy LIGHT_ROUTE_POLICY = new RoutePolicy(8.0, 14.0);
     private static final RoutePolicy DEFAULT_ROUTE_POLICY = new RoutePolicy(14.0, 24.0);
     private static final RoutePolicy RENTAL_CITY_ROUTE_POLICY = new RoutePolicy(18.0, 35.0);
-    private static final RoutePolicy RENTAL_SUBURB_ROUTE_POLICY = new RoutePolicy(55.0, 120.0);
-    private static final RoutePolicy RENTAL_INTERCITY_ROUTE_POLICY = new RoutePolicy(120.0, 260.0);
+    private static final RoutePolicy RENTAL_SUBURB_ROUTE_POLICY = new RoutePolicy(35.0, 80.0);
+    private static final RoutePolicy RENTAL_INTERCITY_ROUTE_POLICY = new RoutePolicy(70.0, 160.0);
     private static final RoutePolicy RENTAL_LONG_ROUTE_POLICY = new RoutePolicy(220.0, 480.0);
 
     private final PoiClustererImpl poiClusterer;
@@ -242,8 +243,6 @@ public class DayPlanGenerateNode {
         }
 
         PoiCandidate food = first(dataPackage.foodCandidates());
-        List<TripPlanDTO.FoodSuggestion> foodSuggestions =
-                foodSuggestions(dataPackage.foodCandidates());
         List<TripPlanDTO.RouteLeg> routeLegs = routeLegs(spots, dayContext.rentalEnabled());
         TripPlanDTO.EstimatedCost estimatedCost = estimateCost(requirement, spots, routeLegs, food);
         return new TripPlanDTO.DailyPlan(
@@ -256,7 +255,7 @@ public class DayPlanGenerateNode {
                 routeSummary(spots),
                 spots,
                 routeLegs,
-                foodSuggestions,
+                List.of(),
                 dayTips(dayContext, dataPackage),
                 estimatedCost,
                 null,
@@ -315,35 +314,6 @@ public class DayPlanGenerateNode {
     private List<TripPlanDTO.RouteLeg> routeLegs(
             List<TripPlanDTO.Spot> spots, boolean rentalEnabled) {
         return routeLegEstimateFactory.build(spots, rentalEnabled);
-    }
-
-    private List<TripPlanDTO.FoodSuggestion> foodSuggestions(List<PoiCandidate> foods) {
-        if (foods == null || foods.isEmpty()) {
-            return List.of();
-        }
-        List<TripPlanDTO.FoodSuggestion> result = new ArrayList<>();
-        result.add(toFoodSuggestion(foods.get(0), "LUNCH"));
-        PoiCandidate dinner = foods.size() > 1 ? foods.get(1) : foods.get(0);
-        result.add(toFoodSuggestion(dinner, "DINNER"));
-        return result;
-    }
-
-    private TripPlanDTO.FoodSuggestion toFoodSuggestion(PoiCandidate food, String meal) {
-        BigDecimal[] lngLat = parseLocation(food.getLocation());
-        return new TripPlanDTO.FoodSuggestion(
-                food.getName(),
-                food.getArea(),
-                meal,
-                null,
-                parseDecimal(food.getRating()),
-                food.getAverageCost(),
-                food.getOpeningHours(),
-                food.getSource(),
-                food.getCity(),
-                food.getAddress(),
-                lngLat[0],
-                lngLat[1],
-                "GCJ02");
     }
 
     private List<String> dayTips(DayContext dayContext, DayDataPackage dataPackage) {
@@ -465,6 +435,8 @@ public class DayPlanGenerateNode {
         List<PoiCandidate> fresh =
                 candidates.stream()
                         .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
+                        .filter(candidate -> matchesDayScope(candidate, dayContext))
+                        .filter(this::qualityCandidate)
                         .toList();
         List<PoiCandidate> pool = fresh.isEmpty() ? List.of() : fresh;
         if (pool.isEmpty()) {
@@ -479,7 +451,7 @@ public class DayPlanGenerateNode {
                 if (!result.contains(candidate)
                         && (!isNightCandidate(candidate)
                                 || result.stream().noneMatch(this::isNightCandidate))
-                        && typeCount(result, spotType(candidate)) < 2
+                        && canAddType(result, candidate)
                         && fitsDayCluster(result, candidate, maxDistanceKm(dayContext))) {
                     result.add(candidate);
                 }
@@ -526,6 +498,8 @@ public class DayPlanGenerateNode {
         for (PoiCandidate candidate :
                 cityScenicCandidates(input.getCityProfile()).stream()
                         .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
+                        .filter(candidate -> matchesDayScope(candidate, dayContext))
+                        .filter(this::qualityCandidate)
                         .filter(
                                 candidate ->
                                         result.stream()
@@ -587,7 +561,7 @@ public class DayPlanGenerateNode {
             if (result.size() >= daytimeLimit) break;
             if (!isNightCandidate(candidate)
                     && !result.contains(candidate)
-                    && typeCount(result, spotType(candidate)) < 2
+                    && canAddType(result, candidate)
                     && fitsDayCluster(result, candidate, maxDistanceKm(dayContext))
                     && fitsNightAnchor(candidate, selectedNight)) {
                 result.add(candidate);
@@ -617,7 +591,7 @@ public class DayPlanGenerateNode {
                     candidates.stream()
                             .filter(candidate -> !isNightCandidate(candidate))
                             .filter(candidate -> !result.contains(candidate))
-                            .filter(candidate -> typeCount(result, spotType(candidate)) < 2)
+                            .filter(candidate -> canAddType(result, candidate))
                             .filter(
                                     candidate ->
                                             fitsDayCluster(
@@ -685,6 +659,10 @@ public class DayPlanGenerateNode {
         return candidates.stream().filter(candidate -> type.equals(spotType(candidate))).count();
     }
 
+    private boolean canAddType(List<PoiCandidate> selected, PoiCandidate candidate) {
+        return typeCount(selected, spotType(candidate)) < MAX_SAME_DAY_TYPE_COUNT;
+    }
+
     private Comparator<PoiCandidate> candidateComparator(DayContext dayContext) {
         String targetArea = dayContext.skeleton().targetArea();
         return Comparator.comparing((PoiCandidate candidate) -> !matchesArea(candidate, targetArea))
@@ -713,6 +691,8 @@ public class DayPlanGenerateNode {
                                 cityScenicCandidates(input.getCityProfile()))
                         .stream()
                         .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
+                        .filter(candidate -> matchesDayScope(candidate, dayContext))
+                        .filter(this::qualityCandidate)
                         .sorted(candidateComparator(dayContext))
                         .limit(COMPACT_ROUTE_POOL_LIMIT)
                         .toList();
@@ -765,6 +745,8 @@ public class DayPlanGenerateNode {
                                 cityScenicCandidates(input.getCityProfile()))
                         .stream()
                         .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
+                        .filter(candidate -> matchesDayScope(candidate, dayContext))
+                        .filter(this::qualityCandidate)
                         .filter(
                                 candidate ->
                                         selected.stream()
@@ -896,6 +878,76 @@ public class DayPlanGenerateNode {
                         || candidate.getArea().contains(targetArea));
     }
 
+    private boolean matchesDayScope(PoiCandidate candidate, DayContext dayContext) {
+        if (candidate == null) {
+            return false;
+        }
+        if (dayContext == null || dayContext.skeleton() == null) {
+            return true;
+        }
+        AreaAnchorSnapshot focus = dayContext.skeleton().getFocusArea();
+        String targetCity = normalizeCity(focus == null ? null : focus.getCity());
+        String candidateCity = normalizeCity(candidate.getCity());
+        if (!targetCity.isBlank()
+                && !candidateCity.isBlank()
+                && !targetCity.equals(candidateCity)) {
+            return false;
+        }
+        if (matchesArea(candidate, dayContext.skeleton().targetArea())) {
+            return true;
+        }
+        double[] focusLocation =
+                focus == null ? null : GeoRouteCalculator.parseLocation(focus.getLocation());
+        double[] candidateLocation = candidateLocation(candidate);
+        if (focusLocation == null || candidateLocation == null) {
+            return false;
+        }
+        if (!reasonableChinaCoordinate(candidateLocation)) {
+            return false;
+        }
+        return GeoRouteCalculator.distanceKm(
+                        focusLocation[0],
+                        focusLocation[1],
+                        candidateLocation[0],
+                        candidateLocation[1])
+                <= maxDistanceKm(dayContext);
+    }
+
+    private boolean qualityCandidate(PoiCandidate candidate) {
+        if (candidate == null || candidate.getName() == null || candidate.getLocation() == null) {
+            return false;
+        }
+        double[] location = candidateLocation(candidate);
+        if (location == null || !reasonableChinaCoordinate(location)) {
+            return false;
+        }
+        String name = candidate.getName();
+        if (name.contains("停车场")
+                || name.contains("游客中心")
+                || name.contains("管理处")
+                || name.contains("售票")
+                || name.contains("入口")) {
+            return false;
+        }
+        BigDecimal rating = parseRating(candidate.getRating());
+        return "TRAVEL_SPOT".equals(candidate.getSource())
+                || rating.compareTo(BigDecimal.ZERO) == 0
+                || rating.compareTo(new BigDecimal("3.8")) >= 0;
+    }
+
+    private boolean reasonableChinaCoordinate(double[] location) {
+        if (location == null || location.length < 2) {
+            return false;
+        }
+        double lng = location[0];
+        double lat = location[1];
+        return lng >= 73.0 && lng <= 136.5 && lat >= 17.0 && lat <= 54.5;
+    }
+
+    private String normalizeCity(String value) {
+        return value == null ? "" : value.replace("市", "").replaceAll("\\s+", "").trim();
+    }
+
     private boolean parentFriendly(TravelRequirementDTO requirement) {
         String text =
                 String.join(
@@ -1024,6 +1076,7 @@ public class DayPlanGenerateNode {
                             input,
                             dataPackage,
                             result,
+                            dayContext,
                             usedPoiKeys,
                             fromLocation,
                             toLocation,
@@ -1047,6 +1100,7 @@ public class DayPlanGenerateNode {
             DayPlanInput input,
             DayDataPackage dataPackage,
             List<PoiCandidate> selected,
+            DayContext dayContext,
             Set<String> usedPoiKeys,
             double[] from,
             double[] to,
@@ -1056,6 +1110,8 @@ public class DayPlanGenerateNode {
                         cityScenicCandidates(input.getCityProfile()))
                 .stream()
                 .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
+                .filter(candidate -> matchesDayScope(candidate, dayContext))
+                .filter(this::qualityCandidate)
                 .filter(
                         candidate ->
                                 selected.stream()

@@ -1,6 +1,5 @@
 package com.sora.aitravel.workflow.generate;
 
-import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.CANDIDATE_POOL;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.DAY_CONTEXTS;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.DAY_QUERY_PLANS;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.DAY_SKELETONS;
@@ -13,7 +12,6 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
-import com.sora.aitravel.model.CandidatePool;
 import com.sora.aitravel.model.DaySkeleton;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,15 +42,9 @@ public class PrepareFinalizeNode {
                 TripGraphStateCodec.required(state, REQUIREMENT, TravelRequirementDTO.class);
         List<DaySkeleton> daySkeletons =
                 TripGraphStateCodec.optionalList(state, DAY_SKELETONS, DaySkeleton.class);
-        CandidatePool candidatePool =
-                TripGraphStateCodec.required(state, CANDIDATE_POOL, CandidatePool.class);
         int days = requirement.getDays();
         if (daySkeletons == null || daySkeletons.size() != days) {
             throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "行程骨架数量与天数不一致");
-        }
-        if (candidatePool.getScenicCandidates() == null
-                || candidatePool.getScenicCandidates().isEmpty()) {
-            throw new BusinessException(ErrorCode.AI_GENERATE_ERROR, "目的地景点候选为空");
         }
     }
 }
