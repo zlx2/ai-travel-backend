@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 用户个人中心控制器。
  *
- * <p>接口前缀：/api/users
+ * <p>接口前缀：/users，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @SaCheckLogin
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;

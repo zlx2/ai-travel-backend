@@ -9,14 +9,14 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 首页控制器。
  *
- * <p>接口前缀：/api/home
+ * <p>接口前缀：/home，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：GET
  *
  * <p>权限要求：公开接口，无需登录
  */
 @RestController
-@RequestMapping("/api/home")
+@RequestMapping("/home")
 @RequiredArgsConstructor
 public class HomeController {
     private final HomeService homeService;

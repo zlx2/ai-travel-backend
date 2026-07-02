@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 游记控制器。
  *
- * <p>接口前缀：/api/notes
+ * <p>接口前缀：/notes，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
  * <p>权限要求：公开接口（列表查询、查看详情）无需登录；创建、更新、删除需登录（@SaCheckLogin）
  */
 @RestController
-@RequestMapping("/api/notes")
+@RequestMapping("/notes")
 @RequiredArgsConstructor
 public class NoteController {
 

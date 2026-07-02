@@ -1,6 +1,8 @@
 server:
   # 本地端口被占用时可通过 SERVER_PORT 覆盖，默认仍使用 8080。
   port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/api}
 
 spring:
   config:
