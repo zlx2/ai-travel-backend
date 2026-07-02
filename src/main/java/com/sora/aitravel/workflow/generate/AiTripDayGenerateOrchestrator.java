@@ -120,8 +120,10 @@ public class AiTripDayGenerateOrchestrator {
             }
             // 酒店数据已就绪，重新组装 timeline 使 TRANSFER/DAY_START 节点标题和标签包含真实酒店名+价格
             try {
-                List<TripPlanDTO.DailyPlan> prevDays = input.getPreviousDailyPlans() != null
-                        ? input.getPreviousDailyPlans() : List.of();
+                List<TripPlanDTO.DailyPlan> prevDays =
+                        input.getPreviousDailyPlans() != null
+                                ? input.getPreviousDailyPlans()
+                                : List.of();
                 tripTimelineAssembler.assemble(
                         prevDays,
                         List.of(generatedPlan),
@@ -131,10 +133,16 @@ public class AiTripDayGenerateOrchestrator {
                                 input.getRequirement(),
                                 input.getSelectedQuote(),
                                 input.getRentalTripContext(),
-                                input.getDaySkeletons() != null ? input.getDaySkeletons() : List.of(),
+                                input.getDaySkeletons() != null
+                                        ? input.getDaySkeletons()
+                                        : List.of(),
                                 List.of()));
             } catch (Exception timelineException) {
-                log.warn("重新组装timeline失败，sessionId={} dayNo={}，使用workflow结果继续", sessionId, dayNo, timelineException);
+                log.warn(
+                        "重新组装timeline失败，sessionId={} dayNo={}，使用workflow结果继续",
+                        sessionId,
+                        dayNo,
+                        timelineException);
             }
             // 生成成功，将当前 dayNo 的计划 JSON 写入结果
             timed(
@@ -212,9 +220,10 @@ public class AiTripDayGenerateOrchestrator {
      * @return
      */
     private List<TripPlanDTO.DailyPlan> readGeneratedPreviousDays(String sessionId, Integer dayNo) {
-        List<TripPlanDTO.DailyPlan> days = dayGenerationService.listCurrentGeneratedBefore(sessionId, dayNo).stream()
-                .map(this::readGeneratedDay)
-                .toList();
+        List<TripPlanDTO.DailyPlan> days =
+                dayGenerationService.listCurrentGeneratedBefore(sessionId, dayNo).stream()
+                        .map(this::readGeneratedDay)
+                        .toList();
         // 为缺少酒店数据的旧记录补充填充（新记录在生成时已包含）
         for (TripPlanDTO.DailyPlan day : days) {
             if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {

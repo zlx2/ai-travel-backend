@@ -436,9 +436,7 @@ public class AiTripController {
                 }
                 TripPlanDTO.DailyPlan day =
                         jsonCodec.readNullable(
-                                gen.getResultJson(),
-                                TripPlanDTO.DailyPlan.class,
-                                "加载前一天行程解析失败");
+                                gen.getResultJson(), TripPlanDTO.DailyPlan.class, "加载前一天行程解析失败");
                 if (day != null) {
                     if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
                         nearbyHotelService.fillNearbyHotels(List.of(day));
