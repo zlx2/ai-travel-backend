@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/** Builds the frontend timeline from backend-owned itinerary facts. */
+/** 从后端拥有的行程事实构建前端时间线。 */
 @Component
 public class TripTimelineAssembler {
 
@@ -97,6 +97,13 @@ public class TripTimelineAssembler {
         }
     }
 
+    /**
+     * 为单日组成时间线
+     *
+     * @param day
+     * @param previousDay
+     * @param input
+     */
     private void assembleDay(
             TripPlanDTO.DailyPlan day, TripPlanDTO.DailyPlan previousDay, TimelineInput input) {
         List<TripPlanDTO.Spot> spots = orderedSpots(day);
@@ -117,7 +124,14 @@ public class TripTimelineAssembler {
         if (value(day.getDay()) > 1 && previousEnd != null) {
             if (firstSpot != null) {
                 timeline.add(
-                        transferNode(order++, clock.time(), previousEnd, firstSpot, day, previousDay, input));
+                        transferNode(
+                                order++,
+                                clock.time(),
+                                previousEnd,
+                                firstSpot,
+                                day,
+                                previousDay,
+                                input));
                 clock.move(transferMinutes(previousEnd, firstSpot, day, input) + 10);
             } else {
                 timeline.add(dayStartNode(order++, clock.time(), previousEnd, null, previousDay));
@@ -240,33 +254,63 @@ public class TripTimelineAssembler {
         day.setTimeline(timeline);
     }
 
+    /**
+     * 生成每天时间线中的「出发」节点，表示从上一晚住宿地出发前往当天第一个景点。 该节点连接前一天的酒店与当天首站，同时携带酒店展示信息和价格标签，
+     * 让前端能够完整展示"住→行→游"的行程衔接。
+     *
+     * @param order 节点在时间线中的序号
+     * @param time 出发时间（如 "08:00"）
+     * @param previousEnd 前一天的终点锚点（通常是酒店位置）
+     * @param firstSpot 当天的第一个景点，可能为 null
+     * @param previousDay 前一天的日程计划，用于获取酒店推荐数据
+     * @return 带有结束时间的出发时间线节点
+     */
     private TripPlanDTO.TimelineNode dayStartNode(
-            int order, String time, TripPlanDTO.Anchor previousEnd, TripPlanDTO.Spot firstSpot,
+            int order,
+            String time,
+            TripPlanDTO.Anchor previousEnd,
+            TripPlanDTO.Spot firstSpot,
             TripPlanDTO.DailyPlan previousDay) {
-        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_DAY_START, time,
-                "从" + firstNonBlank(previousEnd.getName(), "酒店") + "出发");
+        // 创建 TYPE_DAY_START 类型的紧凑节点，标题为"从XX出发"（XX取前一天终点名称，默认"酒店"）
+        TripPlanDTO.TimelineNode node =
+                compactNode(
+                        order,
+                        TYPE_DAY_START,
+                        time,
+                        "从" + firstNonBlank(previousEnd.getName(), "酒店") + "出发");
+        // 副标题：根据是否有今日首站，决定是否追加"前往今日第一站"
         node.setSubtitle(firstSpot == null ? "延续上一晚住宿区域" : "延续上一晚住宿区域，前往今日第一站");
         node.setDescription(node.getSubtitle());
+        // 将前一天终点的位置坐标赋给该节点
         applyAnchor(node, previousEnd);
+        // 默认出发耗时 20 分钟
         node.setDurationMinutes(20);
         node.setDurationText("约20分钟");
+        // 标记来源为 DAY_ANCHOR，表示该节点由日程锚点生成
         node.setSource("DAY_ANCHOR");
+        // 记录出发地和目的地名称
         node.setFromAnchor(previousEnd.getName());
         node.setToAnchor(firstSpot == null ? null : firstSpot.getName());
         // 将前一天的酒店数据挂到 DAY_START 节点上，供前端展示酒店地址和价格
-        if (previousDay != null && previousDay.getNearbyHotels() != null && !previousDay.getNearbyHotels().isEmpty()) {
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
             node.setNearbyHotels(previousDay.getNearbyHotels());
         }
+        // 构建标签列表：固定包含"出发"和"酒店"，若酒店有价格则追加预估价格
         List<String> startTags = new ArrayList<>();
         startTags.add("出发");
         startTags.add("酒店");
-        if (previousDay != null && previousDay.getNearbyHotels() != null && !previousDay.getNearbyHotels().isEmpty()) {
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
             String price = previousDay.getNearbyHotels().get(0).getEstimatedPrice();
             if (price != null && !price.isBlank()) {
                 startTags.add(price);
             }
         }
         node.setTags(startTags);
+        // 计算并设置结束时间后返回
         return withEndTime(node);
     }
 
@@ -280,9 +324,16 @@ public class TripTimelineAssembler {
             TimelineInput input) {
         String to = firstSpot == null ? firstNonBlank(day.getCity(), "今日首站") : firstSpot.getName();
         String fromHotel = firstNonBlank(previousEnd.getName(), "酒店");
-        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_TRANSFER, time, "从" + fromHotel + "出发");
+        TripPlanDTO.TimelineNode node =
+                compactNode(order, TYPE_TRANSFER, time, "从" + fromHotel + "出发");
         int minutes = transferMinutes(previousEnd, firstSpot, day, input);
-        node.setSubtitle("前往" + to + "，" + (hasRental(input) ? "自驾" : "交通") + "约" + readableMinutes(minutes));
+        node.setSubtitle(
+                "前往"
+                        + to
+                        + "，"
+                        + (hasRental(input) ? "自驾" : "交通")
+                        + "约"
+                        + readableMinutes(minutes));
         node.setDescription(node.getSubtitle());
         applyAnchor(node, previousEnd);
         node.setDurationMinutes(minutes);
@@ -292,13 +343,17 @@ public class TripTimelineAssembler {
         node.setFromAnchor(previousEnd.getName());
         node.setToAnchor(to);
         // 将前一天的酒店数据挂到 TRANSFER 节点上，供前端展示酒店地址和价格
-        if (previousDay != null && previousDay.getNearbyHotels() != null && !previousDay.getNearbyHotels().isEmpty()) {
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
             node.setNearbyHotels(previousDay.getNearbyHotels());
         }
         List<String> tags = new ArrayList<>();
         tags.add(crossCity(previousEnd, day) ? "跨城" : "路程");
         tags.add(hasRental(input) ? "自驾" : "交通");
-        if (previousDay != null && previousDay.getNearbyHotels() != null && !previousDay.getNearbyHotels().isEmpty()) {
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
             String price = previousDay.getNearbyHotels().get(0).getEstimatedPrice();
             if (price != null && !price.isBlank()) {
                 tags.add(price);
@@ -624,14 +679,23 @@ public class TripTimelineAssembler {
                 .orElse(null);
     }
 
+    /**
+     * 确定每天的时间线结束锚点，优先使用 day.getEndAnchor()， 其次使用 stayAnchorFromTimeline， 兜底策略防止高德拿不到酒店数据
+     * stayAnchorFromNearbyHotels。
+     *
+     * @param day
+     * @return
+     */
     private TripPlanDTO.Anchor endAnchor(TripPlanDTO.DailyPlan day) {
         if (day.getEndAnchor() != null) {
             return day.getEndAnchor();
         }
+        // 将后一天的酒店地址传给前一天
         TripPlanDTO.Anchor fromTimeline = stayAnchorFromTimeline(day);
         if (fromTimeline != null) {
             return fromTimeline;
         }
+        //
         TripPlanDTO.Anchor fromHotels = stayAnchorFromNearbyHotels(day);
         if (fromHotels != null) {
             return fromHotels;
