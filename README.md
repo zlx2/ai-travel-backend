@@ -98,10 +98,14 @@ DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL
 DASHSCOPE_API_KEY / DASHSCOPE_BASE_URL
 COS_SECRET_ID / COS_SECRET_KEY / COS_BUCKET / COS_REGION / COS_DOMAIN
 AMAP_API_KEY / AMAP_BASE_URL / AMAP_TIMEOUT
+ALIPAY_ENABLED / ALIPAY_GATEWAY_URL / ALIPAY_APP_ID / ALIPAY_APP_PRIVATE_KEY
+ALIPAY_PUBLIC_KEY / ALIPAY_NOTIFY_URL / ALIPAY_RETURN_URL
 AI_MOCK_ENABLED
 ```
 
-`application.yml` 直接从环境变量读取这些值。本地运行前请确保当前终端或 IDE Run Configuration 能读取到它们。
+`application.yml` 会优先读取环境变量，也会可选读取项目根目录 `.env`。本地运行前请确保当前终端、IDE Run Configuration 或 `.env` 中至少有一处提供这些值。
+
+支付宝沙箱支付入口为 `POST /api/rental/orders/{id}/alipay/page-pay`，返回 `formHtml` 给前端提交；异步通知地址为 `POST /api/payment/alipay/notify`，需要在支付宝沙箱后台配置成公网可访问的 `ALIPAY_NOTIFY_URL`。
 
 ## 本地运行
 

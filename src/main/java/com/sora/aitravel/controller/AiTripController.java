@@ -23,10 +23,12 @@ import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
 import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -172,17 +174,125 @@ public class AiTripController {
                                 "progress",
                                 "prepare-session",
                                 "正在准备行程上下文",
-                                20,
+                                15,
                                 null,
                                 null);
+
+                        AiTripGenerationSession session =
+                                aiTripGenerationOrchestrator.prepareSession(userId, request);
+
+                        sendProgress(
+                                emitter,
+                                "progress",
+                                "generating-day1",
+                                "正在调用AI生成第1天行程",
+                                30,
+                                null,
+                                null);
+
+                        AiTripDayGeneration day =
+                                aiTripDayGenerateService.generateDay(
+                                        session.getSessionId(), 1, "USER", false);
+
+                        sendProgress(
+                                emitter,
+                                "progress",
+                                "parsing-result",
+                                "正在解析AI生成的行程数据",
+                                50,
+                                null,
+                                null);
+
+                        TravelRequirementDTO requirement =
+                                jsonCodec.read(
+                                        session.getRequirementJson(),
+                                        TravelRequirementDTO.class,
+                                        "组装生成响应时需求数据解析失败");
+                        TripPlanDTO.DailyPlan dailyPlan =
+                                jsonCodec.read(
+                                        day.getResultJson(),
+                                        TripPlanDTO.DailyPlan.class,
+                                        "组装生成响应时单日行程数据解析失败");
+
+                        sendProgress(
+                                emitter,
+                                "progress",
+                                "assembling-timeline",
+                                "正在规划每日时间线",
+                                65,
+                                null,
+                                null);
+
+                        assembleTimelineIfMissing(session, requirement, dailyPlan,
+                                request.getSelectedQuote());
+
+                        sendProgress(
+                                emitter,
+                                "progress",
+                                "calculating-budget",
+                                "正在计算行程预算",
+                                75,
+                                null,
+                                null);
+
+                        TripPlanDTO tripPlan =
+                                new TripPlanDTO(
+                                        displayDestination(requirement)
+                                                + requirement.getDays()
+                                                + "日旅行方案",
+                                        displayDestination(requirement),
+                                        requirement.getDays(),
+                                        "已生成第 " + dailyPlan.getDay()
+                                                + " 天行程，后续天数将按需生成。",
+                                        null,
+                                        List.of(dailyPlan),
+                                        budgetSummary(List.of(dailyPlan)),
+                                        List.of(
+                                                "下一天行程会在后台预生成，点击对应日期时优先返回已生成版本。"),
+                                        new TripPlanDTO.DataQuality(
+                                                "AMAP",
+                                                "AMAP",
+                                                "AMAP_AVERAGE_COST_AND_ROUTE;TICKET_HOTEL_UNAVAILABLE"));
+
+                        sendProgress(
+                                emitter,
+                                "progress",
+                                "prefetching-next",
+                                "正在调度后续天数预生成",
+                                85,
+                                null,
+                                null);
+
+                        enqueueNextDay(session.getSessionId(), 1);
+
+                        sendProgress(
+                                emitter,
+                                "progress",
+                                "finalizing",
+                                "正在封装行程结果",
+                                95,
+                                null,
+                                null);
+
                         TripGenerateResponse result =
-                                generateFirstDayAndPrefetchNext(userId, request);
-                        sendProgress(emitter, "done", "done", "第 1 天行程生成完成", 100, result, null);
+                                new TripGenerateResponse(
+                                        "trip-plan-v1",
+                                        session.getConversationId(),
+                                        session.getSessionId(),
+                                        requirement,
+                                        request.getSelectedQuote(),
+                                        (RecommendationContextDTO) null,
+                                        tripPlan,
+                                        buildDayStatuses(requirement.getDays(), day));
+
+                        sendProgress(emitter, "done", "done",
+                                "第 1 天行程生成完成", 100, result, null);
                         emitter.complete();
                     } catch (Exception ex) {
                         log.warn("AI 行程流式生成失败", ex);
                         sendProgress(
-                                emitter, "error", "error", "行程生成失败", null, null, "行程生成失败，请稍后重试");
+                                emitter, "error", "error", "行程生成失败", null, null,
+                                "行程生成失败，请稍后重试");
                         emitter.complete();
                     }
                 });
