@@ -25,6 +25,7 @@ import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -126,6 +127,11 @@ public class AiTripController {
                         day.getErrorMessage()));
     }
 
+    /**
+     * 预取下一日行程生成任务
+     * @param sessionId
+     * @param dayNo
+     */
     private void enqueueNextDay(String sessionId, Integer dayNo) {
         try {
             AiTripGenerationSession session =
@@ -161,6 +167,12 @@ public class AiTripController {
         }
     }
 
+    /**
+     * AI 根据用户需求生成完整旅行计划（需登录）
+     * @param request 包含对话 ID、确认的冲突标记、结构化需求和冲突列表的生成请求
+     * @return 生成的详细行程计划，包含每日安排和预算（TripGenerateResponse）
+     *
+     */
     @PostMapping(value = "/generate/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateStream(@Valid @RequestBody TripGenerateRequest request) {
         SseEmitter emitter = new SseEmitter(300_000L);
@@ -287,7 +299,12 @@ public class AiTripController {
                 });
         return emitter;
     }
-
+    /**
+     * 生成第一日行程并预取下一日行程生成任务
+     * @param userId 用户 ID
+     * @param request 生成请求
+     * @return 生成的详细行程计划，包含每日安排和预算（TripGenerateResponse）
+     */
     private TripGenerateResponse generateFirstDayAndPrefetchNext(
             Long userId, TripGenerateRequest request) {
         AiTripGenerationSession session =
@@ -300,6 +317,13 @@ public class AiTripController {
         return buildGenerateResponse(session, day, request.getSelectedQuote());
     }
 
+    /**
+     * 构建生成响应
+     * @param session 行程生成会话
+     * @param day 第一日行程生成结果
+     * @param selectedQuote 选中的报价选项
+     * @return 生成的详细行程计划，包含每日安排和预算（TripGenerateResponse）
+     */
     private TripGenerateResponse buildGenerateResponse(
             AiTripGenerationSession session,
             AiTripDayGeneration day,
@@ -341,6 +365,12 @@ public class AiTripController {
             throw new IllegalStateException("组装单日生成响应失败", exception);
         }
     }
+    /**
+     * 规范化单日结果 JSON
+     * @param sessionId 行程生成会话 ID
+     * @param day 单日行程生成结果
+     * @return 规范化后的单日结果 JSON
+     */
 
     private String normalizeDayResultJson(String sessionId, AiTripDayGeneration day) {
         if (day == null || day.getResultJson() == null || !"GENERATED".equals(day.getStatus())) {
@@ -381,17 +411,24 @@ public class AiTripController {
         }
     }
 
+    /**
+     * 组装行程时间线
+     * @param session 行程生成会话
+     * @param requirement 需求
+     * @param dailyPlan 行程计划
+     * @param selectedQuote 选中的报价选项
+     */
     private void assembleTimeline(
-            AiTripGenerationSession session,
-            TravelRequirementDTO requirement,
-            TripPlanDTO.DailyPlan dailyPlan,
-            RentalQuoteOptionDTO selectedQuote) {
+            AiTripGenerationSession session,       // AI 行程生成会话（含租车上下文等 JSON）
+            TravelRequirementDTO requirement,       // 用户的旅行需求（目的地、天数等）
+            TripPlanDTO.DailyPlan dailyPlan,        // 当前要处理的单日行程计划
+            RentalQuoteOptionDTO selectedQuote){   // 用户选中的租车报价选项
         dailyPlan.setTimeline(null);
         RentalTripContextDTO rentalTripContext =
                 jsonCodec.readNullable(
-                        session.getRentalTripContextJson(),
-                        RentalTripContextDTO.class,
-                        "生成会话上下文解析失败");
+                        session.getRentalTripContextJson(),  // 从会话中取出租车上下文的 JSON 字符串
+                        RentalTripContextDTO.class,           // 反序列化的目标类型
+                        "生成会话上下文解析失败");              // 解析失败时的错误提示
 
         // 加载前一天已生成的行程并填充酒店，使次日起点从酒店出发
         List<TripPlanDTO.DailyPlan> previousDays =
@@ -416,7 +453,13 @@ public class AiTripController {
         enrichStayAreaNode(dailyPlan);
     }
 
-    /** 加载当前会话中已生成的前一天行程，并为其填充酒店数据。 */
+    /**
+     * 加载当前会话中已生成的前一天行程，并为其填充酒店数据。
+     * @param session 行程生成会话
+     * @param currentDayNo 当前行程天数
+     * @return 填充酒店数据的行程计划列表
+     *
+     */
     private List<TripPlanDTO.DailyPlan> loadAndEnrichPreviousDays(
             AiTripGenerationSession session, int currentDayNo) {
         if (currentDayNo <= 1) {
@@ -429,7 +472,7 @@ public class AiTripController {
             if (generatedDays == null || generatedDays.isEmpty()) {
                 return List.of();
             }
-            List<TripPlanDTO.DailyPlan> previousDays = new java.util.ArrayList<>();
+            List<TripPlanDTO.DailyPlan> previousDays = new ArrayList<>();
             for (var gen : generatedDays) {
                 if (gen.getResultJson() == null || !"GENERATED".equals(gen.getStatus())) {
                     continue;
