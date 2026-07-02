@@ -221,7 +221,7 @@ public class AiTripController {
                                 null,
                                 null);
 
-                        assembleTimelineIfMissing(
+                        assembleTimeline(
                                 session, requirement, dailyPlan, request.getSelectedQuote());
 
                         sendProgress(
@@ -311,7 +311,7 @@ public class AiTripController {
             TripPlanDTO.DailyPlan dailyPlan =
                     jsonCodec.read(
                             day.getResultJson(), TripPlanDTO.DailyPlan.class, "组装生成响应时单日行程数据解析失败");
-            assembleTimelineIfMissing(session, requirement, dailyPlan, selectedQuote);
+            assembleTimeline(session, requirement, dailyPlan, selectedQuote);
             TripPlanDTO tripPlan =
                     new TripPlanDTO(
                             displayDestination(requirement) + requirement.getDays() + "日旅行方案",
@@ -360,7 +360,7 @@ public class AiTripController {
                             day.getResultJson(),
                             TripPlanDTO.DailyPlan.class,
                             "单日旧结果补 timeline 时单日行程数据解析失败");
-            assembleTimelineIfMissing(
+            assembleTimeline(
                     session,
                     requirement,
                     dailyPlan,
@@ -379,14 +379,12 @@ public class AiTripController {
         }
     }
 
-    private void assembleTimelineIfMissing(
+    private void assembleTimeline(
             AiTripGenerationSession session,
             TravelRequirementDTO requirement,
             TripPlanDTO.DailyPlan dailyPlan,
             RentalQuoteOptionDTO selectedQuote) {
-        if (dailyPlan.getTimeline() != null && !dailyPlan.getTimeline().isEmpty()) {
-            return;
-        }
+        dailyPlan.setTimeline(null);
         RentalTripContextDTO rentalTripContext =
                 jsonCodec.readNullable(
                         session.getRentalTripContextJson(),
