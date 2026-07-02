@@ -8,6 +8,15 @@ public final class GeoRouteCalculator {
     public static final double WALKING_SPEED_KMH = 4.2;
 
     private static final double EARTH_RADIUS_KM = 6371.0088;
+    private static final double SHORT_DISTANCE_KM = 3.0;
+    private static final double LONG_DISTANCE_KM = 15.0;
+    private static final double SHORT_ROAD_FACTOR = 1.50;
+    private static final double LONG_ROAD_FACTOR = 1.20;
+    private static final double SHORT_RANGE_SPEED_KMH = 25.0;
+    private static final double MEDIUM_RANGE_SPEED_KMH = 35.0;
+    private static final double LONG_RANGE_SPEED_KMH = 55.0;
+    private static final int SHORT_ROAD_METERS = 5000;
+    private static final int LONG_ROAD_METERS = 20000;
 
     private GeoRouteCalculator() {}
 
@@ -30,7 +39,11 @@ public final class GeoRouteCalculator {
 
     public static int roadDistanceMeters(
             double fromLng, double fromLat, double toLng, double toLat) {
-        return roadDistanceMeters(fromLng, fromLat, toLng, toLat, DEFAULT_ROAD_DISTANCE_FACTOR);
+        double straightKm = distanceKm(fromLng, fromLat, toLng, toLat);
+        double factor = straightKm <= SHORT_DISTANCE_KM ? SHORT_ROAD_FACTOR
+                : straightKm >= LONG_DISTANCE_KM ? LONG_ROAD_FACTOR
+                : DEFAULT_ROAD_DISTANCE_FACTOR;
+        return roadDistanceMeters(fromLng, fromLat, toLng, toLat, factor);
     }
 
     public static int roadDistanceMeters(
@@ -39,7 +52,10 @@ public final class GeoRouteCalculator {
     }
 
     public static int drivingSeconds(int distanceMeters) {
-        return travelSeconds(distanceMeters, DEFAULT_DRIVING_SPEED_KMH);
+        double speedKmh = distanceMeters <= SHORT_ROAD_METERS ? SHORT_RANGE_SPEED_KMH
+                : distanceMeters >= LONG_ROAD_METERS ? LONG_RANGE_SPEED_KMH
+                : MEDIUM_RANGE_SPEED_KMH;
+        return travelSeconds(distanceMeters, speedKmh);
     }
 
     public static int travelSeconds(int distanceMeters, double speedKmh) {
