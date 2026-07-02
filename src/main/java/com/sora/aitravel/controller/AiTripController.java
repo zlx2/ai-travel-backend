@@ -473,6 +473,10 @@ public class AiTripController {
                             stayNode.setAddress(first.getAddress());
                             stayNode.setNearbyHotels(hotels);
                             stayNode.setCompact(false);
+                            if (first.getEstimatedCost() != null) {
+                                stayNode.setEstimatedCost(first.getEstimatedCost());
+                                stayNode.setCostText("约¥" + first.getEstimatedCost() + "/晚");
+                            }
                             stayNode.setTags(
                                     List.of(
                                             "酒店",
