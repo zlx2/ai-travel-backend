@@ -6,7 +6,6 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
 import com.sora.aitravel.common.exception.BusinessException;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
-import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 import com.sora.aitravel.service.AmapApiService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,11 +34,6 @@ public class RentalStoreServiceImpl {
     private static final int SEARCH_RADIUS_METERS = 5000;
 
     private final AmapApiService amapApiService;
-
-    public RentalStoreDTO resolveRentalStore(RentalStoreResolveCommand command) {
-        return resolveRentalStore(
-                command.getTargetName(), command.getCityName(), command.getUsage());
-    }
 
     public RentalStoreDTO resolveRentalStore(
             String targetName, String cityName, RentalStoreUsageEnum usage) {
