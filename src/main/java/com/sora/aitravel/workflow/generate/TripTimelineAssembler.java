@@ -139,6 +139,10 @@ public class TripTimelineAssembler {
             }
         }
 
+        if (value(day.getDay()) == 1 && hasRental(input) && clock.minutes() >= DAYTIME_END_LIMIT) {
+            daytimeSpots = List.of();
+        }
+
         int nextDaytimeIndex = 0;
         while (nextDaytimeIndex < daytimeSpots.size() && clock.minutes() < LUNCH_EARLIEST) {
             TripPlanDTO.Spot current = daytimeSpots.get(nextDaytimeIndex);
@@ -160,19 +164,21 @@ public class TripTimelineAssembler {
             nextDaytimeIndex++;
         }
 
-        TripPlanDTO.Spot lunchReference =
-                referenceSpot(daytimeSpots, nextDaytimeIndex - 1, nextDaytimeIndex);
-        timeline.add(
-                mealNode(
-                        order++,
-                        lunchTime(clock.minutes()),
-                        TYPE_LUNCH_AREA,
-                        day,
-                        input,
-                        lunchReference));
-        clock.reset(
-                addMinutes(timeline.get(timeline.size() - 1).getStartTime(), LUNCH_DURATION_MINUTES)
-                        + MEAL_SETTLE_BUFFER_MINUTES);
+        if (clock.minutes() <= LUNCH_LATEST) {
+            TripPlanDTO.Spot lunchReference =
+                    referenceSpot(daytimeSpots, nextDaytimeIndex - 1, nextDaytimeIndex);
+            timeline.add(
+                    mealNode(
+                            order++,
+                            lunchTime(clock.minutes()),
+                            TYPE_LUNCH_AREA,
+                            day,
+                            input,
+                            lunchReference));
+            clock.reset(
+                    addMinutes(timeline.get(timeline.size() - 1).getStartTime(), LUNCH_DURATION_MINUTES)
+                            + MEAL_SETTLE_BUFFER_MINUTES);
+        }
 
         for (int index = nextDaytimeIndex; index < daytimeSpots.size(); index++) {
             TripPlanDTO.Spot previous = index == 0 ? null : daytimeSpots.get(index - 1);
@@ -191,20 +197,22 @@ public class TripTimelineAssembler {
             clock.move(duration(spot) + transitionMinutes(day, spot, next, input, true));
         }
 
-        TripPlanDTO.Spot dinnerReference = lastTimelineSpot(timeline, spots);
-        timeline.add(
-                mealNode(
-                        order++,
-                        dinnerTime(clock.minutes()),
-                        TYPE_DINNER_AREA,
-                        day,
-                        input,
-                        dinnerReference));
-        clock.reset(
-                addMinutes(
-                                timeline.get(timeline.size() - 1).getStartTime(),
-                                DINNER_DURATION_MINUTES)
-                        + MEAL_SETTLE_BUFFER_MINUTES);
+        if (clock.minutes() <= 20 * 60 + 30) {
+            TripPlanDTO.Spot dinnerReference = lastTimelineSpot(timeline, spots);
+            timeline.add(
+                    mealNode(
+                            order++,
+                            dinnerTime(clock.minutes()),
+                            TYPE_DINNER_AREA,
+                            day,
+                            input,
+                            dinnerReference));
+            clock.reset(
+                    addMinutes(
+                                    timeline.get(timeline.size() - 1).getStartTime(),
+                                    DINNER_DURATION_MINUTES)
+                            + MEAL_SETTLE_BUFFER_MINUTES);
+        }
 
         for (TripPlanDTO.Spot nightSpot : nightSpots) {
             int nightDuration = Math.min(duration(nightSpot), 110);
@@ -237,7 +245,7 @@ public class TripTimelineAssembler {
             timeline.add(returnNode(order++, formatTime(returnTime), input));
         }
 
-        day.setTimeline(timeline);
+        day.setTimeline(normalizeTimeline(timeline));
     }
 
     private TripPlanDTO.TimelineNode dayStartNode(
@@ -268,6 +276,38 @@ public class TripTimelineAssembler {
         }
         node.setTags(startTags);
         return withEndTime(node);
+    }
+
+    private List<TripPlanDTO.TimelineNode> normalizeTimeline(List<TripPlanDTO.TimelineNode> timeline) {
+        if (timeline == null || timeline.isEmpty()) {
+            return timeline;
+        }
+        int cursor = 0;
+        for (int index = 0; index < timeline.size(); index++) {
+            TripPlanDTO.TimelineNode node = timeline.get(index);
+            int start = parseTime(node.getStartTime());
+            if (index > 0 && start < cursor) {
+                node.setStartTime(formatTime(cursor));
+            }
+            node.setOrder(index + 1);
+            withEndTime(node);
+            cursor = addMinutes(node.getStartTime(), value(node.getDurationMinutes(), 0));
+            cursor += transitionAfter(node);
+        }
+        return timeline;
+    }
+
+    private int transitionAfter(TripPlanDTO.TimelineNode node) {
+        if (node == null || TYPE_STAY_AREA.equals(node.getType())) {
+            return 0;
+        }
+        if (TYPE_LUNCH_AREA.equals(node.getType()) || TYPE_DINNER_AREA.equals(node.getType())) {
+            return MEAL_SETTLE_BUFFER_MINUTES;
+        }
+        if (TYPE_RENTAL_PICKUP.equals(node.getType())) {
+            return 10;
+        }
+        return 0;
     }
 
     private TripPlanDTO.TimelineNode transferNode(
@@ -912,13 +952,21 @@ public class TripTimelineAssembler {
         if (range.matches(".*\\d{1,2}:\\d{2}.*")) {
             return range.replaceAll("^.*?(\\d{1,2}:\\d{2}).*$", "$1");
         }
-        if (range.contains("中午")) {
+        String normalizedRange = range.toLowerCase();
+        if (normalizedRange.contains("中午")
+                || normalizedRange.contains("午间")
+                || normalizedRange.contains("noon")) {
             return "12:30";
         }
-        if (range.contains("下午")) {
+        if (normalizedRange.contains("下午")
+                || normalizedRange.contains("傍晚")
+                || normalizedRange.contains("afternoon")) {
             return "14:30";
         }
-        if (range.contains("晚上")) {
+        if (normalizedRange.contains("晚上")
+                || normalizedRange.contains("夜间")
+                || normalizedRange.contains("夜里")
+                || normalizedRange.contains("night")) {
             return "18:30";
         }
         return "09:30";
@@ -929,7 +977,7 @@ public class TripTimelineAssembler {
     }
 
     private String dinnerTime(int cursor) {
-        return mealTime(cursor, DINNER_EARLIEST, DINNER_LATEST);
+        return mealTime(cursor, DINNER_EARLIEST, 20 * 60 + 30);
     }
 
     private String hotelTime(int cursor) {

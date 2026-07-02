@@ -285,7 +285,7 @@ public class DayPlanGenerateNode {
         spot.setLat(lngLat[1]);
         spot.setCoordType("GCJ02");
         spot.setOrder(order);
-        spot.setStartTime(startTime(candidate, order));
+        spot.setStartTime(startTime(candidate, order, dayContext));
         spot.setSuggestedDurationMinutes(duration);
         spot.setSuggestedDurationText(durationText(duration));
         spot.setSuggestedDurationSource("CURATED");
@@ -417,11 +417,17 @@ public class DayPlanGenerateNode {
     private int spotCount(
             DayContext dayContext, int candidateCount, TravelRequirementDTO requirement) {
         int max = MAX_DAILY_SPOTS;
+        if (dayContext.getMaxSpotCount() != null && dayContext.getMaxSpotCount() > 0) {
+            max = Math.min(max, dayContext.getMaxSpotCount());
+        }
         int target = Math.min(max, candidateCount);
         if (INTENSITY_LIGHT.equals(dayContext.skeleton().getIntensity())) {
             target = Math.min(target, LIGHT_DAILY_SPOTS);
         }
-        return Math.max(MIN_DAILY_SPOTS, target);
+        int minimum = dayContext.getMaxSpotCount() != null && dayContext.getMaxSpotCount() <= 1
+                ? 1
+                : MIN_DAILY_SPOTS;
+        return Math.max(minimum, target);
     }
 
     private List<PoiCandidate> selectSpots(
@@ -1002,6 +1008,14 @@ public class DayPlanGenerateNode {
         return revision == null || revision.isBlank() ? "无" : revision;
     }
 
+    private String appendArrivalConstraint(String instruction, DayContext dayContext) {
+        String constraint = dayContext.getArrivalConstraint();
+        if (constraint == null || constraint.isBlank()) {
+            return instruction;
+        }
+        return (instruction == null || instruction.isBlank() ? "" : instruction + " ") + constraint;
+    }
+
     private AiDayPlan generateAiDayPlan(
             TravelRequirementDTO requirement,
             DayContext dayContext,
@@ -1029,7 +1043,7 @@ public class DayPlanGenerateNode {
                         dayContext.skeleton().getTheme(),
                         requiredCount,
                         preferenceText(requirement),
-                        rentalInstruction(dayContext),
+                        appendArrivalConstraint(rentalInstruction(dayContext), dayContext),
                         revisionInstruction(dayContext),
                         aiCandidateText(refs, city),
                         requiredCount);
@@ -1299,7 +1313,10 @@ public class DayPlanGenerateNode {
         };
     }
 
-    private String startTime(PoiCandidate candidate, int order) {
+    private String startTime(PoiCandidate candidate, int order, DayContext dayContext) {
+        if (order == 1 && dayContext.getDayStartTime() != null && !dayContext.getDayStartTime().isBlank()) {
+            return dayContext.getDayStartTime();
+        }
         if (isNightCandidate(candidate)) {
             return "19:00";
         }

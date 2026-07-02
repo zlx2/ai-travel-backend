@@ -87,6 +87,15 @@ public class DayInputPrepareNode {
                             rentalTripContext == null
                                     ? null
                                     : rentalTripContext.getDailyDrivingLimit(),
+                            rentalTripContext == null
+                                    ? null
+                                    : rentalTripContext.getArrivalMode(),
+                            rentalTripContext == null
+                                    ? null
+                                    : rentalTripContext.getArrivalTimeRange(),
+                            dayStartTime(skeleton.getDay(), rentalTripContext),
+                            maxSpotCount(skeleton.getDay(), rentalTripContext),
+                            arrivalConstraint(skeleton.getDay(), rentalTripContext),
                             revisionText));
             usedPlaces.add(skeleton.targetArea());
         }
@@ -272,5 +281,76 @@ public class DayInputPrepareNode {
                 + "；驾驶强度："
                 + firstNonBlank(rentalTripContext.getDailyDrivingLimit(), "近郊自驾（单日累计约2-4小时）")
                 + "。选点应优先考虑自驾顺路、停车便利、城市周边自然/古镇等有车更方便到达的地点。";
+    }
+
+    private String dayStartTime(Integer dayNo, RentalTripContextDTO rentalTripContext) {
+        if (!isFirstDay(dayNo) || rentalTripContext == null) {
+            return null;
+        }
+        String range = safe(rentalTripContext.getArrivalTimeRange());
+        if (isEveningArrival(range)) {
+            return "19:00";
+        }
+        if (isAfternoonArrival(range)) {
+            return "15:30";
+        }
+        if (isNoonArrival(range)) {
+            return "13:30";
+        }
+        return null;
+    }
+
+    private Integer maxSpotCount(Integer dayNo, RentalTripContextDTO rentalTripContext) {
+        if (!isFirstDay(dayNo) || rentalTripContext == null) {
+            return null;
+        }
+        String range = safe(rentalTripContext.getArrivalTimeRange());
+        if (isEveningArrival(range)) {
+            return 1;
+        }
+        if (isAfternoonArrival(range) || isNoonArrival(range)) {
+            return 2;
+        }
+        return null;
+    }
+
+    private String arrivalConstraint(Integer dayNo, RentalTripContextDTO rentalTripContext) {
+        if (!isFirstDay(dayNo) || rentalTripContext == null) {
+            return null;
+        }
+        String range = safe(rentalTripContext.getArrivalTimeRange());
+        if (isEveningArrival(range)) {
+            return "首日按晚上到达处理：不要安排上午或下午游览，只安排接车、入住、晚餐、附近夜景或休息，景点最多 1 个。";
+        }
+        if (isAfternoonArrival(range)) {
+            return "首日按下午到达处理：不要安排上午游览，下午后轻量游玩，景点最多 2 个。";
+        }
+        if (isNoonArrival(range)) {
+            return "首日按中午到达处理：上午不安排游览，午后开始轻量游玩，景点最多 2 个。";
+        }
+        return null;
+    }
+
+    private boolean isFirstDay(Integer dayNo) {
+        return dayNo != null && dayNo == 1;
+    }
+
+    private boolean isEveningArrival(String value) {
+        String text = safe(value).toLowerCase();
+        return text.contains("晚上") || text.contains("夜") || text.contains("night");
+    }
+
+    private boolean isAfternoonArrival(String value) {
+        String text = safe(value).toLowerCase();
+        return text.contains("下午") || text.contains("傍晚") || text.contains("afternoon");
+    }
+
+    private boolean isNoonArrival(String value) {
+        String text = safe(value).toLowerCase();
+        return text.contains("中午") || text.contains("午间") || text.contains("noon");
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 }
