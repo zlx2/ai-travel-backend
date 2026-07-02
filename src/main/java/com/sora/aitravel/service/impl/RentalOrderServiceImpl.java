@@ -27,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RentalOrderServiceImpl implements RentalOrderService {
@@ -41,6 +43,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     @Override
     @Transactional
     public Long create(Long userId, RentalOrderCreateRequest request) {
+        long startedAt = System.currentTimeMillis();
         validateCreateRequest(userId, request);
         RentalQuoteOptionDTO quote =
                 rentalQuoteService.recalculate(
@@ -53,6 +56,15 @@ public class RentalOrderServiceImpl implements RentalOrderService {
 
         RentalOrder order = buildOrder(userId, trip.getId(), request, quote);
         rentalOrderMapper.insert(order);
+        log.info(
+                "租车订单创建完成，userId={}, orderId={}, orderNo={}, tripId={}, vehicleGroupId={}, totalPriceCent={}, elapsedMs={}",
+                userId,
+                order.getId(),
+                order.getOrderNo(),
+                trip.getId(),
+                order.getVehicleGroupId(),
+                order.getTotalPriceCent(),
+                System.currentTimeMillis() - startedAt);
         return order.getId();
     }
 
@@ -73,6 +85,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         order.setPaymentStatus("paid");
         order.setOrderStatus("confirmed");
         rentalOrderMapper.updateById(order);
+        log.info("租车订单模拟支付完成，userId={}, orderId={}, orderNo={}", userId, id, order.getOrderNo());
     }
 
     private void validateCreateRequest(Long userId, RentalOrderCreateRequest request) {

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.enums.RentalStoreUsageEnum;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.CityNameUtils;
 import com.sora.aitravel.dto.model.RentalArrivalPointDTO;
 import com.sora.aitravel.dto.model.RentalFeeBreakdownDTO;
 import com.sora.aitravel.dto.model.RentalPickupPlanDTO;
@@ -43,12 +44,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RentalQuoteServiceImpl implements RentalQuoteService {
     private static final int DELIVERY_FEE_CENT = 3000;
+    private static final int DEFAULT_QUOTE_LIMIT = 4;
 
     private final RentalPickupPoiMapper pickupPoiMapper;
     private final RentalOrderMapper rentalOrderMapper;
@@ -59,6 +63,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
 
     @Override
     public RentalContextPreviewResponse previewContext(RentalContextPreviewRequest request) {
+        long startedAt = System.currentTimeMillis();
         TravelRequirementDTO requirement = prepareContextRequirement(request);
         RentalArrivalPointDTO arrivalPoint = resolveArrivalPoint(request, requirement);
         RentalStoreDTO matchedStore =
@@ -71,21 +76,35 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                         .map(option -> applyDynamicPickupPoint(option, matchedStore))
                         .toList();
         RentalPickupPlanDTO pickupPlan = buildPickupPlan(matchedStore);
-        return RentalContextPreviewResponse.builder()
-                .rentalRecommended(true)
-                .reason(buildRecommendReason(requirement))
-                .requirement(requirement)
-                .arrivalPoint(arrivalPoint)
-                .matchedStore(matchedStore)
-                .pickupPlan(pickupPlan)
-                .rentalTripContext(
-                        buildRentalTripContext(requirement, arrivalPoint, matchedStore, pickupPlan))
-                .quoteOptions(quoteOptions)
-                .build();
+        RentalContextPreviewResponse response =
+                RentalContextPreviewResponse.builder()
+                        .rentalRecommended(true)
+                        .reason(buildRecommendReason(requirement))
+                        .requirement(requirement)
+                        .arrivalPoint(arrivalPoint)
+                        .matchedStore(matchedStore)
+                        .pickupPlan(pickupPlan)
+                        .rentalTripContext(
+                                buildRentalTripContext(
+                                        requirement, arrivalPoint, matchedStore, pickupPlan))
+                        .quoteOptions(quoteOptions)
+                        .build();
+        log.info(
+                "租车上下文预览完成，destination={}, rentalCity={}, arrivalPoint={}, store={}, quoteCount={}, elapsedMs={}",
+                requirement.getDestination(),
+                requirement.getRentalRequirement() == null
+                        ? null
+                        : requirement.getRentalRequirement().getRentalStartCity(),
+                arrivalPoint.getName(),
+                matchedStore == null ? null : matchedStore.getDisplayName(),
+                quoteOptions.size(),
+                System.currentTimeMillis() - startedAt);
+        return response;
     }
 
     @Override
     public RentalQuotePreviewResponse preview(TravelRequirementDTO requirement) {
+        long startedAt = System.currentTimeMillis();
         validateRentalRequirement(requirement);
         String rentalCity = resolveRentalCity(requirement);
         CityMatch cityMatch = resolveCityMatch(rentalCity);
@@ -103,13 +122,21 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 continue;
             }
             options.add(buildQuote(requirement, rentalCity, cityMatch, group, template));
-            if (options.size() >= 3) {
+            if (options.size() >= DEFAULT_QUOTE_LIMIT) {
                 break;
             }
         }
         if (options.isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "当前城市暂无可用租车报价：" + rentalCity);
         }
+        log.info(
+                "租车报价预览完成，rentalCity={}, citycode={}, templateCount={}, groupCount={}, optionCount={}, elapsedMs={}",
+                rentalCity,
+                cityMatch.getCitycode(),
+                templates.size(),
+                groups.size(),
+                options.size(),
+                System.currentTimeMillis() - startedAt);
         return new RentalQuotePreviewResponse(
                 requirement.getRouteMode(), rentalCity, cityMatch.getCitycode(), options);
     }
@@ -354,6 +381,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     @Override
     public RentalQuoteOptionDTO recalculate(
             TravelRequirementDTO requirement, RentalQuoteOptionDTO selectedQuote) {
+        long startedAt = System.currentTimeMillis();
         if (selectedQuote == null || selectedQuote.getVehicleGroupId() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "请选择租车报价");
         }
@@ -375,7 +403,18 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         if (group == null || !Integer.valueOf(1).equals(group.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "所选车型不可用");
         }
-        return buildQuote(requirement, rentalCity, cityMatch, group, template);
+        RentalQuoteOptionDTO quote =
+                buildQuote(requirement, rentalCity, cityMatch, group, template);
+        log.info(
+                "租车报价重算完成，rentalCity={}, selectedQuote={}, vehicleGroupId={}, totalPriceCent={}, elapsedMs={}",
+                rentalCity,
+                selectedQuote.getQuoteId(),
+                selectedQuote.getVehicleGroupId(),
+                quote.getFeeBreakdown() == null
+                        ? null
+                        : quote.getFeeBreakdown().getTotalPriceCent(),
+                System.currentTimeMillis() - startedAt);
+        return quote;
     }
 
     @Override
@@ -416,7 +455,37 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 break;
             }
         }
+        if (result.size() < safeLimit) {
+            appendFallbackLatestOptions(result, safeLimit);
+        }
         return result;
+    }
+
+    private void appendFallbackLatestOptions(List<RentalQuoteOptionDTO> result, int safeLimit) {
+        List<RentalPriceTemplate> templates =
+                priceTemplateMapper.selectList(
+                        new LambdaQueryWrapper<RentalPriceTemplate>()
+                                .eq(RentalPriceTemplate::getStatus, 1)
+                                .orderByAsc(RentalPriceTemplate::getId)
+                                .last("limit " + safeLimit * 4));
+        for (RentalPriceTemplate template : templates) {
+            if (result.size() >= safeLimit) {
+                break;
+            }
+            if (result.stream()
+                    .anyMatch(
+                            item ->
+                                    Objects.equals(
+                                            item.getVehicleGroupId(),
+                                            template.getVehicleGroupId()))) {
+                continue;
+            }
+            RentalVehicleGroup group = vehicleGroupMapper.selectById(template.getVehicleGroupId());
+            if (group == null || !Integer.valueOf(1).equals(group.getStatus())) {
+                continue;
+            }
+            result.add(buildTemplateQuote(template, group));
+        }
     }
 
     private void validateRentalRequirement(TravelRequirementDTO requirement) {
@@ -476,11 +545,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         if (StrUtil.isBlank(value)) {
             return null;
         }
-        String city =
-                value.replaceAll("(国际机场|机场|高铁站|火车站|动车站|汽车站|东站|西站|南站|北站|站)$", "")
-                        .replaceAll("(市|地区)$", "")
-                        .trim();
-        return StrUtil.isBlank(city) ? null : city;
+        return CityNameUtils.normalizeCity(value);
     }
 
     private CityMatch resolveCityMatch(String rentalCity) {
@@ -762,6 +827,58 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 .build();
     }
 
+    private RentalQuoteOptionDTO buildTemplateQuote(
+            RentalPriceTemplate template, RentalVehicleGroup group) {
+        RentalVehicleModel model = chooseRepresentativeModel(group);
+        int rentalDays = 2;
+        int rentalFee = value(template.getWeekdayRentalFeeCent()) * rentalDays;
+        int baseServiceFee = value(template.getBaseServiceFeeCent()) * rentalDays;
+        int prepareFee = value(template.getVehiclePrepareFeeCent());
+        RentalFeeBreakdownDTO fee =
+                RentalFeeBreakdownDTO.builder()
+                        .rentalFeeCent(rentalFee)
+                        .baseServiceFeeCent(baseServiceFee)
+                        .vehiclePrepareFeeCent(prepareFee)
+                        .oneWayFeeCent(0)
+                        .deliveryFeeCent(0)
+                        .totalPriceCent(rentalFee + baseServiceFee + prepareFee)
+                        .rentalDepositCent(value(template.getRentalDepositCent()))
+                        .violationDepositCent(value(template.getViolationDepositCent()))
+                        .depositFreeThresholdScore(template.getDepositFreeThresholdScore())
+                        .build();
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("source", "rental_price_template_fallback");
+        snapshot.put("templateId", template.getId());
+        snapshot.put("city", template.getCity());
+        snapshot.put("citycode", template.getCitycode());
+        snapshot.put("vehicleGroupId", group.getId());
+        snapshot.put("groupCode", group.getGroupCode());
+        snapshot.put("vehicleModelId", model == null ? null : model.getId());
+        snapshot.put("vehicleModelName", modelName(model, group));
+        snapshot.put("rentalDays", rentalDays);
+        snapshot.put("feeBreakdown", fee);
+
+        RentalQuoteOptionDTO.RentalQuoteOptionDTOBuilder builder =
+                RentalQuoteOptionDTO.builder()
+                        .quoteId("T-" + template.getId() + "-" + group.getId());
+        applyGroupAndModelFields(builder, group, model);
+        return builder.rentalCity(template.getCity())
+                .citycode(template.getCitycode())
+                .adcode(template.getAdcode())
+                .pickupMode("CITY")
+                .returnMode("CITY")
+                .rentalDays(rentalDays)
+                .isOneWay(false)
+                .priceTemplateId(template.getId())
+                .availableCount(template.getAvailableCount())
+                .dailyMileageLimitKm(template.getDailyMileageLimitKm())
+                .extraMileageFeeCent(template.getExtraMileageFeeCent())
+                .includedServices(template.getIncludedServices())
+                .feeBreakdown(fee)
+                .priceSnapshot(snapshot)
+                .build();
+    }
+
     private String modelName(RentalVehicleModel model, RentalVehicleGroup group) {
         if (model == null) {
             return group == null
@@ -856,11 +973,11 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
     }
 
     private String normalizeCity(String city) {
-        return city == null ? "" : city.replace("市", "").trim();
+        return CityNameUtils.normalizeCity(city) == null ? "" : CityNameUtils.normalizeCity(city);
     }
 
     private boolean sameCity(String left, String right) {
-        return normalizeCity(left).equals(normalizeCity(right));
+        return CityNameUtils.sameCity(left, right);
     }
 
     private LocalDate parseDate(String value) {

@@ -1,5 +1,6 @@
 package com.sora.aitravel.workflow.analyze;
 
+import com.sora.aitravel.common.utils.CityNameUtils;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import java.util.ArrayList;
@@ -63,11 +64,17 @@ public class InfoExtractNode {
         if (rental) {
             RentalRequirementDTO rentalRequirement = new RentalRequirementDTO();
             rentalRequirement.setNeedRental(true);
+            rentalRequirement.setRentalStartCity(primaryDestination);
+            rentalRequirement.setRentalEndCity(
+                    routeCities.isEmpty()
+                            ? primaryDestination
+                            : routeCities.get(routeCities.size() - 1));
             rentalRequirement.setPickupCity(primaryDestination);
             rentalRequirement.setReturnCity(
                     routeCities.isEmpty()
                             ? primaryDestination
                             : routeCities.get(routeCities.size() - 1));
+            rentalRequirement.setDeliveryAddress(arrivalAnchor(destination));
             rentalRequirement.setRentalDays(days);
             requirement.setRentalRequirement(rentalRequirement);
         }
@@ -106,12 +113,15 @@ public class InfoExtractNode {
         if (value == null || value.isBlank()) {
             return null;
         }
-        String text =
-                value.trim()
-                        .replaceAll("(东站|西站|南站|北站|站|机场|客运站|汽车站)$", "")
-                        .replaceAll("(?<=[\\u4e00-\\u9fa5]{2})(东|西|南|北)$", "")
-                        .replaceAll("(市|地区)$", "");
-        return text.isBlank() ? null : text;
+        return CityNameUtils.normalizeCity(value);
+    }
+
+    private String arrivalAnchor(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String text = value.trim();
+        return text.matches(".*(机场|高铁站|火车站|动车站|客运站|汽车站|东站|西站|南站|北站|站|酒店|宾馆|民宿).*") ? text : null;
     }
 
     private List<String> preferences(String input) {
