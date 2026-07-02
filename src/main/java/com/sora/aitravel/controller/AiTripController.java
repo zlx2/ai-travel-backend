@@ -37,7 +37,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * AI 智能旅行规划控制器（AI 分析+生成行程）。
  *
- * <p>接口前缀：/api/ai/trips
+ * <p>接口前缀：/ai/trips，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：POST
  *
@@ -47,7 +47,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/ai/trips")
+@RequestMapping("/ai/trips")
 public class AiTripController {
 
     private final TripAnalyzeWorkflow tripAnalyzeWorkflow;

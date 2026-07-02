@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/payment/alipay")
+@RequestMapping("/payment/alipay")
 public class AlipayNotifyController {
 
     private final AlipayPaymentService alipayPaymentService;

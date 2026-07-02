@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * 文件上传控制器。
  *
- * <p>接口前缀：/api/files
+ * <p>接口前缀：/files，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：POST，multipart/form-data
  *
@@ -21,7 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 @SaCheckLogin
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/files")
+@RequestMapping("/files")
 public class FileController {
 
     private final FileService fileService;

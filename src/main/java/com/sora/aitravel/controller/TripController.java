@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 旅行计划控制器。
  *
- * <p>接口前缀：/api/trips
+ * <p>接口前缀：/trips，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @SaCheckLogin
 @RestController
-@RequestMapping("/api/trips")
+@RequestMapping("/trips")
 @RequiredArgsConstructor
 public class TripController {
 

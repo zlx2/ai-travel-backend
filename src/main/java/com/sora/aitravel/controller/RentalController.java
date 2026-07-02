@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SaCheckLogin
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/rental")
+@RequestMapping("/rental")
 public class RentalController {
     private final RentalOrderService rentalOrderService;
     private final RentalQuoteService rentalQuoteService;
