@@ -12,7 +12,6 @@ import com.sora.aitravel.dto.model.RentalPickupPlanDTO;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.RentalStoreDTO;
-import com.sora.aitravel.dto.model.RentalStoreResolveCommand;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.RentalContextPreviewRequest;
@@ -64,10 +63,9 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         RentalArrivalPointDTO arrivalPoint = resolveArrivalPoint(request, requirement);
         RentalStoreDTO matchedStore =
                 rentalStoreService.resolveRentalStore(
-                        new RentalStoreResolveCommand(
-                                arrivalPoint.getName(),
-                                arrivalPoint.getCityName(),
-                                RentalStoreUsageEnum.PICKUP));
+                        arrivalPoint.getName(),
+                        arrivalPoint.getCityName(),
+                        RentalStoreUsageEnum.PICKUP);
         List<RentalQuoteOptionDTO> quoteOptions =
                 preview(requirement).getQuoteOptions().stream()
                         .map(option -> applyDynamicPickupPoint(option, matchedStore))
