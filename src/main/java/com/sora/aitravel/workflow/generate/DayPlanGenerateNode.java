@@ -934,17 +934,40 @@ public class DayPlanGenerateNode {
             return false;
         }
         String name = candidate.getName();
-        if (name.contains("停车场")
-                || name.contains("游客中心")
-                || name.contains("管理处")
-                || name.contains("售票")
-                || name.contains("入口")) {
+        if (isBadPoi(candidate)) {
             return false;
         }
         BigDecimal rating = parseRating(candidate.getRating());
         return "TRAVEL_SPOT".equals(candidate.getSource())
                 || rating.compareTo(BigDecimal.ZERO) == 0
                 || rating.compareTo(new BigDecimal("3.8")) >= 0;
+    }
+
+    private boolean isBadPoi(PoiCandidate candidate) {
+        String text =
+                (candidate.getName() == null ? "" : candidate.getName())
+                        + " "
+                        + (candidate.getAddress() == null ? "" : candidate.getAddress())
+                        + " "
+                        + (candidate.getTypeCode() == null ? "" : candidate.getTypeCode())
+                        + " "
+                        + String.join(
+                                " ",
+                                candidate.getBusinessTags() == null
+                                        ? List.of()
+                                        : candidate.getBusinessTags());
+        return containsAny(
+                text, "停车场", "停车", "游客中心", "服务中心", "咨询中心", "管理处", "售票", "票务", "入口", "出口", "出入口",
+                "卫生间", "公共厕所", "厕所", "洗手间", "公交站", "地铁站", "加油站", "充电站", "公共设施", "生活服务", "道路附属设施");
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean reasonableChinaCoordinate(double[] location) {

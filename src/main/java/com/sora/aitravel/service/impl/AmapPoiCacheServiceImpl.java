@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -29,6 +30,9 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
+    @Value("${app.amap.poi-cache-enabled:false}")
+    private boolean poiCacheEnabled;
+
     @Override
     public List<Poi> searchText(
             String keywords,
@@ -39,6 +43,9 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
             int pageNum,
             String showFields,
             String category) {
+        if (!poiCacheEnabled) {
+            return searchDirect(keywords, types, region, cityLimit, pageSize, pageNum, showFields);
+        }
         String key =
                 cacheKey(
                         keywords,
@@ -61,15 +68,27 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
             return cached;
         }
 
+        List<Poi> pois =
+                searchDirect(keywords, types, region, cityLimit, pageSize, pageNum, showFields);
+        write(key, pois, pois.isEmpty() ? EMPTY_TTL : ttl(category));
+        return pois;
+    }
+
+    private List<Poi> searchDirect(
+            String keywords,
+            String types,
+            String region,
+            boolean cityLimit,
+            int pageSize,
+            int pageNum,
+            String showFields) {
         AmapApiResp<List<Poi>> response =
                 amapApiService.searchPoiText(
                         keywords, types, region, cityLimit, pageSize, pageNum, showFields);
         if (response == null || !response.isSuccess() || response.getData() == null) {
             return List.of();
         }
-        List<Poi> pois = response.getData();
-        write(key, pois, pois.isEmpty() ? EMPTY_TTL : ttl(category));
-        return pois;
+        return response.getData();
     }
 
     private List<Poi> read(String key) {

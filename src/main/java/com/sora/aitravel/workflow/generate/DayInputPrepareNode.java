@@ -13,8 +13,11 @@ import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.SELECTED_QU
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.TARGET_DAY_NO;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.config.AiGateway;
 import com.sora.aitravel.dto.model.RentalQuoteOptionDTO;
 import com.sora.aitravel.dto.model.RentalTripContextDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
@@ -27,13 +30,44 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /** 构建每一天生成行程所需的上下文。 */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class DayInputPrepareNode {
+
+    private static final String AI_SCENIC_RECOMMEND_PROMPT =
+            """
+            你是旅行地点推荐助手。请根据用户需求，为某一天推荐适合高德 POI 检索的真实地点名。
+
+            目的地：%s
+            第 %d 天主片区：%s
+            当天主题：%s
+            用户偏好：%s
+            已安排过的片区：%s
+            租车/交通约束：%s
+            用户追加调整：%s
+
+            要求：
+            1. 返回 8-12 个真实地点名，优先推荐游客实际会去的景点、街区、公园、博物馆、古镇、自然景区；
+            2. 地点名要适合直接用于高德 POI 文本搜索，不要写泛词，比如“城市地标”“历史街区”；
+            3. 不要推荐停车场、入口、游客中心、公共厕所、卫生间、服务中心、商场、酒店、餐厅等附属设施；
+            4. 不要把同一条商业街、同一个古镇内部、同一个景区内部的多个小点拆成多个地点；
+            5. 当天地点要有一定空间展开，优先覆盖 2-3 个不同片区或游览单元，不要全部挤在同一商圈；
+            6. 避免和已安排片区重复；
+            7. 租车自驾时可以推荐城市周边、停车较方便或公共交通不便但值得去的地点；
+            8. 只返回 JSON 对象，不要 Markdown。
+
+            JSON 格式：
+            {"places":["地点1","地点2"]}
+            """;
+
+    private final AiGateway aiGateway;
+    private final ObjectMapper objectMapper;
 
     public Map<String, Object> execute(OverAllState state) {
         Map<String, Object> patch = new LinkedHashMap<>();
@@ -145,6 +179,17 @@ public class DayInputPrepareNode {
         for (DayContext dayContext : dayContexts) {
             String targetArea = dayContext.skeleton().targetArea();
             List<QueryItem> queries = new ArrayList<>();
+            for (String place : aiScenicPlaces(city, requirement, dayContext)) {
+                queries.add(
+                        new QueryItem(
+                                "AI_SCENIC",
+                                city + " " + place,
+                                city,
+                                targetArea,
+                                null,
+                                null,
+                                "AI 推荐地点，高德 POI 校验后作为当天优先景点候选"));
+            }
             for (String keyword : scenicKeywords(city, dayContext)) {
                 queries.add(
                         new QueryItem("SCENIC", keyword, city, targetArea, null, null, "查询当天核心景点"));
@@ -206,6 +251,76 @@ public class DayInputPrepareNode {
             log.info("节点[day-input-prepare]：第 {} 天查询计划={}", dayContext.getDay(), queries);
         }
         return plans;
+    }
+
+    private List<String> aiScenicPlaces(
+            String city, TravelRequirementDTO requirement, DayContext dayContext) {
+        try {
+            String prompt =
+                    AI_SCENIC_RECOMMEND_PROMPT.formatted(
+                            city,
+                            dayContext.getDay(),
+                            dayContext.skeleton().targetArea(),
+                            dayContext.skeleton().getTheme(),
+                            preferenceText(requirement),
+                            dayContext.getUsedPlaces() == null
+                                    ? "无"
+                                    : String.join("、", dayContext.getUsedPlaces()),
+                            firstNonBlank(dayContext.getRentalInstruction(), "无"),
+                            firstNonBlank(dayContext.getRevisionText(), "无"));
+            String json = aiGateway.callJsonObject("AI 景点推荐", prompt);
+            JsonNode places = objectMapper.readTree(json).path("places");
+            if (!places.isArray()) {
+                return List.of();
+            }
+            List<String> result = new ArrayList<>();
+            for (JsonNode item : places) {
+                String place = cleanPlaceName(item.asText());
+                if (!place.isBlank()
+                        && result.stream().noneMatch(existing -> samePlace(existing, place))) {
+                    result.add(place);
+                }
+                if (result.size() >= 12) {
+                    break;
+                }
+            }
+            log.info("节点[day-input-prepare]：第 {} 天 AI 推荐地点={}", dayContext.getDay(), result);
+            return result;
+        } catch (Exception exception) {
+            log.warn(
+                    "节点[day-input-prepare]：第 {} 天 AI 推荐地点失败，降级使用关键词查询，reason={}",
+                    dayContext.getDay(),
+                    exception.getMessage());
+            return List.of();
+        }
+    }
+
+    private String preferenceText(TravelRequirementDTO requirement) {
+        List<String> values = new ArrayList<>();
+        if (requirement.getPreferences() != null) {
+            values.addAll(requirement.getPreferences());
+        }
+        if (requirement.getAvoidances() != null && !requirement.getAvoidances().isEmpty()) {
+            values.add("避开：" + String.join("、", requirement.getAvoidances()));
+        }
+        return values.isEmpty() ? "未特别说明" : String.join("、", values);
+    }
+
+    private String cleanPlaceName(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("^[\\d.、\\-\\s]+", "").replaceAll("[，,。；;：:].*$", "").trim();
+    }
+
+    private boolean samePlace(String first, String second) {
+        String a = normalizePlace(first);
+        String b = normalizePlace(second);
+        return a.equals(b) || a.contains(b) || b.contains(a);
+    }
+
+    private String normalizePlace(String value) {
+        return value == null ? "" : value.replaceAll("[\\s·・（）()【】\\[\\]-]", "").trim();
     }
 
     private List<String> scenicKeywords(String city, DayContext dayContext) {

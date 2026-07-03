@@ -105,6 +105,7 @@ app:
     api-key: ${AMAP_API_KEY:}
     base-url: ${AMAP_BASE_URL:https://restapi.amap.com}
     timeout: ${AMAP_TIMEOUT:10s}
+    poi-cache-enabled: ${AMAP_POI_CACHE_ENABLED:false}
   alipay:
     enabled: ${ALIPAY_ENABLED:false}
     gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}

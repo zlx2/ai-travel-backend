@@ -65,7 +65,9 @@ public class DayCandidatePrepareNode {
             List<PoiCandidate> night = new ArrayList<>();
             List<PoiCandidate> food = new ArrayList<>();
             for (QueryItem query : plan.queries()) {
-                if ("SCENIC".equals(query.getType())) {
+                if ("SCENIC".equals(query.getType())
+                        || "AI_SCENIC".equals(query.getType())
+                        || "SELF_DRIVE".equals(query.getType())) {
                     scenicBatches.add(search(query, "SCENIC"));
                 } else if ("NIGHT".equals(query.getType())) {
                     night.addAll(search(query, "NIGHT"));
@@ -80,7 +82,7 @@ public class DayCandidatePrepareNode {
             packages.add(
                     new DayDataPackage(
                             plan.getDay(),
-                            merge(cityCandidates(cityProfile.scenicCandidates(), dayCity), scenic),
+                            merge(scenic, cityCandidates(cityProfile.scenicCandidates(), dayCity)),
                             merge(cityCandidates(cityProfile.foodCandidates(), dayCity), food),
                             cityCandidates(cityProfile.hotelCandidates(), dayCity),
                             List.of()));
@@ -150,6 +152,7 @@ public class DayCandidatePrepareNode {
                             POI_SHOW_FIELDS,
                             category);
             return pois.stream()
+                    .filter(poi -> matchesKeywordName(query, poi))
                     .filter(
                             poi ->
                                     poi.getId() != null
@@ -246,18 +249,26 @@ public class DayCandidatePrepareNode {
 
     private boolean isUsefulPoi(Poi poi, String category) {
         String name = poi.getName();
-        if (name.contains("停车场")
-                || name.contains("游客中心")
-                || name.contains("入口")
-                || name.contains("售票")
-                || name.contains("卫生间")
-                || name.contains("公交站")) {
+        String type = poi.getType() == null ? "" : poi.getType();
+        if (isBadPoi(name, type)) {
             return false;
         }
         if ("SCENIC".equals(category) || "NIGHT".equals(category)) {
             return !isStoreLikePoi(name, poi);
         }
         return true;
+    }
+
+    private boolean matchesKeywordName(QueryItem query, Poi poi) {
+        if (!"AI_SCENIC".equals(query.getType())) {
+            return true;
+        }
+        String place = normalizeSearchName(query.getKeyword(), query.getCity());
+        String name = normalizeSearchName(poi.getName(), null);
+        if (place.isBlank() || name.isBlank()) {
+            return true;
+        }
+        return name.contains(place) || place.contains(name);
     }
 
     private boolean isStoreLikePoi(String name, Poi poi) {
@@ -276,6 +287,33 @@ public class DayCandidatePrepareNode {
                 || type.contains("餐饮")
                 || type.contains("购物")
                 || type.contains("住宿");
+    }
+
+    private boolean isBadPoi(String name, String type) {
+        String text = (name == null ? "" : name) + " " + (type == null ? "" : type);
+        return containsAny(
+                text, "停车场", "停车", "游客中心", "服务中心", "咨询中心", "管理处", "售票", "票务", "入口", "出口", "出入口",
+                "卫生间", "公共厕所", "厕所", "洗手间", "公交站", "地铁站", "加油站", "充电站", "公共设施", "生活服务", "道路附属设施");
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeSearchName(String value, String city) {
+        String result =
+                value == null
+                        ? ""
+                        : value.replaceAll("[\\s·・（）()【】\\[\\]-]", "").replace("市", "").trim();
+        if (city != null && !city.isBlank()) {
+            result = result.replace(normalizeSearchName(city, null), "");
+        }
+        return result;
     }
 
     private String dedupKey(PoiCandidate candidate) {
