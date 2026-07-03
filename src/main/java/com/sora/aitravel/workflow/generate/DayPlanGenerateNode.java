@@ -216,7 +216,7 @@ public class DayPlanGenerateNode {
                         spotCount,
                         usedPoiKeys,
                         wantsNightExperience(requirement, dayContext));
-        selected = supplementMinimumSpots(input, selected, dayContext, usedPoiKeys);
+        selected = supplementMinimumSpots(input, dataPackage, selected, dayContext, usedPoiKeys);
         selected =
                 preferWorkflowCompactRoute(
                         input, dataPackage, selected, dayContext, usedPoiKeys, spotCount);
@@ -260,6 +260,7 @@ public class DayPlanGenerateNode {
                 estimatedCost,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -284,7 +285,7 @@ public class DayPlanGenerateNode {
         spot.setLat(lngLat[1]);
         spot.setCoordType("GCJ02");
         spot.setOrder(order);
-        spot.setStartTime(startTime(candidate, order));
+        spot.setStartTime(startTime(candidate, order, dayContext));
         spot.setSuggestedDurationMinutes(duration);
         spot.setSuggestedDurationText(durationText(duration));
         spot.setSuggestedDurationSource("CURATED");
@@ -416,11 +417,17 @@ public class DayPlanGenerateNode {
     private int spotCount(
             DayContext dayContext, int candidateCount, TravelRequirementDTO requirement) {
         int max = MAX_DAILY_SPOTS;
+        if (dayContext.getMaxSpotCount() != null && dayContext.getMaxSpotCount() > 0) {
+            max = Math.min(max, dayContext.getMaxSpotCount());
+        }
         int target = Math.min(max, candidateCount);
         if (INTENSITY_LIGHT.equals(dayContext.skeleton().getIntensity())) {
             target = Math.min(target, LIGHT_DAILY_SPOTS);
         }
-        return Math.max(MIN_DAILY_SPOTS, target);
+        int minimum = dayContext.getMaxSpotCount() != null && dayContext.getMaxSpotCount() <= 1
+                ? 1
+                : MIN_DAILY_SPOTS;
+        return Math.max(minimum, target);
     }
 
     private List<PoiCandidate> selectSpots(
@@ -481,6 +488,7 @@ public class DayPlanGenerateNode {
 
     private List<PoiCandidate> supplementMinimumSpots(
             DayPlanInput input,
+            DayDataPackage dataPackage,
             List<PoiCandidate> selected,
             DayContext dayContext,
             Set<String> usedPoiKeys) {
@@ -496,7 +504,10 @@ public class DayPlanGenerateNode {
         }
         List<PoiCandidate> result = new ArrayList<>(selected);
         for (PoiCandidate candidate :
-                cityScenicCandidates(input.getCityProfile()).stream()
+                mergeCandidates(
+                                dataPackage.scenicCandidates(),
+                                cityScenicCandidates(input.getCityProfile()))
+                        .stream()
                         .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
                         .filter(candidate -> matchesDayScope(candidate, dayContext))
                         .filter(this::qualityCandidate)
@@ -1001,6 +1012,14 @@ public class DayPlanGenerateNode {
         return revision == null || revision.isBlank() ? "无" : revision;
     }
 
+    private String appendArrivalConstraint(String instruction, DayContext dayContext) {
+        String constraint = dayContext.getArrivalConstraint();
+        if (constraint == null || constraint.isBlank()) {
+            return instruction;
+        }
+        return (instruction == null || instruction.isBlank() ? "" : instruction + " ") + constraint;
+    }
+
     private AiDayPlan generateAiDayPlan(
             TravelRequirementDTO requirement,
             DayContext dayContext,
@@ -1008,8 +1027,16 @@ public class DayPlanGenerateNode {
             Set<String> usedPoiKeys,
             int spotCount) {
         int requiredCount = Math.min(spotCount, ruleSelected == null ? 0 : ruleSelected.size());
-        if (ruleSelected == null || ruleSelected.size() < Math.min(2, spotCount)) {
+        if (requiredCount <= 0) {
             throw new IllegalStateException("第 " + dayContext.getDay() + " 天规则选点数量不足");
+        }
+        if (requiredCount < Math.min(MIN_DAILY_SPOTS, spotCount)) {
+            log.warn(
+                    "节点[day-plan-generate]：第 {} 天规则选点不足，降级生成，expected={}, actual={}",
+                    dayContext.getDay(),
+                    spotCount,
+                    requiredCount);
+            return fallbackAiDayPlan(ruleSelected, requiredCount, displayDestination(requirement));
         }
         String city = dayCity(dayContext, requirement);
         List<AiCandidateRef> refs =
@@ -1028,7 +1055,7 @@ public class DayPlanGenerateNode {
                         dayContext.skeleton().getTheme(),
                         requiredCount,
                         preferenceText(requirement),
-                        rentalInstruction(dayContext),
+                        appendArrivalConstraint(rentalInstruction(dayContext), dayContext),
                         revisionInstruction(dayContext),
                         aiCandidateText(refs, city),
                         requiredCount);
@@ -1044,6 +1071,31 @@ public class DayPlanGenerateNode {
                             + aiDayPlan.getSelected().size());
         }
         return aiDayPlan;
+    }
+
+    private AiDayPlan fallbackAiDayPlan(
+            List<PoiCandidate> ruleSelected, int requiredCount, String destination) {
+        List<PoiCandidate> selected =
+                ruleSelected == null
+                        ? List.of()
+                        : ruleSelected.stream().limit(requiredCount).toList();
+        LinkedHashMap<String, String> reasons = new LinkedHashMap<>();
+        for (PoiCandidate candidate : selected) {
+            reasons.put(dedupKey(candidate), fallbackRecommendation(candidate, destination));
+        }
+        return new AiDayPlan(selected, reasons);
+    }
+
+    private String fallbackRecommendation(PoiCandidate candidate, String destination) {
+        String name = candidate.getName() == null ? "这一站" : candidate.getName();
+        String area =
+                firstNonBlank(
+                        firstNonBlank(candidate.getArea(), candidate.getBusinessArea()),
+                        destination);
+        return name
+                + "是"
+                + area
+                + "附近当前可用的高匹配候选点，和当天路线范围比较贴合。由于规则筛选后的候选数量不足，先保留这个可靠点位，出发前可再结合实时开放信息补充周边安排。";
     }
 
     private List<PoiCandidate> repairLongRentalLegs(
@@ -1298,7 +1350,10 @@ public class DayPlanGenerateNode {
         };
     }
 
-    private String startTime(PoiCandidate candidate, int order) {
+    private String startTime(PoiCandidate candidate, int order, DayContext dayContext) {
+        if (order == 1 && dayContext.getDayStartTime() != null && !dayContext.getDayStartTime().isBlank()) {
+            return dayContext.getDayStartTime();
+        }
         if (isNightCandidate(candidate)) {
             return "19:00";
         }

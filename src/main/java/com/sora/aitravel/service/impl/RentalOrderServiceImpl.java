@@ -27,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RentalOrderServiceImpl implements RentalOrderService {
@@ -41,6 +43,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
     @Override
     @Transactional
     public Long create(Long userId, RentalOrderCreateRequest request) {
+        long startedAt = System.currentTimeMillis();
         validateCreateRequest(userId, request);
         RentalQuoteOptionDTO quote =
                 rentalQuoteService.recalculate(
@@ -48,11 +51,25 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         if (!sameQuote(request.getSelectedQuote(), quote)) {
             throw new BusinessException(ErrorCode.CONFLICT, "所选车型报价已变化，请重新选择报价");
         }
+        log.info(
+                "租车报价核心校验通过，动态取还车点/费用按用户确认快照下单。selectedQuote={}, recalculatedQuote={}",
+                request.getSelectedQuote().getQuoteId(),
+                quote.getQuoteId());
+        quote = mergeUserConfirmedQuote(request.getSelectedQuote(), quote);
         Trip trip = buildTrip(userId, request, quote);
         tripMapper.insert(trip);
 
         RentalOrder order = buildOrder(userId, trip.getId(), request, quote);
         rentalOrderMapper.insert(order);
+        log.info(
+                "租车订单创建完成，userId={}, orderId={}, orderNo={}, tripId={}, vehicleGroupId={}, totalPriceCent={}, elapsedMs={}",
+                userId,
+                order.getId(),
+                order.getOrderNo(),
+                trip.getId(),
+                order.getVehicleGroupId(),
+                order.getTotalPriceCent(),
+                System.currentTimeMillis() - startedAt);
         return order.getId();
     }
 
@@ -73,6 +90,7 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         order.setPaymentStatus("paid");
         order.setOrderStatus("confirmed");
         rentalOrderMapper.updateById(order);
+        log.info("租车订单模拟支付完成，userId={}, orderId={}, orderNo={}", userId, id, order.getOrderNo());
     }
 
     private void validateCreateRequest(Long userId, RentalOrderCreateRequest request) {
@@ -341,14 +359,77 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return equalsValue(selectedQuote.getVehicleGroupId(), recalculatedQuote.getVehicleGroupId())
                 && equalsValue(
                         selectedQuote.getPriceTemplateId(), recalculatedQuote.getPriceTemplateId())
-                && equalsValue(selectedQuote.getPickupPoiId(), recalculatedQuote.getPickupPoiId())
-                && equalsValue(selectedQuote.getReturnPoiId(), recalculatedQuote.getReturnPoiId())
-                && equalsValue(selectedQuote.getRentalDays(), recalculatedQuote.getRentalDays())
-                && equalsValue(totalPrice(selectedQuote), totalPrice(recalculatedQuote));
+                && equalsValue(selectedQuote.getRentalDays(), recalculatedQuote.getRentalDays());
     }
 
-    private Integer totalPrice(RentalQuoteOptionDTO quote) {
-        return quote.getFeeBreakdown() == null ? null : quote.getFeeBreakdown().getTotalPriceCent();
+    private RentalQuoteOptionDTO mergeUserConfirmedQuote(
+            RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
+        selectedQuote.setRouteMode(
+                firstNonBlank(selectedQuote.getRouteMode(), recalculatedQuote.getRouteMode()));
+        selectedQuote.setRentalCity(
+                firstNonBlank(selectedQuote.getRentalCity(), recalculatedQuote.getRentalCity()));
+        selectedQuote.setCitycode(
+                firstNonBlank(selectedQuote.getCitycode(), recalculatedQuote.getCitycode()));
+        selectedQuote.setAdcode(
+                firstNonBlank(selectedQuote.getAdcode(), recalculatedQuote.getAdcode()));
+        selectedQuote.setGroupCode(
+                firstNonBlank(selectedQuote.getGroupCode(), recalculatedQuote.getGroupCode()));
+        selectedQuote.setGroupName(
+                firstNonBlank(selectedQuote.getGroupName(), recalculatedQuote.getGroupName()));
+        selectedQuote.setDisplayName(
+                firstNonBlank(selectedQuote.getDisplayName(), recalculatedQuote.getDisplayName()));
+        selectedQuote.setPickupMode(
+                firstNonBlank(selectedQuote.getPickupMode(), recalculatedQuote.getPickupMode()));
+        selectedQuote.setReturnMode(
+                firstNonBlank(selectedQuote.getReturnMode(), recalculatedQuote.getReturnMode()));
+        if (selectedQuote.getPickupPoiName() == null) {
+            selectedQuote.setPickupPoiName(recalculatedQuote.getPickupPoiName());
+        }
+        if (selectedQuote.getPickupAddress() == null) {
+            selectedQuote.setPickupAddress(recalculatedQuote.getPickupAddress());
+        }
+        if (selectedQuote.getPickupLng() == null) {
+            selectedQuote.setPickupLng(recalculatedQuote.getPickupLng());
+        }
+        if (selectedQuote.getPickupLat() == null) {
+            selectedQuote.setPickupLat(recalculatedQuote.getPickupLat());
+        }
+        if (selectedQuote.getReturnPoiName() == null) {
+            selectedQuote.setReturnPoiName(recalculatedQuote.getReturnPoiName());
+        }
+        if (selectedQuote.getReturnAddress() == null) {
+            selectedQuote.setReturnAddress(recalculatedQuote.getReturnAddress());
+        }
+        if (selectedQuote.getReturnLng() == null) {
+            selectedQuote.setReturnLng(recalculatedQuote.getReturnLng());
+        }
+        if (selectedQuote.getReturnLat() == null) {
+            selectedQuote.setReturnLat(recalculatedQuote.getReturnLat());
+        }
+        if (selectedQuote.getFeeBreakdown() == null) {
+            selectedQuote.setFeeBreakdown(recalculatedQuote.getFeeBreakdown());
+        }
+        if (selectedQuote.getPriceSnapshot() == null
+                || selectedQuote.getPriceSnapshot().isEmpty()) {
+            selectedQuote.setPriceSnapshot(recalculatedQuote.getPriceSnapshot());
+        }
+        if (selectedQuote.getAvailableCount() == null) {
+            selectedQuote.setAvailableCount(recalculatedQuote.getAvailableCount());
+        }
+        if (selectedQuote.getDailyMileageLimitKm() == null) {
+            selectedQuote.setDailyMileageLimitKm(recalculatedQuote.getDailyMileageLimitKm());
+        }
+        if (selectedQuote.getExtraMileageFeeCent() == null) {
+            selectedQuote.setExtraMileageFeeCent(recalculatedQuote.getExtraMileageFeeCent());
+        }
+        if (selectedQuote.getIncludedServices() == null) {
+            selectedQuote.setIncludedServices(recalculatedQuote.getIncludedServices());
+        }
+        return selectedQuote;
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return notBlank(first) ? first : second;
     }
 
     private int value(Integer value) {

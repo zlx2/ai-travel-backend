@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.exception.BusinessException;
+import com.sora.aitravel.common.utils.CityNameUtils;
 import com.sora.aitravel.config.AiGateway;
 import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
@@ -48,6 +49,7 @@ public class AnalyzeLlmClient {
                         5. 用户明确说租车/自驾时，rentalIntent 返回 USER_REQUIRED，transportMode 优先 SELF_DRIVE 或 RENTAL_CAR。
                         6. 用户明确说不租车/公共交通时，rentalIntent 返回 NO_RENTAL，transportMode 返回 PUBLIC_TRANSIT。
                         7. routeCities 只放明确目的地或途经城市，不要编造城市。
+                        8. 城市字段只能放城市名，不能放具体地点。比如“成都双流机场/成都东站/成都春熙路”应抽取 destination=成都、routeCities=["成都"]；具体到达点可放到 rentalRequirement.deliveryAddress。
 
                         JSON 字段：
                         {
@@ -90,7 +92,12 @@ public class AnalyzeLlmClient {
                                 .formatted(cleanInput));
         JsonNode root = readTree(json);
 
-        String destination = firstNonBlank(selectedDestination, text(root, "destination"));
+        String destination =
+                CityNameUtils.firstNonBlankCity(selectedDestination, text(root, "destination"));
+        List<String> routeCities =
+                CityNameUtils.normalizeCityList(stringList(root.get("routeCities")));
+        RentalRequirementDTO rentalRequirement = rentalRequirement(root.get("rentalRequirement"));
+        standardizeRentalRequirement(rentalRequirement, destination, routeCities);
 
         return new TravelRequirementDTO(
                 text(root, "departure"),
@@ -98,10 +105,10 @@ public class AnalyzeLlmClient {
                 enumValue(root, "routeMode", ROUTE_MODES, null),
                 enumValue(root, "routeStructure", ROUTE_STRUCTURES, null),
                 text(root, "routeRegion"),
-                stringList(root.get("routeCities")),
+                routeCities,
                 enumValue(root, "transportMode", TRANSPORT_MODES, null),
                 enumValue(root, "rentalIntent", RENTAL_INTENTS, null),
-                rentalRequirement(root.get("rentalRequirement")),
+                rentalRequirement,
                 integer(root, "days"),
                 integer(root, "budget"),
                 enumValue(root, "budgetType", BUDGET_TYPES, null),
@@ -110,6 +117,31 @@ public class AnalyzeLlmClient {
                 enumValue(root, "pace", PACES, null),
                 stringList(root.get("avoidances")),
                 text(root, "travelDate"));
+    }
+
+    private void standardizeRentalRequirement(
+            RentalRequirementDTO rentalRequirement, String destination, List<String> routeCities) {
+        if (rentalRequirement == null) {
+            return;
+        }
+        String startCity =
+                CityNameUtils.firstNonBlankCity(
+                        rentalRequirement.getRentalStartCity(),
+                        rentalRequirement.getPickupCity(),
+                        routeCities == null || routeCities.isEmpty() ? null : routeCities.get(0),
+                        destination);
+        String endCity =
+                CityNameUtils.firstNonBlankCity(
+                        rentalRequirement.getRentalEndCity(),
+                        rentalRequirement.getReturnCity(),
+                        routeCities == null || routeCities.isEmpty()
+                                ? null
+                                : routeCities.get(routeCities.size() - 1),
+                        startCity);
+        rentalRequirement.setRentalStartCity(startCity);
+        rentalRequirement.setPickupCity(startCity);
+        rentalRequirement.setRentalEndCity(endCity);
+        rentalRequirement.setReturnCity(endCity);
     }
 
     private JsonNode readTree(String json) {

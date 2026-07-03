@@ -19,6 +19,11 @@ public class DayContext {
     private String rentalInstruction;
     private String routeStructure;
     private String dailyDrivingLimit;
+    private String arrivalMode;
+    private String arrivalTimeRange;
+    private String dayStartTime;
+    private Integer maxSpotCount;
+    private String arrivalConstraint;
     private String revisionText;
 
     public Integer day() {

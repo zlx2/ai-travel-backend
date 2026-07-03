@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 游记互动控制器（点赞/收藏）。
  *
- * <p>接口前缀：/api/notes/{id}
+ * <p>接口前缀：/notes/{id}，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @SaCheckLogin
 @RestController
-@RequestMapping("/api/notes/{id}")
+@RequestMapping("/notes/{id}")
 @RequiredArgsConstructor
 public class NoteInteractionController {
 

@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
-/** Builds the frontend timeline from backend-owned itinerary facts. */
+/** 从后端拥有的行程事实构建前端时间线。 */
 @Component
 public class TripTimelineAssembler {
 
@@ -97,6 +97,13 @@ public class TripTimelineAssembler {
         }
     }
 
+    /**
+     * 为单日组成时间线
+     *
+     * @param day
+     * @param previousDay
+     * @param input
+     */
     private void assembleDay(
             TripPlanDTO.DailyPlan day, TripPlanDTO.DailyPlan previousDay, TimelineInput input) {
         List<TripPlanDTO.Spot> spots = orderedSpots(day);
@@ -117,10 +124,17 @@ public class TripTimelineAssembler {
         if (value(day.getDay()) > 1 && previousEnd != null) {
             if (firstSpot != null) {
                 timeline.add(
-                        transferNode(order++, clock.time(), previousEnd, firstSpot, day, input));
+                        transferNode(
+                                order++,
+                                clock.time(),
+                                previousEnd,
+                                firstSpot,
+                                day,
+                                previousDay,
+                                input));
                 clock.move(transferMinutes(previousEnd, firstSpot, day, input) + 10);
             } else {
-                timeline.add(dayStartNode(order++, clock.time(), previousEnd, null));
+                timeline.add(dayStartNode(order++, clock.time(), previousEnd, null, previousDay));
                 clock.move(20);
             }
         }
@@ -137,6 +151,10 @@ public class TripTimelineAssembler {
             if (firstSpot != null) {
                 clock.move(transferMinutes(day.getStartAnchor(), firstSpot, day, input) + 10);
             }
+        }
+
+        if (value(day.getDay()) == 1 && hasRental(input) && clock.minutes() >= DAYTIME_END_LIMIT) {
+            daytimeSpots = List.of();
         }
 
         int nextDaytimeIndex = 0;
@@ -160,19 +178,21 @@ public class TripTimelineAssembler {
             nextDaytimeIndex++;
         }
 
-        TripPlanDTO.Spot lunchReference =
-                referenceSpot(daytimeSpots, nextDaytimeIndex - 1, nextDaytimeIndex);
-        timeline.add(
-                mealNode(
-                        null,
-                        lunchTime(clock.minutes()),
-                        TYPE_LUNCH_AREA,
-                        day,
-                        input,
-                        lunchReference));
-        clock.reset(
-                addMinutes(timeline.get(timeline.size() - 1).getStartTime(), LUNCH_DURATION_MINUTES)
-                        + MEAL_SETTLE_BUFFER_MINUTES);
+        if (clock.minutes() <= LUNCH_LATEST) {
+            TripPlanDTO.Spot lunchReference =
+                    referenceSpot(daytimeSpots, nextDaytimeIndex - 1, nextDaytimeIndex);
+            timeline.add(
+                    mealNode(
+                            order++,
+                            lunchTime(clock.minutes()),
+                            TYPE_LUNCH_AREA,
+                            day,
+                            input,
+                            lunchReference));
+            clock.reset(
+                    addMinutes(timeline.get(timeline.size() - 1).getStartTime(), LUNCH_DURATION_MINUTES)
+                            + MEAL_SETTLE_BUFFER_MINUTES);
+        }
 
         for (int index = nextDaytimeIndex; index < daytimeSpots.size(); index++) {
             TripPlanDTO.Spot previous = index == 0 ? null : daytimeSpots.get(index - 1);
@@ -191,20 +211,22 @@ public class TripTimelineAssembler {
             clock.move(duration(spot) + transitionMinutes(day, spot, next, input, true));
         }
 
-        TripPlanDTO.Spot dinnerReference = lastTimelineSpot(timeline, spots);
-        timeline.add(
-                mealNode(
-                        null,
-                        dinnerTime(clock.minutes()),
-                        TYPE_DINNER_AREA,
-                        day,
-                        input,
-                        dinnerReference));
-        clock.reset(
-                addMinutes(
-                                timeline.get(timeline.size() - 1).getStartTime(),
-                                DINNER_DURATION_MINUTES)
-                        + MEAL_SETTLE_BUFFER_MINUTES);
+        if (clock.minutes() <= 20 * 60 + 30) {
+            TripPlanDTO.Spot dinnerReference = lastTimelineSpot(timeline, spots);
+            timeline.add(
+                    mealNode(
+                            order++,
+                            dinnerTime(clock.minutes()),
+                            TYPE_DINNER_AREA,
+                            day,
+                            input,
+                            dinnerReference));
+            clock.reset(
+                    addMinutes(
+                                    timeline.get(timeline.size() - 1).getStartTime(),
+                                    DINNER_DURATION_MINUTES)
+                            + MEAL_SETTLE_BUFFER_MINUTES);
+        }
 
         for (TripPlanDTO.Spot nightSpot : nightSpots) {
             int nightDuration = Math.min(duration(nightSpot), 110);
@@ -237,22 +259,99 @@ public class TripTimelineAssembler {
             timeline.add(returnNode(order++, formatTime(returnTime), input));
         }
 
-        day.setTimeline(timeline);
+        day.setTimeline(normalizeTimeline(timeline));
     }
 
+    /**
+     * 生成每天时间线中的「出发」节点，表示从上一晚住宿地出发前往当天第一个景点。 该节点连接前一天的酒店与当天首站，同时携带酒店展示信息和价格标签，
+     * 让前端能够完整展示"住→行→游"的行程衔接。
+     *
+     * @param order 节点在时间线中的序号
+     * @param time 出发时间（如 "08:00"）
+     * @param previousEnd 前一天的终点锚点（通常是酒店位置）
+     * @param firstSpot 当天的第一个景点，可能为 null
+     * @param previousDay 前一天的日程计划，用于获取酒店推荐数据
+     * @return 带有结束时间的出发时间线节点
+     */
     private TripPlanDTO.TimelineNode dayStartNode(
-            int order, String time, TripPlanDTO.Anchor previousEnd, TripPlanDTO.Spot firstSpot) {
-        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_DAY_START, time, "从酒店出发");
+            int order,
+            String time,
+            TripPlanDTO.Anchor previousEnd,
+            TripPlanDTO.Spot firstSpot,
+            TripPlanDTO.DailyPlan previousDay) {
+        // 创建 TYPE_DAY_START 类型的紧凑节点，标题为"从XX出发"（XX取前一天终点名称，默认"酒店"）
+        TripPlanDTO.TimelineNode node =
+                compactNode(
+                        order,
+                        TYPE_DAY_START,
+                        time,
+                        "从" + firstNonBlank(previousEnd.getName(), "酒店") + "出发");
+        // 副标题：根据是否有今日首站，决定是否追加"前往今日第一站"
         node.setSubtitle(firstSpot == null ? "延续上一晚住宿区域" : "延续上一晚住宿区域，前往今日第一站");
         node.setDescription(node.getSubtitle());
+        // 将前一天终点的位置坐标赋给该节点
         applyAnchor(node, previousEnd);
+        // 默认出发耗时 20 分钟
         node.setDurationMinutes(20);
         node.setDurationText("约20分钟");
+        // 标记来源为 DAY_ANCHOR，表示该节点由日程锚点生成
         node.setSource("DAY_ANCHOR");
+        // 记录出发地和目的地名称
         node.setFromAnchor(previousEnd.getName());
         node.setToAnchor(firstSpot == null ? null : firstSpot.getName());
-        node.setTags(List.of("出发", "酒店"));
+        // 将前一天的酒店数据挂到 DAY_START 节点上，供前端展示酒店地址和价格
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
+            node.setNearbyHotels(previousDay.getNearbyHotels());
+        }
+        // 构建标签列表：固定包含"出发"和"酒店"，若酒店有价格则追加预估价格
+        List<String> startTags = new ArrayList<>();
+        startTags.add("出发");
+        startTags.add("酒店");
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
+            String price = previousDay.getNearbyHotels().get(0).getEstimatedPrice();
+            if (price != null && !price.isBlank()) {
+                startTags.add(price);
+            }
+        }
+        node.setTags(startTags);
+        // 计算并设置结束时间后返回
         return withEndTime(node);
+    }
+
+    private List<TripPlanDTO.TimelineNode> normalizeTimeline(List<TripPlanDTO.TimelineNode> timeline) {
+        if (timeline == null || timeline.isEmpty()) {
+            return timeline;
+        }
+        int cursor = 0;
+        for (int index = 0; index < timeline.size(); index++) {
+            TripPlanDTO.TimelineNode node = timeline.get(index);
+            int start = parseTime(node.getStartTime());
+            if (index > 0 && start < cursor) {
+                node.setStartTime(formatTime(cursor));
+            }
+            node.setOrder(index + 1);
+            withEndTime(node);
+            cursor = addMinutes(node.getStartTime(), value(node.getDurationMinutes(), 0));
+            cursor += transitionAfter(node);
+        }
+        return timeline;
+    }
+
+    private int transitionAfter(TripPlanDTO.TimelineNode node) {
+        if (node == null || TYPE_STAY_AREA.equals(node.getType())) {
+            return 0;
+        }
+        if (TYPE_LUNCH_AREA.equals(node.getType()) || TYPE_DINNER_AREA.equals(node.getType())) {
+            return MEAL_SETTLE_BUFFER_MINUTES;
+        }
+        if (TYPE_RENTAL_PICKUP.equals(node.getType())) {
+            return 10;
+        }
+        return 0;
     }
 
     private TripPlanDTO.TimelineNode transferNode(
@@ -261,11 +360,20 @@ public class TripTimelineAssembler {
             TripPlanDTO.Anchor previousEnd,
             TripPlanDTO.Spot firstSpot,
             TripPlanDTO.DailyPlan day,
+            TripPlanDTO.DailyPlan previousDay,
             TimelineInput input) {
         String to = firstSpot == null ? firstNonBlank(day.getCity(), "今日首站") : firstSpot.getName();
-        TripPlanDTO.TimelineNode node = compactNode(order, TYPE_TRANSFER, time, "前往" + to);
+        String fromHotel = firstNonBlank(previousEnd.getName(), "酒店");
+        TripPlanDTO.TimelineNode node =
+                compactNode(order, TYPE_TRANSFER, time, "从" + fromHotel + "出发");
         int minutes = transferMinutes(previousEnd, firstSpot, day, input);
-        node.setSubtitle((hasRental(input) ? "自驾" : "交通") + "约" + readableMinutes(minutes));
+        node.setSubtitle(
+                "前往"
+                        + to
+                        + "，"
+                        + (hasRental(input) ? "自驾" : "交通")
+                        + "约"
+                        + readableMinutes(minutes));
         node.setDescription(node.getSubtitle());
         applyAnchor(node, previousEnd);
         node.setDurationMinutes(minutes);
@@ -274,8 +382,24 @@ public class TripTimelineAssembler {
         node.setSource("DAY_ANCHOR");
         node.setFromAnchor(previousEnd.getName());
         node.setToAnchor(to);
-        node.setTags(
-                List.of(crossCity(previousEnd, day) ? "跨城" : "路程", hasRental(input) ? "自驾" : "交通"));
+        // 将前一天的酒店数据挂到 TRANSFER 节点上，供前端展示酒店地址和价格
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
+            node.setNearbyHotels(previousDay.getNearbyHotels());
+        }
+        List<String> tags = new ArrayList<>();
+        tags.add(crossCity(previousEnd, day) ? "跨城" : "路程");
+        tags.add(hasRental(input) ? "自驾" : "交通");
+        if (previousDay != null
+                && previousDay.getNearbyHotels() != null
+                && !previousDay.getNearbyHotels().isEmpty()) {
+            String price = previousDay.getNearbyHotels().get(0).getEstimatedPrice();
+            if (price != null && !price.isBlank()) {
+                tags.add(price);
+            }
+        }
+        node.setTags(tags);
         return withEndTime(node);
     }
 
@@ -372,9 +496,14 @@ public class TripTimelineAssembler {
         node.setSubtitle("建议住在" + firstNonBlank(hotelAnchor.getArea(), hotelAnchor.getName()));
         node.setDescription("今晚建议住在该区域，方便休息并衔接下一天出发。");
         applyAnchor(node, hotelAnchor);
-        node.setDurationMinutes(30);
-        node.setDurationText("约30分钟");
         node.setSource("STAY_AREA");
+        if (day.getNearbyHotels() != null && !day.getNearbyHotels().isEmpty()) {
+            TripPlanDTO.NearbyHotel first = day.getNearbyHotels().get(0);
+            if (first.getEstimatedCost() != null) {
+                node.setEstimatedCost(first.getEstimatedCost());
+                node.setCostText("约¥" + first.getEstimatedCost() + "/晚");
+            }
+        }
         node.setTags(List.of("住宿区域", "休息"));
         return withEndTime(node);
     }
@@ -590,11 +719,71 @@ public class TripTimelineAssembler {
                 .orElse(null);
     }
 
+    /**
+     * 确定每天的时间线结束锚点，优先使用 day.getEndAnchor()， 其次使用 stayAnchorFromTimeline， 兜底策略防止高德拿不到酒店数据
+     * stayAnchorFromNearbyHotels。
+     *
+     * @param day
+     * @return
+     */
     private TripPlanDTO.Anchor endAnchor(TripPlanDTO.DailyPlan day) {
         if (day.getEndAnchor() != null) {
             return day.getEndAnchor();
         }
+        // 将后一天的酒店地址传给前一天
+        TripPlanDTO.Anchor fromTimeline = stayAnchorFromTimeline(day);
+        if (fromTimeline != null) {
+            return fromTimeline;
+        }
+        //
+        TripPlanDTO.Anchor fromHotels = stayAnchorFromNearbyHotels(day);
+        if (fromHotels != null) {
+            return fromHotels;
+        }
         return hotelAnchor(day, TimelineInput.empty());
+    }
+
+    /** 从已填充酒店坐标的 STAY_AREA 时间线节点中提取锚点（用于跨天传递酒店位置）。 */
+    private TripPlanDTO.Anchor stayAnchorFromTimeline(TripPlanDTO.DailyPlan day) {
+        if (day.getTimeline() == null) {
+            return null;
+        }
+        return day.getTimeline().stream()
+                .filter(node -> TYPE_STAY_AREA.equals(node.getType()))
+                .filter(node -> node.getLng() != null && node.getLat() != null)
+                .findFirst()
+                .map(
+                        node -> {
+                            TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
+                            anchor.setType(TYPE_STAY_AREA);
+                            anchor.setName(node.getTitle());
+                            anchor.setCity(node.getCity());
+                            anchor.setArea(node.getArea());
+                            anchor.setAddress(node.getAddress());
+                            anchor.setLng(node.getLng());
+                            anchor.setLat(node.getLat());
+                            anchor.setCoordType(node.getCoordType());
+                            return anchor;
+                        })
+                .orElse(null);
+    }
+
+    /** 从 nearbyHotels 数据中提取锚点（orchestrator 层填充，用于跨天传递真实酒店名称和坐标）。 */
+    private TripPlanDTO.Anchor stayAnchorFromNearbyHotels(TripPlanDTO.DailyPlan day) {
+        if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
+            return null;
+        }
+        TripPlanDTO.NearbyHotel hotel = day.getNearbyHotels().get(0);
+        TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
+        anchor.setType(TYPE_STAY_AREA);
+        anchor.setName(hotel.getName());
+        anchor.setCity(day.getCity());
+        anchor.setArea(hotel.getAddress());
+        anchor.setAddress(hotel.getAddress());
+        anchor.setLng(hotel.getLng());
+        anchor.setLat(hotel.getLat());
+        anchor.setCoordType(firstNonBlank(hotel.getCoordType(), "GCJ02"));
+        return anchor;
     }
 
     private TripPlanDTO.Anchor spotAnchor(TripPlanDTO.Spot spot, String type) {
@@ -832,13 +1021,21 @@ public class TripTimelineAssembler {
         if (range.matches(".*\\d{1,2}:\\d{2}.*")) {
             return range.replaceAll("^.*?(\\d{1,2}:\\d{2}).*$", "$1");
         }
-        if (range.contains("中午")) {
+        String normalizedRange = range.toLowerCase();
+        if (normalizedRange.contains("中午")
+                || normalizedRange.contains("午间")
+                || normalizedRange.contains("noon")) {
             return "12:30";
         }
-        if (range.contains("下午")) {
+        if (normalizedRange.contains("下午")
+                || normalizedRange.contains("傍晚")
+                || normalizedRange.contains("afternoon")) {
             return "14:30";
         }
-        if (range.contains("晚上")) {
+        if (normalizedRange.contains("晚上")
+                || normalizedRange.contains("夜间")
+                || normalizedRange.contains("夜里")
+                || normalizedRange.contains("night")) {
             return "18:30";
         }
         return "09:30";
@@ -849,7 +1046,7 @@ public class TripTimelineAssembler {
     }
 
     private String dinnerTime(int cursor) {
-        return mealTime(cursor, DINNER_EARLIEST, DINNER_LATEST);
+        return mealTime(cursor, DINNER_EARLIEST, 20 * 60 + 30);
     }
 
     private String hotelTime(int cursor) {

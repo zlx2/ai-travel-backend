@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 用户认证控制器。
  *
- * <p>接口前缀：/api/auth
+ * <p>接口前缀：/auth，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
  * <p>权限要求：注册/登录/发送验证码无需登录；登出需登录（@SaCheckLogin）
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;

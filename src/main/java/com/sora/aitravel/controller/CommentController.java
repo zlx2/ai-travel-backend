@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 评论控制器。
  *
- * <p>接口前缀：/api
+ * <p>全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
  * <p>权限要求：评论列表（公开）无需登录；创建和删除评论需登录（@SaCheckLogin）
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping
 @RequiredArgsConstructor
 public class CommentController {
 

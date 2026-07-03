@@ -19,6 +19,7 @@ import com.sora.aitravel.service.RentalQuoteService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,9 +28,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @SaCheckLogin
+@Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/rental")
+@RequestMapping("/rental")
 public class RentalController {
     private final RentalOrderService rentalOrderService;
     private final RentalQuoteService rentalQuoteService;
@@ -38,34 +40,54 @@ public class RentalController {
     @PostMapping("/context/preview")
     public R<RentalContextPreviewResponse> previewContext(
             @Valid @RequestBody RentalContextPreviewRequest request) {
+        log.info(
+                "租车上下文预览请求进入，userId={}, destination={}, arrivalText={}",
+                LoginUserUtils.getUserId(),
+                request.getRequirement() == null ? null : request.getRequirement().getDestination(),
+                request.getArrivalText());
         return R.ok(rentalQuoteService.previewContext(request));
     }
 
     @PostMapping("/quotes/preview")
     public R<RentalQuotePreviewResponse> preview(
             @Valid @RequestBody RentalQuotePreviewRequest request) {
+        log.info(
+                "租车报价预览请求进入，userId={}, destination={}, routeMode={}",
+                LoginUserUtils.getUserId(),
+                request.getRequirement() == null ? null : request.getRequirement().getDestination(),
+                request.getRequirement() == null ? null : request.getRequirement().getRouteMode());
         return R.ok(rentalQuoteService.preview(request.getRequirement()));
     }
 
     @GetMapping("/quotes/latest-ordered")
     public R<List<RentalQuoteOptionDTO>> latestOrderedQuotes() {
+        log.info("最近租车报价请求进入，userId={}", LoginUserUtils.getUserId());
         return R.ok(rentalQuoteService.latestOrderedOptions(4));
     }
 
     @PostMapping("/orders")
     public R<IdResponse> createOrder(@Valid @RequestBody RentalOrderCreateRequest request) {
+        log.info(
+                "租车订单创建请求进入，userId={}, conversationId={}, selectedQuote={}",
+                LoginUserUtils.getUserId(),
+                request.getConversationId(),
+                request.getSelectedQuote() == null
+                        ? null
+                        : request.getSelectedQuote().getQuoteId());
         return R.ok(new IdResponse(rentalOrderService.create(LoginUserUtils.getUserId(), request)));
     }
 
     @PostMapping("/orders/{id}/pay")
     public R<Void> pay(
             @PathVariable Long id, @RequestBody(required = false) RentalOrderPayRequest request) {
+        log.info("租车订单模拟支付请求进入，userId={}, orderId={}", LoginUserUtils.getUserId(), id);
         rentalOrderService.pay(LoginUserUtils.getUserId(), id, request);
         return R.ok();
     }
 
     @PostMapping("/orders/{id}/alipay/page-pay")
     public R<AlipayPagePayResponse> alipayPagePay(@PathVariable Long id) {
+        log.info("租车订单支付宝支付请求进入，userId={}, orderId={}", LoginUserUtils.getUserId(), id);
         return R.ok(alipayPaymentService.createRentalPagePay(LoginUserUtils.getUserId(), id));
     }
 

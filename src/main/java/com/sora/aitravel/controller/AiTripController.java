@@ -18,12 +18,14 @@ import com.sora.aitravel.entity.AiTripGenerationSession;
 import com.sora.aitravel.service.impl.AiTripDayGenerationServiceImpl;
 import com.sora.aitravel.service.impl.AiTripGenerationOrchestratorImpl;
 import com.sora.aitravel.service.impl.AiTripGenerationSessionServiceImpl;
+import com.sora.aitravel.service.impl.NearbyHotelService;
 import com.sora.aitravel.workflow.analyze.AnalyzeWorkflowContext;
 import com.sora.aitravel.workflow.analyze.TripAnalyzeWorkflow;
 import com.sora.aitravel.workflow.generate.AiTripDayGenerateOrchestrator;
 import com.sora.aitravel.workflow.generate.TripTimelineAssembler;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -37,7 +39,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * AI 智能旅行规划控制器（AI 分析+生成行程）。
  *
- * <p>接口前缀：/api/ai/trips
+ * <p>接口前缀：/ai/trips，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：POST
  *
@@ -47,7 +49,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/ai/trips")
+@RequestMapping("/ai/trips")
 public class AiTripController {
 
     private final TripAnalyzeWorkflow tripAnalyzeWorkflow;
@@ -58,6 +60,7 @@ public class AiTripController {
     private final RabbitTemplate rabbitTemplate;
     private final TripTimelineAssembler tripTimelineAssembler;
     private final JsonCodec jsonCodec;
+    private final NearbyHotelService nearbyHotelService;
 
     /**
      * AI 分析用户旅行需求（需登录）。
@@ -124,6 +127,11 @@ public class AiTripController {
                         day.getErrorMessage()));
     }
 
+    /**
+     * 预取下一日行程生成任务
+     * @param sessionId
+     * @param dayNo
+     */
     private void enqueueNextDay(String sessionId, Integer dayNo) {
         try {
             AiTripGenerationSession session =
@@ -159,6 +167,12 @@ public class AiTripController {
         }
     }
 
+    /**
+     * AI 根据用户需求生成完整旅行计划（需登录）
+     * @param request 包含对话 ID、确认的冲突标记、结构化需求和冲突列表的生成请求
+     * @return 生成的详细行程计划，包含每日安排和预算（TripGenerateResponse）
+     *
+     */
     @PostMapping(value = "/generate/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateStream(@Valid @RequestBody TripGenerateRequest request) {
         SseEmitter emitter = new SseEmitter(300_000L);
@@ -221,7 +235,7 @@ public class AiTripController {
                                 null,
                                 null);
 
-                        assembleTimelineIfMissing(
+                        assembleTimeline(
                                 session, requirement, dailyPlan, request.getSelectedQuote());
 
                         sendProgress(
@@ -285,7 +299,12 @@ public class AiTripController {
                 });
         return emitter;
     }
-
+    /**
+     * 生成第一日行程并预取下一日行程生成任务
+     * @param userId 用户 ID
+     * @param request 生成请求
+     * @return 生成的详细行程计划，包含每日安排和预算（TripGenerateResponse）
+     */
     private TripGenerateResponse generateFirstDayAndPrefetchNext(
             Long userId, TripGenerateRequest request) {
         AiTripGenerationSession session =
@@ -298,6 +317,13 @@ public class AiTripController {
         return buildGenerateResponse(session, day, request.getSelectedQuote());
     }
 
+    /**
+     * 构建生成响应
+     * @param session 行程生成会话
+     * @param day 第一日行程生成结果
+     * @param selectedQuote 选中的报价选项
+     * @return 生成的详细行程计划，包含每日安排和预算（TripGenerateResponse）
+     */
     private TripGenerateResponse buildGenerateResponse(
             AiTripGenerationSession session,
             AiTripDayGeneration day,
@@ -311,7 +337,7 @@ public class AiTripController {
             TripPlanDTO.DailyPlan dailyPlan =
                     jsonCodec.read(
                             day.getResultJson(), TripPlanDTO.DailyPlan.class, "组装生成响应时单日行程数据解析失败");
-            assembleTimelineIfMissing(session, requirement, dailyPlan, selectedQuote);
+            assembleTimeline(session, requirement, dailyPlan, selectedQuote);
             TripPlanDTO tripPlan =
                     new TripPlanDTO(
                             displayDestination(requirement) + requirement.getDays() + "日旅行方案",
@@ -339,6 +365,12 @@ public class AiTripController {
             throw new IllegalStateException("组装单日生成响应失败", exception);
         }
     }
+    /**
+     * 规范化单日结果 JSON
+     * @param sessionId 行程生成会话 ID
+     * @param day 单日行程生成结果
+     * @return 规范化后的单日结果 JSON
+     */
 
     private String normalizeDayResultJson(String sessionId, AiTripDayGeneration day) {
         if (day == null || day.getResultJson() == null || !"GENERATED".equals(day.getStatus())) {
@@ -360,7 +392,7 @@ public class AiTripController {
                             day.getResultJson(),
                             TripPlanDTO.DailyPlan.class,
                             "单日旧结果补 timeline 时单日行程数据解析失败");
-            assembleTimelineIfMissing(
+            assembleTimeline(
                     session,
                     requirement,
                     dailyPlan,
@@ -379,30 +411,123 @@ public class AiTripController {
         }
     }
 
-    private void assembleTimelineIfMissing(
-            AiTripGenerationSession session,
-            TravelRequirementDTO requirement,
-            TripPlanDTO.DailyPlan dailyPlan,
-            RentalQuoteOptionDTO selectedQuote) {
-        if (dailyPlan.getTimeline() != null && !dailyPlan.getTimeline().isEmpty()) {
-            return;
-        }
+    /**
+     * 组装行程时间线
+     * @param session 行程生成会话
+     * @param requirement 需求
+     * @param dailyPlan 行程计划
+     * @param selectedQuote 选中的报价选项
+     */
+    private void assembleTimeline(
+            AiTripGenerationSession session,       // AI 行程生成会话（含租车上下文等 JSON）
+            TravelRequirementDTO requirement,       // 用户的旅行需求（目的地、天数等）
+            TripPlanDTO.DailyPlan dailyPlan,        // 当前要处理的单日行程计划
+            RentalQuoteOptionDTO selectedQuote){   // 用户选中的租车报价选项
+        dailyPlan.setTimeline(null);
         RentalTripContextDTO rentalTripContext =
                 jsonCodec.readNullable(
-                        session.getRentalTripContextJson(),
-                        RentalTripContextDTO.class,
-                        "生成会话上下文解析失败");
+                        session.getRentalTripContextJson(),  // 从会话中取出租车上下文的 JSON 字符串
+                        RentalTripContextDTO.class,           // 反序列化的目标类型
+                        "生成会话上下文解析失败");              // 解析失败时的错误提示
+
+        // 加载前一天已生成的行程并填充酒店，使次日起点从酒店出发
+        List<TripPlanDTO.DailyPlan> previousDays =
+                loadAndEnrichPreviousDays(session, value(dailyPlan.getDay()));
+
         tripTimelineAssembler.assemble(
-                List.<TripPlanDTO.DailyPlan>of(),
+                previousDays,
                 List.of(dailyPlan),
                 new TripTimelineAssembler.TimelineInput(
-                        List.of(),
+                        previousDays,
                         List.of(dailyPlan),
                         requirement,
                         selectedQuote,
                         rentalTripContext,
                         List.of(),
                         List.of()));
+
+        // 搜索最后景点附近的酒店
+        if (dailyPlan.getNearbyHotels() == null || dailyPlan.getNearbyHotels().isEmpty()) {
+            nearbyHotelService.fillNearbyHotels(List.of(dailyPlan));
+        }
+        enrichStayAreaNode(dailyPlan);
+    }
+
+    /**
+     * 加载当前会话中已生成的前一天行程，并为其填充酒店数据。
+     * @param session 行程生成会话
+     * @param currentDayNo 当前行程天数
+     * @return 填充酒店数据的行程计划列表
+     *
+     */
+    private List<TripPlanDTO.DailyPlan> loadAndEnrichPreviousDays(
+            AiTripGenerationSession session, int currentDayNo) {
+        if (currentDayNo <= 1) {
+            return List.of();
+        }
+        try {
+            var generatedDays =
+                    aiTripDayGenerationService.listCurrentGeneratedBefore(
+                            session.getSessionId(), currentDayNo);
+            if (generatedDays == null || generatedDays.isEmpty()) {
+                return List.of();
+            }
+            List<TripPlanDTO.DailyPlan> previousDays = new ArrayList<>();
+            for (var gen : generatedDays) {
+                if (gen.getResultJson() == null || !"GENERATED".equals(gen.getStatus())) {
+                    continue;
+                }
+                TripPlanDTO.DailyPlan day =
+                        jsonCodec.readNullable(
+                                gen.getResultJson(), TripPlanDTO.DailyPlan.class, "加载前一天行程解析失败");
+                if (day != null) {
+                    if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
+                        nearbyHotelService.fillNearbyHotels(List.of(day));
+                    }
+                    enrichStayAreaNode(day);
+                    previousDays.add(day);
+                }
+            }
+            return previousDays;
+        } catch (Exception exception) {
+            log.warn("加载前一天行程失败，将使用空列表继续", exception);
+            return List.of();
+        }
+    }
+
+    /** 将附近酒店数据填充到 STAY_AREA 时间线节点上，供前端地图渲染标记。 */
+    private void enrichStayAreaNode(TripPlanDTO.DailyPlan dailyPlan) {
+        List<TripPlanDTO.NearbyHotel> hotels = dailyPlan.getNearbyHotels();
+        if (hotels == null || hotels.isEmpty() || dailyPlan.getTimeline() == null) {
+            return;
+        }
+        dailyPlan.getTimeline().stream()
+                .filter(node -> "STAY_AREA".equals(node.getType()))
+                .findFirst()
+                .ifPresent(
+                        stayNode -> {
+                            TripPlanDTO.NearbyHotel first = hotels.get(0);
+                            stayNode.setTitle(first.getName());
+                            stayNode.setLng(first.getLng());
+                            stayNode.setLat(first.getLat());
+                            stayNode.setCoordType(first.getCoordType());
+                            stayNode.setAddress(first.getAddress());
+                            stayNode.setNearbyHotels(hotels);
+                            stayNode.setCompact(false);
+                            if (first.getEstimatedCost() != null) {
+                                stayNode.setEstimatedCost(first.getEstimatedCost());
+                                stayNode.setCostText("约¥" + first.getEstimatedCost() + "/晚");
+                            }
+                            stayNode.setTags(
+                                    List.of(
+                                            "酒店",
+                                            first.getDistanceMeters() != null
+                                                    ? first.getDistanceMeters() + "m"
+                                                    : "",
+                                            first.getEstimatedPrice() != null
+                                                    ? first.getEstimatedPrice()
+                                                    : ""));
+                        });
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(

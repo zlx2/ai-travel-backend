@@ -10,14 +10,14 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 标签控制器。
  *
- * <p>接口前缀：/api/tags
+ * <p>接口前缀：/tags，全局 /api 前缀由 server.servlet.context-path 配置。
  *
  * <p>请求方式：RESTful
  *
  * <p>权限要求：所有接口均为公开，无需登录
  */
 @RestController
-@RequestMapping("/api/tags")
+@RequestMapping("/tags")
 @RequiredArgsConstructor
 public class TagController {
 

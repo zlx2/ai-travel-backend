@@ -17,6 +17,7 @@ import com.sora.aitravel.model.CityProfile;
 import com.sora.aitravel.model.DaySkeleton;
 import com.sora.aitravel.service.impl.AiTripDayGenerationServiceImpl;
 import com.sora.aitravel.service.impl.AiTripGenerationSessionServiceImpl;
+import com.sora.aitravel.service.impl.NearbyHotelService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,8 @@ public class AiTripDayGenerateOrchestrator {
     private final AiTripGenerationSessionServiceImpl sessionService;
     private final AiTripDayGenerationServiceImpl dayGenerationService;
     private final TripDayGenerateWorkflow tripDayGenerateWorkflow;
+    private final TripTimelineAssembler tripTimelineAssembler;
+    private final NearbyHotelService nearbyHotelService;
     private final JsonCodec jsonCodec;
 
     /**
@@ -109,7 +112,39 @@ public class AiTripDayGenerateOrchestrator {
                             "trip-day-generate-workflow",
                             () -> tripDayGenerateWorkflow.execute(input));
             TripPlanDTO.DailyPlan generatedPlan = result.getDailyPlan();
-            // 生成成功，将第一天（即当前dayNo）的计划JSON写入结果
+            // 填充附近酒店数据（所有天数均执行，确保持久化结果包含酒店信息）
+            try {
+                nearbyHotelService.fillNearbyHotels(List.of(generatedPlan));
+            } catch (Exception hotelException) {
+                log.warn("填充附近酒店失败，sessionId={} dayNo={}，继续保存", sessionId, dayNo, hotelException);
+            }
+            // 酒店数据已就绪，重新组装 timeline 使 TRANSFER/DAY_START 节点标题和标签包含真实酒店名+价格
+            try {
+                List<TripPlanDTO.DailyPlan> prevDays =
+                        input.getPreviousDailyPlans() != null
+                                ? input.getPreviousDailyPlans()
+                                : List.of();
+                tripTimelineAssembler.assemble(
+                        prevDays,
+                        List.of(generatedPlan),
+                        new TripTimelineAssembler.TimelineInput(
+                                prevDays,
+                                List.of(generatedPlan),
+                                input.getRequirement(),
+                                input.getSelectedQuote(),
+                                input.getRentalTripContext(),
+                                input.getDaySkeletons() != null
+                                        ? input.getDaySkeletons()
+                                        : List.of(),
+                                List.of()));
+            } catch (Exception timelineException) {
+                log.warn(
+                        "重新组装timeline失败，sessionId={} dayNo={}，使用workflow结果继续",
+                        sessionId,
+                        dayNo,
+                        timelineException);
+            }
+            // 生成成功，将当前 dayNo 的计划 JSON 写入结果
             timed(
                     "day-mark-generated",
                     () ->
@@ -185,9 +220,21 @@ public class AiTripDayGenerateOrchestrator {
      * @return
      */
     private List<TripPlanDTO.DailyPlan> readGeneratedPreviousDays(String sessionId, Integer dayNo) {
-        return dayGenerationService.listCurrentGeneratedBefore(sessionId, dayNo).stream()
-                .map(this::readGeneratedDay)
-                .toList();
+        List<TripPlanDTO.DailyPlan> days =
+                dayGenerationService.listCurrentGeneratedBefore(sessionId, dayNo).stream()
+                        .map(this::readGeneratedDay)
+                        .toList();
+        // 为缺少酒店数据的旧记录补充填充（新记录在生成时已包含）
+        for (TripPlanDTO.DailyPlan day : days) {
+            if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
+                try {
+                    nearbyHotelService.fillNearbyHotels(List.of(day));
+                } catch (Exception e) {
+                    log.warn("补充填充前一天酒店失败，day={}", day.getDay(), e);
+                }
+            }
+        }
+        return days;
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.sora.aitravel.workflow.analyze;
 
+import com.sora.aitravel.common.utils.CityNameUtils;
+import com.sora.aitravel.dto.model.RentalRequirementDTO;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.request.TripAnalyzeRequest;
 import com.sora.aitravel.service.impl.TravelRequirementReadyServiceImpl;
@@ -35,7 +37,7 @@ public class RequirementStandardizeNode {
                         value(confirmed, TravelRequirementDTO::getDeparture),
                         extracted.getDeparture());
         String destination =
-                firstNonBlank(
+                CityNameUtils.firstNonBlankCity(
                         request.getSelectedDestination(),
                         value(formInput, TravelRequirementDTO::getDestination),
                         value(confirmed, TravelRequirementDTO::getDestination),
@@ -79,9 +81,16 @@ public class RequirementStandardizeNode {
                         cleanList(value(formInput, TravelRequirementDTO::getRouteCities)),
                         cleanList(value(confirmed, TravelRequirementDTO::getRouteCities)),
                         cleanList(extracted.getRouteCities()));
+        routeCities = CityNameUtils.normalizeCityList(routeCities);
         if (routeCities.isEmpty() && hasText(destination)) {
             routeCities = List.of(destination);
         }
+        RentalRequirementDTO rentalRequirement =
+                firstNonNull(
+                        value(formInput, TravelRequirementDTO::getRentalRequirement),
+                        value(confirmed, TravelRequirementDTO::getRentalRequirement),
+                        extracted.getRentalRequirement());
+        standardizeRentalRequirement(rentalRequirement, destination, routeCities);
 
         TravelRequirementDTO standardized =
                 new TravelRequirementDTO(
@@ -101,10 +110,7 @@ public class RequirementStandardizeNode {
                         routeCities,
                         transportMode,
                         rentalIntent,
-                        firstNonNull(
-                                value(formInput, TravelRequirementDTO::getRentalRequirement),
-                                value(confirmed, TravelRequirementDTO::getRentalRequirement),
-                                extracted.getRentalRequirement()),
+                        rentalRequirement,
                         days,
                         firstNonNull(
                                 value(formInput, TravelRequirementDTO::getBudget),
@@ -238,6 +244,31 @@ public class RequirementStandardizeNode {
 
     private boolean rentalRequired(com.sora.aitravel.dto.model.RentalRequirementDTO requirement) {
         return requirement != null && Boolean.TRUE.equals(requirement.getNeedRental());
+    }
+
+    private void standardizeRentalRequirement(
+            RentalRequirementDTO rentalRequirement, String destination, List<String> routeCities) {
+        if (rentalRequirement == null) {
+            return;
+        }
+        String startCity =
+                CityNameUtils.firstNonBlankCity(
+                        rentalRequirement.getRentalStartCity(),
+                        rentalRequirement.getPickupCity(),
+                        routeCities == null || routeCities.isEmpty() ? null : routeCities.get(0),
+                        destination);
+        String endCity =
+                CityNameUtils.firstNonBlankCity(
+                        rentalRequirement.getRentalEndCity(),
+                        rentalRequirement.getReturnCity(),
+                        routeCities == null || routeCities.isEmpty()
+                                ? null
+                                : routeCities.get(routeCities.size() - 1),
+                        startCity);
+        rentalRequirement.setRentalStartCity(startCity);
+        rentalRequirement.setPickupCity(startCity);
+        rentalRequirement.setRentalEndCity(endCity);
+        rentalRequirement.setReturnCity(endCity);
     }
 
     private List<String> cleanList(List<String> values) {

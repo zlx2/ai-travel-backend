@@ -6,9 +6,12 @@ import com.sora.aitravel.common.enums.ErrorCode;
 import com.sora.aitravel.common.result.R;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
@@ -70,6 +73,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NotRoleException.class)
     public R<Void> handleNotRole(NotRoleException exception) {
         return R.fail(ErrorCode.FORBIDDEN);
+    }
+
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public R<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+        log.warn(
+                "Request method not supported, method={}, supported={}",
+                exception.getMethod(),
+                exception.getSupportedHttpMethods());
+        return R.fail(405, "请求方法不支持，请检查接口 GET/POST 是否正确");
     }
 
     /**
