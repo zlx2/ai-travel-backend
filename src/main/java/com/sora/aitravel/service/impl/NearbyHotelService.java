@@ -6,6 +6,7 @@ import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.service.AmapApiService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,7 +102,8 @@ public class NearbyHotelService {
                         location,
                         searchCity);
                 // 3：调用高德周边搜索 API，在景点附近 2000m 内搜索最多 8 家酒店
-                List<TripPlanDTO.NearbyHotel> hotels = searchNearby(location, searchCity);
+                List<TripPlanDTO.NearbyHotel> hotels =
+                        applyHotelPreference(day, searchNearby(location, searchCity));
                 // 将搜索到的酒店列表挂到当天行程的 nearbyHotels 字段
                 day.setNearbyHotels(hotels);
                 log.info(
@@ -141,6 +143,105 @@ public class NearbyHotelService {
                         1, // 第 1 页
                         "business"); // 返回营业信息（评分、电话等）
         return parseHotels(response);
+    }
+
+    private List<TripPlanDTO.NearbyHotel> applyHotelPreference(
+            TripPlanDTO.DailyPlan day, List<TripPlanDTO.NearbyHotel> hotels) {
+        if (hotels == null || hotels.isEmpty()) {
+            return hotels;
+        }
+        String preference = hotelPreference(day);
+        if (preference.isBlank()) {
+            return hotels;
+        }
+        List<TripPlanDTO.NearbyHotel> result = new ArrayList<>(hotels);
+        String rejected = rejectedHotelKeyword(preference);
+        if (!rejected.isBlank()) {
+            result =
+                    result.stream()
+                            .filter(
+                                    hotel ->
+                                            !contains(
+                                                    (hotel.getName() == null ? "" : hotel.getName())
+                                                            + " "
+                                                            + (hotel.getAddress() == null ? "" : hotel.getAddress()),
+                                                    rejected))
+                            .toList();
+            if (result.isEmpty()) {
+                result = new ArrayList<>(hotels);
+            }
+        }
+        if (containsAny(preference, "太贵", "便宜", "预算", "低价", "省钱")) {
+            result =
+                    result.stream()
+                            .sorted(
+                                    Comparator.comparingInt(
+                                                    (TripPlanDTO.NearbyHotel hotel) ->
+                                                            hotel.getEstimatedCost() == null
+                                                                    ? Integer.MAX_VALUE / 4
+                                                                    : hotel.getEstimatedCost())
+                                            .thenComparingInt(
+                                                    (TripPlanDTO.NearbyHotel hotel) ->
+                                                            hotel.getDistanceMeters() == null
+                                                                    ? Integer.MAX_VALUE / 4
+                                                                    : hotel.getDistanceMeters()))
+                            .toList();
+        } else if (containsAny(preference, "太偏", "偏", "近一点", "方便", "少走", "热闹")) {
+            result =
+                    result.stream()
+                            .sorted(
+                                    Comparator.comparingInt(
+                                                    (TripPlanDTO.NearbyHotel hotel) ->
+                                                            hotel.getDistanceMeters() == null
+                                                                    ? Integer.MAX_VALUE / 4
+                                                                    : hotel.getDistanceMeters())
+                                            .thenComparingInt(
+                                                    (TripPlanDTO.NearbyHotel hotel) ->
+                                                            hotel.getEstimatedCost() == null
+                                                                    ? Integer.MAX_VALUE / 4
+                                                                    : hotel.getEstimatedCost()))
+                            .toList();
+        }
+        return result;
+    }
+
+    private String hotelPreference(TripPlanDTO.DailyPlan day) {
+        if (day == null || day.getDayTips() == null) {
+            return "";
+        }
+        return day.getDayTips().stream()
+                .filter(tip -> tip != null && tip.startsWith("住宿偏好："))
+                .reduce((first, second) -> second)
+                .orElse("")
+                .replace("住宿偏好：", "")
+                .trim();
+    }
+
+    private String rejectedHotelKeyword(String preference) {
+        for (String marker : List.of("不想住", "不要住", "不住", "别住")) {
+            int index = preference.indexOf(marker);
+            if (index >= 0) {
+                String tail = preference.substring(index + marker.length()).trim();
+                return tail.replaceAll("[，。,.；;].*$", "").trim();
+            }
+        }
+        return "";
+    }
+
+    private boolean contains(String text, String keyword) {
+        return text != null && keyword != null && !keyword.isBlank() && text.contains(keyword);
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        if (text == null) {
+            return false;
+        }
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

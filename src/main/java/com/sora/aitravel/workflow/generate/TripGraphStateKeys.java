@@ -24,5 +24,6 @@ public final class TripGraphStateKeys {
     public static final String SINGLE_DAY_GENERATION = "singleDayGeneration";
     public static final String TARGET_DAY_NO = "targetDayNo";
     public static final String PREVIOUS_DAILY_PLANS = "previousDailyPlans";
+    public static final String PREVIOUS_TARGET_DAILY_PLAN = "previousTargetDailyPlan";
     public static final String REVISION_TEXT = "revisionText";
 }

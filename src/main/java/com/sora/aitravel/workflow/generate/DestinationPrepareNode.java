@@ -516,35 +516,14 @@ public class DestinationPrepareNode {
         if (pickup != null) {
             anchors.putIfAbsent(pickup.getId(), pickup);
         }
-        addNormalizedAreas(anchors, searchCities);
+        addScenicClusterAreas(anchors, scenic);
         addPoiAreas(anchors, profile == null ? null : profile.getFoodCandidates(), "MEAL_AREA");
-        if (anchors.values().stream()
-                .noneMatch(anchor -> "SCENIC_CLUSTER".equals(anchor.getRole()))) {
-            addScenicClusterAreas(anchors, scenic);
-        }
         CandidatePool pool = new CandidatePool(scenic, new ArrayList<>(anchors.values()), pickup);
         log.info(
                 "节点[destination-prepare]：候选池构建完成，scenic={}, anchors={}",
                 pool.getScenicCandidates().size(),
                 pool.getAreaAnchors().size());
         return pool;
-    }
-
-    private void addNormalizedAreas(
-            LinkedHashMap<String, AreaAnchorCandidate> anchors, List<String> searchCities) {
-        List<AreaAnchorCandidate> normalizedAreas =
-                travelKnowledgeService.areaAnchors(searchCities);
-        for (AreaAnchorCandidate area : normalizedAreas) {
-            if (area != null && area.getLocation() != null && !area.getLocation().isBlank()) {
-                anchors.putIfAbsent(area.getId(), area);
-            }
-        }
-        if (!normalizedAreas.isEmpty()) {
-            log.info(
-                    "节点[destination-prepare]：使用规范旅行片区库，cities={}，areas={}",
-                    searchCities,
-                    normalizedAreas.size());
-        }
     }
 
     private void addPoiAreas(
@@ -585,26 +564,19 @@ public class DestinationPrepareNode {
             if (c == null || c.getLocation() == null || c.getLocation().isBlank()) {
                 continue;
             }
-            String area = firstNonBlank(c.getArea(), c.getBusinessArea(), c.getName());
-            if (area == null || area.isBlank()) {
+            String name = firstNonBlank(c.getName(), c.getArea(), c.getBusinessArea());
+            if (name == null || name.isBlank()) {
                 continue;
             }
-            String id =
-                    stableId(
-                            "SCENIC_CLUSTER",
-                            firstNonBlank(
-                                    c.getBusinessArea(),
-                                    c.getArea(),
-                                    c.getSourcePoiId(),
-                                    c.getName()));
+            String id = stableId("SCENIC_CLUSTER", firstNonBlank(c.getSourcePoiId(), name));
             anchors.putIfAbsent(
                     id,
                     new AreaAnchorCandidate(
                             id,
-                            area,
+                            name,
                             "SCENIC_CLUSTER",
                             c.getCity(),
-                            firstNonBlank(c.getArea(), c.getBusinessArea(), area),
+                            firstNonBlank(c.getBusinessArea(), c.getArea(), name),
                             c.getAddress(),
                             c.getLocation(),
                             c.getSource(),

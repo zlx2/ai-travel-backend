@@ -80,6 +80,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             Integer pageSize,
             Integer pageNum,
             String showFields) {
+        long start = System.currentTimeMillis();
         if (StrUtil.isBlank(keywords) && StrUtil.isBlank(types)) {
             throw new IllegalArgumentException("keywords和types至少需要提供一个");
         }
@@ -98,7 +99,20 @@ public class AmapApiServiceImpl implements AmapApiService {
         if (pageNum != null) {
             params.put("page_num", Math.max(1, pageNum));
         }
-        return JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/text", params));
+        JSONObject result = JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/text", params));
+        log.info(
+                "高德 text 查询完成，耗时={}ms，keywords={}, types={}, region={}, cityLimit={}, pageSize={}, pageNum={}, count={}, status={}, info={}",
+                System.currentTimeMillis() - start,
+                keywords,
+                types,
+                region,
+                cityLimit,
+                pageSize,
+                pageNum,
+                result.getStr("count"),
+                result.getStr("status"),
+                result.getStr("info"));
+        return result;
     }
 
     /**
@@ -128,6 +142,7 @@ public class AmapApiServiceImpl implements AmapApiService {
             Integer pageSize,
             Integer pageNum,
             String showFields) {
+        long start = System.currentTimeMillis();
         Map<String, Object> params = new HashMap<>();
         params.put("key", apiKey());
         putIfNotBlank(params, "location", location);
@@ -148,7 +163,23 @@ public class AmapApiServiceImpl implements AmapApiService {
         if (pageNum != null) {
             params.put("page_num", Math.max(1, pageNum));
         }
-        return JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/around", params));
+        JSONObject result = JSONUtil.parseObj(executeGet(baseUrl() + "/v5/place/around", params));
+        log.info(
+                "高德 around 查询完成，耗时={}ms，location={}, keywords={}, types={}, region={}, cityLimit={}, radius={}, sortrule={}, pageSize={}, pageNum={}, count={}, status={}, info={}",
+                System.currentTimeMillis() - start,
+                location,
+                keywords,
+                types,
+                region,
+                cityLimit,
+                radius,
+                sortrule,
+                pageSize,
+                pageNum,
+                result.getStr("count"),
+                result.getStr("status"),
+                result.getStr("info"));
+        return result;
     }
 
     /**
@@ -160,11 +191,21 @@ public class AmapApiServiceImpl implements AmapApiService {
      */
     @Override
     public JSONObject geocodeRaw(String address, String city) {
+        long start = System.currentTimeMillis();
         Map<String, Object> params = new HashMap<>();
         params.put("key", apiKey());
         putIfNotBlank(params, "address", address);
         putIfNotBlank(params, "city", city);
-        return JSONUtil.parseObj(executeGet(baseUrl() + "/v3/geocode/geo", params));
+        JSONObject result = JSONUtil.parseObj(executeGet(baseUrl() + "/v3/geocode/geo", params));
+        log.info(
+                "高德 geocode 查询完成，耗时={}ms，address={}, city={}, count={}, status={}, info={}",
+                System.currentTimeMillis() - start,
+                address,
+                city,
+                result.getStr("count"),
+                result.getStr("status"),
+                result.getStr("info"));
+        return result;
     }
 
     /**

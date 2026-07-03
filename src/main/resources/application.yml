@@ -11,9 +11,15 @@ spring:
     name: plango-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=${MYSQL_CONNECT_TIMEOUT:3000}&socketTimeout=${MYSQL_SOCKET_TIMEOUT:10000}&tcpKeepAlive=true
     username: ${MYSQL_USERNAME}
     password: ${MYSQL_PASSWORD}
+    hikari:
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:3000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT:1000}
+      initialization-fail-timeout: ${DB_POOL_INIT_FAIL_TIMEOUT:0}
   data:
     redis:
       host: ${REDIS_HOST}
@@ -101,11 +107,21 @@ app:
     domain: ${COS_DOMAIN}
   ai:
     mock-enabled: ${AI_MOCK_ENABLED:false}
+    deepseek-direct-enabled: ${DEEPSEEK_DIRECT_ENABLED:true}
+    deepseek-disable-thinking: ${DEEPSEEK_DISABLE_THINKING:true}
+    deepseek-timeout: ${DEEPSEEK_TIMEOUT:45s}
+    response-cache-enabled: ${AI_RESPONSE_CACHE_ENABLED:true}
+    response-cache-ttl: ${AI_RESPONSE_CACHE_TTL:12h}
   amap:
     api-key: ${AMAP_API_KEY:}
     base-url: ${AMAP_BASE_URL:https://restapi.amap.com}
     timeout: ${AMAP_TIMEOUT:10s}
-    poi-cache-enabled: ${AMAP_POI_CACHE_ENABLED:false}
+    poi-cache-enabled: ${AMAP_POI_CACHE_ENABLED:true}
+    day-query-parallelism: ${AMAP_DAY_QUERY_PARALLELISM:2}
+  weather:
+    cache-ttl: ${WEATHER_CACHE_TTL:6h}
+    geo-timeout-ms: ${WEATHER_GEO_TIMEOUT_MS:2500}
+    forecast-timeout-ms: ${WEATHER_FORECAST_TIMEOUT_MS:3000}
   alipay:
     enabled: ${ALIPAY_ENABLED:false}
     gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}

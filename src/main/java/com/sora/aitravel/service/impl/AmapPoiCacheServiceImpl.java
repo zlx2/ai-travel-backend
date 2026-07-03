@@ -58,10 +58,11 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
             boolean cityLimit,
             int pageSize,
             int pageNum,
-            String showFields,
-            String category) {
+        String showFields,
+        String category) {
         if (!poiCacheEnabled) {
-            return searchDirect(keywords, types, region, cityLimit, pageSize, pageNum, showFields);
+            return searchDirect(keywords, types, region, cityLimit, pageSize, pageNum, showFields)
+                    .pois();
         }
         String key =
                 cacheKey(
@@ -85,10 +86,12 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
             return cached;
         }
 
-        List<Poi> pois =
+        DirectSearchResult result =
                 searchDirect(keywords, types, region, cityLimit, pageSize, pageNum, showFields);
-        write(key, pois, pois.isEmpty() ? EMPTY_TTL : ttl(category));
-        return pois;
+        if (result.cacheable()) {
+            write(key, result.pois(), result.pois().isEmpty() ? EMPTY_TTL : ttl(category));
+        }
+        return result.pois();
     }
 
     /**
@@ -103,7 +106,7 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
      * @param showFields 显示字段
      * @return POI列表
      */
-    private List<Poi> searchDirect(
+    private DirectSearchResult searchDirect(
             String keywords,
             String types,
             String region,
@@ -115,9 +118,15 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
                 amapApiService.searchPoiText(
                         keywords, types, region, cityLimit, pageSize, pageNum, showFields);
         if (response == null || !response.isSuccess() || response.getData() == null) {
-            return List.of();
+            log.warn(
+                    "高德 POI 直查未成功，不写缓存，region={}, keywords={}, status={}, info={}",
+                    region,
+                    keywords,
+                    response == null ? null : response.getStatus(),
+                    response == null ? null : response.getInfo());
+            return new DirectSearchResult(List.of(), false);
         }
-        return response.getData();
+        return new DirectSearchResult(response.getData(), true);
     }
 
     /**
@@ -239,4 +248,6 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
     private String text(String value) {
         return value == null ? "" : value.trim();
     }
+
+    private record DirectSearchResult(List<Poi> pois, boolean cacheable) {}
 }

@@ -42,27 +42,9 @@ public class DayInputPrepareNode {
 
     private static final String AI_SCENIC_RECOMMEND_PROMPT =
             """
-            你是旅行地点推荐助手。请根据用户需求，为某一天推荐适合高德 POI 检索的真实地点名。
-
-            目的地：%s
-            第 %d 天主片区：%s
-            当天主题：%s
-            用户偏好：%s
-            已安排过的片区：%s
-            租车/交通约束：%s
-            用户追加调整：%s
-
-            要求：
-            1. 返回 8-12 个真实地点名，优先推荐游客实际会去的景点、街区、公园、博物馆、古镇、自然景区；
-            2. 地点名要适合直接用于高德 POI 文本搜索，不要写泛词，比如“城市地标”“历史街区”；
-            3. 不要推荐停车场、入口、游客中心、公共厕所、卫生间、服务中心、商场、酒店、餐厅等附属设施；
-            4. 不要把同一条商业街、同一个古镇内部、同一个景区内部的多个小点拆成多个地点；
-            5. 当天地点要有一定空间展开，优先覆盖 2-3 个不同片区或游览单元，不要全部挤在同一商圈；
-            6. 避免和已安排片区重复；
-            7. 租车自驾时可以推荐城市周边、停车较方便或公共交通不便但值得去的地点；
-            8. 只返回 JSON 对象，不要 Markdown。
-
-            JSON 格式：
+            为单日旅行推荐 8-12 个真实地点名，用于高德 POI 搜索。
+            城市=%s；day=%d；主片区=%s；主题=%s；偏好=%s；已用=%s；租车=%s；修改=%s
+            规则：只给游客会去的景点/街区/公园/博物馆/古镇/自然景区；不要泛词、餐厅、酒店、商场、停车场、入口、游客中心、厕所、管理处；不要拆同一景区内部小点；尽量覆盖 2-3 个游览单元；避开已用片区。只返回 JSON：
             {"places":["地点1","地点2"]}
             """;
 
@@ -173,8 +155,6 @@ public class DayInputPrepareNode {
             List<DayContext> dayContexts) {
         List<DayQueryPlan> plans = new ArrayList<>();
         String city = cityProfile.getDestination();
-        boolean wantsNight = hasPreference(requirement, "夜景") || hasPreference(requirement, "夜市");
-        int nightDay = requirement.getDays() == 1 ? 1 : 2;
 
         for (DayContext dayContext : dayContexts) {
             String targetArea = dayContext.skeleton().targetArea();
@@ -204,28 +184,19 @@ public class DayInputPrepareNode {
                                     targetArea,
                                     null,
                                     null,
-                                    "租车自驾补充查询，优先匹配周边、停车便利或公共交通不便但值得去的地点"));
+                            "租车自驾补充查询，优先匹配周边、停车便利或公共交通不便但值得去的地点"));
                 }
             }
-            if (wantsNight && dayContext.getDay() == nightDay) {
+            for (String keyword : nightKeywords(city, dayContext)) {
                 queries.add(
                         new QueryItem(
                                 "NIGHT",
-                                city + " 夜市",
+                                keyword,
                                 city,
                                 targetArea,
                                 null,
                                 null,
-                                "匹配用户夜市偏好，安排晚间烟火气体验"));
-                queries.add(
-                        new QueryItem(
-                                "NIGHT",
-                                city + " 夜景",
-                                city,
-                                targetArea,
-                                null,
-                                null,
-                                "匹配用户夜景偏好，安排晚间游览"));
+                                "查询晚餐后的真实夜间景点或夜游体验"));
             }
             queries.add(
                     new QueryItem(
@@ -346,6 +317,19 @@ public class DayInputPrepareNode {
             return List.of(city + " 周边城市", city + " 自驾路线");
         }
         return List.of(city + " 周边游", city + " 古镇", city + " 自然景区");
+    }
+
+    private List<String> nightKeywords(String city, DayContext dayContext) {
+        String targetArea = dayContext.skeleton().targetArea();
+        List<String> keywords = new ArrayList<>();
+        if (targetArea != null && !targetArea.isBlank()) {
+            keywords.add(city + " " + targetArea + " 夜游");
+            keywords.add(city + " " + targetArea + " 夜景");
+        }
+        keywords.add(city + " 夜游");
+        keywords.add(city + " 夜景");
+        keywords.add(city + " 夜市");
+        return keywords.stream().distinct().limit(4).toList();
     }
 
     private String foodKeyword(DayContext dayContext) {

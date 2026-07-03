@@ -22,6 +22,7 @@ public class DayGenerateInput {
     private String weatherForecast;
     private String hotelSearchResult;
     private List<TripPlanDTO.DailyPlan> previousDailyPlans;
+    private TripPlanDTO.DailyPlan previousTargetDailyPlan;
     private Integer targetDayNo;
     private String revisionText;
 }

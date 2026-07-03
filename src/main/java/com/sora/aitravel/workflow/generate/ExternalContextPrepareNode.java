@@ -9,9 +9,12 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.sora.aitravel.dto.model.TravelRequirementDTO;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -22,6 +25,16 @@ public class ExternalContextPrepareNode {
             "https://geocoding-api.open-meteo.com/v1/search";
     private static final String OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
     private static final Map<Integer, String> WEATHER_CODES = weatherCodes();
+    private static final Map<String, WeatherCacheEntry> WEATHER_CACHE = new ConcurrentHashMap<>();
+
+    @Value("${app.weather.cache-ttl:6h}")
+    private Duration weatherCacheTtl;
+
+    @Value("${app.weather.geo-timeout-ms:2500}")
+    private int geoTimeoutMs;
+
+    @Value("${app.weather.forecast-timeout-ms:3000}")
+    private int forecastTimeoutMs;
 
     public Map<String, Object> execute(OverAllState state) {
         TravelRequirementDTO requirement =
@@ -36,8 +49,14 @@ public class ExternalContextPrepareNode {
             return null;
         }
         try {
+            WeatherCacheEntry cached = WEATHER_CACHE.get(destination);
+            if (cached != null && !cached.expired(weatherCacheTtl)) {
+                log.info("节点[external-context-prepare]：天气缓存命中，destination={}", destination);
+                return cached.data();
+            }
             log.info("节点[external-context-prepare]：查询 {} 天气", destination);
             String data = queryWeather(destination);
+            WEATHER_CACHE.put(destination, new WeatherCacheEntry(data, System.currentTimeMillis()));
             log.info("节点[external-context-prepare]：天气获取成功，长度={}", data.length());
             return data;
         } catch (Exception e) {
@@ -65,7 +84,7 @@ public class ExternalContextPrepareNode {
                                 .form("language", "zh")
                                 .form("format", "json")
                                 .header("Accept-Encoding", "identity")
-                                .timeout(8000)
+                                .timeout(geoTimeoutMs)
                                 .execute()
                                 .body());
         JSONArray results = geo.getJSONArray("results");
@@ -86,7 +105,7 @@ public class ExternalContextPrepareNode {
                         .form("timezone", "auto")
                         .form("forecast_days", 7)
                         .header("Accept-Encoding", "identity")
-                        .timeout(10000)
+                        .timeout(forecastTimeoutMs)
                         .execute()
                         .body();
         JSONObject forecast = JSONUtil.parseObj(response);
@@ -153,5 +172,12 @@ public class ExternalContextPrepareNode {
         codes.put(80, "阵雨");
         codes.put(95, "雷暴");
         return Map.copyOf(codes);
+    }
+
+    private record WeatherCacheEntry(String data, long createdAtMs) {
+        private boolean expired(Duration ttl) {
+            Duration safeTtl = ttl == null || ttl.isNegative() || ttl.isZero() ? Duration.ofHours(6) : ttl;
+            return System.currentTimeMillis() - createdAtMs > safeTtl.toMillis();
+        }
     }
 }

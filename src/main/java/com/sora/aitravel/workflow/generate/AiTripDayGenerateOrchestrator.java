@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AiTripDayGenerateOrchestrator {
 
+    private static final int MAX_WORKFLOW_ATTEMPTS = 3;
     private static final TypeReference<List<DaySkeleton>> DAY_SKELETON_LIST =
             new TypeReference<>() {};
 
@@ -64,6 +65,10 @@ public class AiTripDayGenerateOrchestrator {
         // 1. 校验会话状态：必须为已准备（PREPARED）状态才能生成行程
         AiTripGenerationSession session = requirePreparedSession(sessionId);
         AiTripDayGeneration latest = dayGenerationService.getLatest(sessionId, dayNo);
+        TripPlanDTO.DailyPlan previousTargetPlan =
+                forceRegenerate && latest != null && latest.getResultJson() != null
+                        ? readGeneratedDay(latest)
+                        : null;
 
         // 2. 快速返回：已生成完成且非强制重新生成 → 直接返回已有结果
         if (!forceRegenerate && latest != null && "GENERATED".equals(latest.getStatus())) {
@@ -106,11 +111,15 @@ public class AiTripDayGenerateOrchestrator {
         try {
             timed("day-mark-generating", () -> dayGenerationService.markGenerating(day.getId()));
             DayGenerateInput input = timed("restore-input", () -> restoreInput(session, dayNo));
-            input.setRevisionText(normalizeRevisionText(revisionText));
+            input.setPreviousTargetDailyPlan(previousTargetPlan);
+            String effectiveRevisionText =
+                    effectiveRevisionText(revisionText, forceRegenerate, previousTargetPlan, day);
             DayGenerateResult result =
                     timed(
                             "trip-day-generate-workflow",
-                            () -> tripDayGenerateWorkflow.execute(input));
+                            () ->
+                                    executeWorkflowWithRetry(
+                                            input, effectiveRevisionText, sessionId, dayNo));
             TripPlanDTO.DailyPlan generatedPlan = result.getDailyPlan();
             // 填充附近酒店数据（所有天数均执行，确保持久化结果包含酒店信息）
             try {
@@ -182,6 +191,108 @@ public class AiTripDayGenerateOrchestrator {
         return text.length() > 500 ? text.substring(0, 500) : text;
     }
 
+    private String effectiveRevisionText(
+            String revisionText,
+            boolean forceRegenerate,
+            TripPlanDTO.DailyPlan previousTargetPlan,
+            AiTripDayGeneration day) {
+        String normalizedRevision = normalizeRevisionText(revisionText);
+        if (!forceRegenerate || normalizedRevision != null) {
+            return normalizedRevision;
+        }
+        String previousSpotNames = previousSpotNames(previousTargetPlan);
+        String rerollRevision =
+                "强制重新生成本日行程：不要直接复用上一版景点组合、顺序和时间线；"
+                        + "上一版景点="
+                        + previousSpotNames
+                        + "；请优先替换 1-2 个景点，重新评估游览顺序，并保留午餐、晚餐和晚餐后的夜游节点；"
+                        + "reroll="
+                        + day.getGenerationVersion()
+                        + "-"
+                        + System.currentTimeMillis();
+        String normalizedReroll = normalizeRevisionText(rerollRevision);
+        log.info(
+                "强制重新生成加入 reroll 指令，sessionId={} day={} revision={}",
+                day.getSessionId(),
+                day.getDayNo(),
+                normalizedReroll);
+        return normalizedReroll;
+    }
+
+    private String previousSpotNames(TripPlanDTO.DailyPlan previousTargetPlan) {
+        if (previousTargetPlan == null
+                || previousTargetPlan.getSpots() == null
+                || previousTargetPlan.getSpots().isEmpty()) {
+            return "无";
+        }
+        List<String> names =
+                previousTargetPlan.getSpots().stream()
+                        .map(TripPlanDTO.Spot::getName)
+                        .filter(name -> name != null && !name.isBlank())
+                        .distinct()
+                        .limit(6)
+                        .toList();
+        return names.isEmpty() ? "无" : String.join("、", names);
+    }
+
+    private DayGenerateResult executeWorkflowWithRetry(
+            DayGenerateInput input, String revisionText, String sessionId, Integer dayNo) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= MAX_WORKFLOW_ATTEMPTS; attempt++) {
+            input.setRevisionText(retryRevisionText(revisionText, attempt, lastException));
+            try {
+                if (attempt > 1) {
+                    log.warn(
+                            "单日行程生成触发后端重试，sessionId={} day={} attempt={} revision={}",
+                            sessionId,
+                            dayNo,
+                            attempt,
+                            input.getRevisionText());
+                }
+                return tripDayGenerateWorkflow.execute(input);
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                if (!shouldRetryWorkflow(exception) || attempt >= MAX_WORKFLOW_ATTEMPTS) {
+                    throw exception;
+                }
+            }
+        }
+        throw lastException == null
+                ? new BusinessException(ErrorCode.AI_GENERATE_ERROR, "单日行程生成失败")
+                : lastException;
+    }
+
+    private boolean shouldRetryWorkflow(RuntimeException exception) {
+        if (!(exception instanceof BusinessException businessException)
+                || businessException.getErrorCode() != ErrorCode.AI_GENERATE_ERROR) {
+            return false;
+        }
+        String message = businessException.getMessage() == null ? "" : businessException.getMessage();
+        return message.contains("行程数据不完整")
+                || message.contains("每天应安排 2-4 个景点")
+                || message.contains("景点疑似景区内部设施")
+                || message.contains("当天景点点位过近")
+                || message.contains("景点缺少经纬度")
+                || message.contains("路线段数量与景点数量不匹配")
+                || message.contains("当天路线总距离过长")
+                || message.contains("当天存在过长单段路线");
+    }
+
+    private String retryRevisionText(
+            String originalRevision, int attempt, RuntimeException lastException) {
+        String base = originalRevision == null || originalRevision.isBlank() ? "" : originalRevision + " ";
+        if (attempt <= 1) {
+            return originalRevision;
+        }
+        String reason = lastException == null || lastException.getMessage() == null ? "" : lastException.getMessage();
+        String retryHint =
+                "后端重试要求：上一版不合格，必须重新选择 2-4 个真实可游览景点；"
+                        + "禁止选择管理局、管委会、管理处、游客中心、停车场、售票处、厕所、办公室、监控室等内部设施；"
+                        + "同一天景点不要贴在同一景区内部，优先从同城或周边真实热门景点补足。"
+                        + (reason.isBlank() ? "" : " 上次失败原因：" + reason);
+        return normalizeRevisionText(base + retryHint);
+    }
+
     private AiTripGenerationSession requirePreparedSession(String sessionId) {
         AiTripGenerationSession session = sessionService.getBySessionId(sessionId);
         if (session == null) {
@@ -210,6 +321,7 @@ public class AiTripDayGenerateOrchestrator {
                 session.getWeatherJson(),
                 session.getHotelJson(),
                 readGeneratedPreviousDays(session.getSessionId(), dayNo),
+                null,
                 dayNo,
                 null);
     }

@@ -15,6 +15,7 @@ import com.sora.aitravel.dto.model.TravelRequirementDTO;
 import com.sora.aitravel.dto.model.TripPlanDTO;
 import com.sora.aitravel.model.DayDataPackage;
 import com.sora.aitravel.model.DayPlanValidationReport;
+import com.sora.aitravel.service.route.GeoRouteCalculator;
 import com.sora.aitravel.service.impl.PoiIdentityServiceImpl;
 import com.sora.aitravel.service.impl.RouteShapeValidatorImpl;
 import java.util.ArrayList;
@@ -31,6 +32,19 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class DayPlanValidateNode {
+    private static final double MIN_SAME_DAY_SPOT_DISTANCE_KM = 1.2;
+    private static final String TYPE_LUNCH_AREA = "LUNCH_AREA";
+    private static final String TYPE_DINNER_AREA = "DINNER_AREA";
+    private static final Set<String> UTILITY_TIMELINE_TYPES =
+            Set.of(
+                    "DAY_START",
+                    "TRANSFER",
+                    "RENTAL_PICKUP",
+                    "CAR_RETURN_SERVICE",
+                    TYPE_LUNCH_AREA,
+                    TYPE_DINNER_AREA,
+                    "STAY_AREA");
+
     private final RouteShapeValidatorImpl routeShapeValidator;
     private final PoiIdentityServiceImpl poiIdentityService;
 
@@ -96,15 +110,7 @@ public class DayPlanValidateNode {
     }
 
     private boolean isBlockingFailure(DayPlanValidationReport report) {
-        return report.getWarnings().stream()
-                .anyMatch(
-                        warning ->
-                                !warning.startsWith("每天应安排 2-4 个景点")
-                                        && !warning.startsWith("景点在多天行程中重复")
-                                        && !warning.startsWith("景点不在候选 POI 中")
-                                        && !warning.startsWith("景点缺少经纬度")
-                                        && !warning.startsWith("租车行程存在非自驾路线段")
-                                        && !warning.startsWith("当天路线存在明显折返"));
+        return report.getWarnings() != null && !report.getWarnings().isEmpty();
     }
 
     private List<String> validateDay(
@@ -152,7 +158,12 @@ public class DayPlanValidateNode {
             if (!normalizedName.isBlank() && !usedSpotNames.add(normalizedName)) {
                 warnings.add("景点在多天行程中重复：" + spot.getName());
             }
+            if (isInternalFacility(spot.getName())) {
+                warnings.add("景点疑似景区内部设施：" + spot.getName());
+            }
         }
+        warnings.addAll(validateSpotSpacing(spots));
+        warnings.addAll(validateTimelineOrder(dailyPlan, spots));
         if (rentalEnabled && dailyPlan.getRouteLegs() != null) {
             boolean hasNonDriving =
                     dailyPlan.getRouteLegs().stream()
@@ -167,6 +178,132 @@ public class DayPlanValidateNode {
         }
         warnings.addAll(routeShapeValidator.validate(dailyPlan, rentalEnabled));
         return warnings;
+    }
+
+    private List<String> validateTimelineOrder(
+            TripPlanDTO.DailyPlan dailyPlan, List<TripPlanDTO.Spot> spots) {
+        List<String> warnings = new ArrayList<>();
+        List<TripPlanDTO.TimelineNode> timeline =
+                dailyPlan.getTimeline() == null ? List.of() : dailyPlan.getTimeline();
+        if (timeline.isEmpty()) {
+            warnings.add("时间线为空");
+            return warnings;
+        }
+        int previousStart = -1;
+        for (TripPlanDTO.TimelineNode node : timeline) {
+            int start = parseTime(node.getStartTime());
+            if (start < 0) {
+                warnings.add("时间线节点缺少有效时间：" + node.getTitle());
+                continue;
+            }
+            if (previousStart > start) {
+                warnings.add("时间线顺序错误：" + node.getTitle());
+            }
+            previousStart = Math.max(previousStart, start);
+        }
+
+        long scenicTimelineCount =
+                timeline.stream().filter(node -> !isUtilityTimelineType(node.getType())).count();
+        if (scenicTimelineCount < spots.size()) {
+            warnings.add("时间线景点数量少于当天景点数量");
+        }
+
+        int lunchIndex = firstTimelineIndex(timeline, TYPE_LUNCH_AREA);
+        int dinnerIndex = firstTimelineIndex(timeline, TYPE_DINNER_AREA);
+        if (lunchIndex >= 0 && dinnerIndex >= 0) {
+            if (dinnerIndex <= lunchIndex) {
+                warnings.add("午餐和晚餐顺序错误");
+            } else if (spots.size() >= 3
+                    && timeline.subList(lunchIndex + 1, dinnerIndex).stream()
+                            .noneMatch(node -> !isUtilityTimelineType(node.getType()))) {
+                warnings.add("午餐和晚餐之间缺少游览节点");
+            }
+        }
+        return warnings;
+    }
+
+    private boolean isUtilityTimelineType(String type) {
+        return type != null && UTILITY_TIMELINE_TYPES.contains(type);
+    }
+
+    private int firstTimelineIndex(List<TripPlanDTO.TimelineNode> timeline, String type) {
+        for (int index = 0; index < timeline.size(); index++) {
+            if (type.equals(timeline.get(index).getType())) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private int parseTime(String time) {
+        if (time == null || !time.matches("\\d{2}:\\d{2}")) {
+            return -1;
+        }
+        String[] parts = time.split(":");
+        return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
+    }
+
+    private List<String> validateSpotSpacing(List<TripPlanDTO.Spot> spots) {
+        List<String> warnings = new ArrayList<>();
+        for (int i = 0; i < spots.size(); i++) {
+            for (int j = i + 1; j < spots.size(); j++) {
+                TripPlanDTO.Spot first = spots.get(i);
+                TripPlanDTO.Spot second = spots.get(j);
+                if (first.getLng() == null
+                        || first.getLat() == null
+                        || second.getLng() == null
+                        || second.getLat() == null) {
+                    continue;
+                }
+                double distanceKm =
+                        GeoRouteCalculator.distanceKm(
+                                first.getLng().doubleValue(),
+                                first.getLat().doubleValue(),
+                                second.getLng().doubleValue(),
+                                second.getLat().doubleValue());
+                if (distanceKm < MIN_SAME_DAY_SPOT_DISTANCE_KM) {
+                    warnings.add(
+                            "当天景点点位过近："
+                                    + first.getName()
+                                    + " / "
+                                    + second.getName()
+                                    + "，约 "
+                                    + String.format("%.1f", distanceKm)
+                                    + " km");
+                }
+            }
+        }
+        return warnings;
+    }
+
+    private boolean isInternalFacility(String name) {
+        String text = name == null ? "" : name;
+        return containsAny(
+                text,
+                "监控室",
+                "值班室",
+                "办公室",
+                "警务室",
+                "派出所",
+                "管理房",
+                "工作站",
+                "收费站",
+                "管理处",
+                "管理局",
+                "管委会",
+                "综合执法",
+                "指挥部",
+                "执勤点",
+                "检查站");
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasSimilarAllowedName(String spotName, Set<String> allowedNames) {

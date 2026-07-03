@@ -41,7 +41,6 @@ public class TravelKnowledgeServiceImpl implements TravelKnowledgeService {
             return List.of();
         }
         Map<Long, TravelCity> cities = cityMap(rows.cities());
-        Map<Long, TravelArea> areas = areaMap(rows.areas());
         return rows.spots().stream()
                 .sorted(
                         Comparator.comparing(
@@ -53,12 +52,7 @@ public class TravelKnowledgeServiceImpl implements TravelKnowledgeService {
                                 .thenComparing(
                                         TravelSpot::getPopularityScore,
                                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(
-                        spot ->
-                                toCandidate(
-                                        spot,
-                                        cities.get(spot.getCityId()),
-                                        areas.get(spot.getAreaId())))
+                .map(spot -> toCandidate(spot, cities.get(spot.getCityId())))
                 .toList();
     }
 
@@ -238,25 +232,27 @@ public class TravelKnowledgeServiceImpl implements TravelKnowledgeService {
         travelSpotMapper.insert(spot);
     }
 
-    private PoiCandidate toCandidate(TravelSpot spot, TravelCity city, TravelArea area) {
+    private PoiCandidate toCandidate(TravelSpot spot, TravelCity city) {
         List<String> tags = parseStringList(spot.getTagsJson());
+        String cityName = city == null ? null : city.getCityName();
+        String fallbackArea = cityName == null ? "热门景点" : cityName + "热门景点";
         return new PoiCandidate(
                 "SCENIC",
                 spot.getSpotName(),
                 spot.getAddress(),
-                area == null ? null : area.getAreaName(),
-                city == null ? null : city.getCityName(),
+                fallbackArea,
+                cityName,
                 location(spot.getLng(), spot.getLat()),
                 "TRAVEL_SPOT",
                 String.valueOf(spot.getId()),
                 candidateReason(spot),
                 null,
                 spot.getSpotType(),
-                area == null ? null : String.valueOf(area.getId()),
+                null,
                 spot.getOpenTimeText(),
                 null,
                 null,
-                area == null ? null : area.getAreaName(),
+                fallbackArea,
                 tags,
                 null,
                 List.of());
@@ -290,6 +286,7 @@ public class TravelKnowledgeServiceImpl implements TravelKnowledgeService {
                 && "SCENIC".equals(candidate.getCategory())
                 && candidate.getName() != null
                 && !candidate.getName().isBlank()
+                && !isNicheVehicleMuseum(candidate)
                 && candidate.getLocation() != null
                 && !candidate.getLocation().isBlank()
                 && candidate.getSourcePoiId() != null
@@ -396,6 +393,18 @@ public class TravelKnowledgeServiceImpl implements TravelKnowledgeService {
                 || contains(candidate.getName(), "街");
     }
 
+    private boolean isNicheVehicleMuseum(PoiCandidate candidate) {
+        String text =
+                (candidate.getName() == null ? "" : candidate.getName())
+                        + " "
+                        + String.join(
+                                " ",
+                                candidate.getBusinessTags() == null
+                                        ? List.of()
+                                        : candidate.getBusinessTags());
+        return text.contains("博物馆") && containsAny(text, "老爷车", "汽车", "车文化", "摩托车", "房车");
+    }
+
     private boolean hasTag(PoiCandidate candidate, String tag) {
         return candidate.getBusinessTags() != null
                 && candidate.getBusinessTags().stream().anyMatch(item -> item.contains(tag));
@@ -403,6 +412,18 @@ public class TravelKnowledgeServiceImpl implements TravelKnowledgeService {
 
     private boolean contains(String value, String keyword) {
         return value != null && value.contains(keyword);
+    }
+
+    private boolean containsAny(String value, String... keywords) {
+        if (value == null) {
+            return false;
+        }
+        for (String keyword : keywords) {
+            if (value.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private BigDecimal[] parseLocation(PoiCandidate candidate) {

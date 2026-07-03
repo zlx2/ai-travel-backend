@@ -20,10 +20,12 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /** 准备单日候选数据。 */
@@ -34,10 +36,16 @@ public class DayCandidatePrepareNode {
 
     private static final int MAX_DAY_CANDIDATES = 50;
     private static final int MAX_RANKED_CANDIDATES = 40;
+    private static final int MAX_CURATED_FALLBACK_NORMAL = 4;
+    private static final int MAX_CURATED_FALLBACK_LOW_PRIMARY = 6;
+    private static final int MAX_CURATED_FALLBACK_EMPTY_PRIMARY = 10;
     private static final String POI_SHOW_FIELDS = "business,navi,photos";
 
     private final AmapPoiCacheService amapPoiCacheService;
     private final PoiIdentityServiceImpl poiIdentityService;
+
+    @Value("${app.amap.day-query-parallelism:6}")
+    private int dayQueryParallelism;
 
     public Map<String, Object> execute(OverAllState state) {
         Map<String, Object> patch = new LinkedHashMap<>();
@@ -64,15 +72,15 @@ public class DayCandidatePrepareNode {
             List<List<PoiCandidate>> scenicBatches = new ArrayList<>();
             List<PoiCandidate> night = new ArrayList<>();
             List<PoiCandidate> food = new ArrayList<>();
-            for (QueryItem query : plan.queries()) {
-                if ("SCENIC".equals(query.getType())
-                        || "AI_SCENIC".equals(query.getType())
-                        || "SELF_DRIVE".equals(query.getType())) {
-                    scenicBatches.add(search(query, "SCENIC"));
+            List<QuerySearchResult> searchResults = searchQueries(plan);
+            for (QuerySearchResult searchResult : searchResults) {
+                QueryItem query = searchResult.query();
+                if (isScenicQuery(query)) {
+                    scenicBatches.add(searchResult.candidates());
                 } else if ("NIGHT".equals(query.getType())) {
-                    night.addAll(search(query, "NIGHT"));
+                    night.addAll(searchResult.candidates());
                 } else if ("FOOD".equals(query.getType())) {
-                    food.addAll(search(query, "FOOD"));
+                    food.addAll(searchResult.candidates());
                 }
             }
             List<PoiCandidate> scenic = new ArrayList<>();
@@ -82,7 +90,8 @@ public class DayCandidatePrepareNode {
             packages.add(
                     new DayDataPackage(
                             plan.getDay(),
-                            merge(scenic, cityCandidates(cityProfile.scenicCandidates(), dayCity)),
+                            mergeScenicCandidates(
+                                    scenic, cityCandidates(cityProfile.scenicCandidates(), dayCity)),
                             merge(cityCandidates(cityProfile.foodCandidates(), dayCity), food),
                             cityCandidates(cityProfile.hotelCandidates(), dayCity),
                             List.of()));
@@ -92,6 +101,61 @@ public class DayCandidatePrepareNode {
                 packages.size(),
                 packages.stream().map(item -> item.scenicCandidates().size()).toList());
         return packages;
+    }
+
+    private List<QuerySearchResult> searchQueries(DayQueryPlan plan) {
+        if (plan.queries() == null || plan.queries().isEmpty()) {
+            return List.of();
+        }
+        long start = System.currentTimeMillis();
+        Semaphore semaphore = new Semaphore(Math.max(1, dayQueryParallelism));
+        List<QuerySearchResult> results =
+                plan.queries().parallelStream()
+                        .map(
+                                query ->
+                                        new QuerySearchResult(
+                                                query, searchWithLimit(query, categoryFor(query), semaphore)))
+                        .toList();
+        log.info(
+                "节点[day-candidate-prepare]：第{}天 POI 并发查询完成，queryCount={}, parallelism={}, elapsedMs={}, resultCounts={}",
+                plan.getDay(),
+                plan.queries().size(),
+                Math.max(1, dayQueryParallelism),
+                System.currentTimeMillis() - start,
+                results.stream()
+                        .map(
+                                result ->
+                                        result.query().getType()
+                                                + ":"
+                                                + result.query().getKeyword()
+                                                + "="
+                                                + result.candidates().size())
+                        .toList());
+        return results;
+    }
+
+    private List<PoiCandidate> searchWithLimit(QueryItem query, String category, Semaphore semaphore) {
+        if (!isSearchableQuery(query)) {
+            return List.of();
+        }
+        boolean acquired = false;
+        try {
+            semaphore.acquire();
+            acquired = true;
+            return search(query, category);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            log.warn(
+                    "节点[day-candidate-prepare]：高德查询限流等待被中断，type={}, city={}, keyword={}",
+                    query.getType(),
+                    query.getCity(),
+                    query.getKeyword());
+            return List.of();
+        } finally {
+            if (acquired) {
+                semaphore.release();
+            }
+        }
     }
 
     private List<DayDataPackage> rankPackages(
@@ -140,6 +204,7 @@ public class DayCandidatePrepareNode {
     }
 
     private List<PoiCandidate> search(QueryItem query, String category) {
+        long start = System.currentTimeMillis();
         try {
             List<Poi> pois =
                     amapPoiCacheService.searchText(
@@ -151,7 +216,8 @@ public class DayCandidatePrepareNode {
                             1,
                             POI_SHOW_FIELDS,
                             category);
-            return pois.stream()
+            List<PoiCandidate> candidates =
+                    pois.stream()
                     .filter(poi -> matchesKeywordName(query, poi))
                     .filter(
                             poi ->
@@ -161,13 +227,55 @@ public class DayCandidatePrepareNode {
                     .filter(poi -> isUsefulPoi(poi, category))
                     .map(poi -> toCandidate(category, poi))
                     .toList();
+            log.info(
+                    "节点[day-candidate-prepare]：高德候选过滤完成，type={}, category={}, city={}, keyword={}, rawCount={}, validCount={}, elapsedMs={}",
+                    query.getType(),
+                    category,
+                    query.getCity(),
+                    query.getKeyword(),
+                    pois.size(),
+                    candidates.size(),
+                    System.currentTimeMillis() - start);
+            return candidates;
         } catch (RuntimeException exception) {
             log.warn(
-                    "节点[day-candidate-prepare]：高德查询失败，dayKeyword={}, reason={}",
+                    "节点[day-candidate-prepare]：高德查询失败，type={}, city={}, keyword={}, elapsedMs={}, reason={}",
+                    query.getType(),
+                    query.getCity(),
                     query.getKeyword(),
+                    System.currentTimeMillis() - start,
                     exception.getMessage());
             return List.of();
         }
+    }
+
+    private String categoryFor(QueryItem query) {
+        if (query == null) {
+            return "SCENIC";
+        }
+        if ("NIGHT".equals(query.getType())) {
+            return "NIGHT";
+        }
+        if ("FOOD".equals(query.getType())) {
+            return "FOOD";
+        }
+        return "SCENIC";
+    }
+
+    private boolean isScenicQuery(QueryItem query) {
+        return "SCENIC".equals(query.getType())
+                || "AI_SCENIC".equals(query.getType())
+                || "SELF_DRIVE".equals(query.getType());
+    }
+
+    private boolean isSearchableQuery(QueryItem query) {
+        if (query == null) {
+            return false;
+        }
+        if ("TRANSPORT".equals(query.getType())) {
+            return false;
+        }
+        return query.getKeyword() != null && !query.getKeyword().isBlank();
     }
 
     private List<PoiCandidate> merge(List<PoiCandidate> primary, List<PoiCandidate> fallback) {
@@ -179,6 +287,41 @@ public class DayCandidatePrepareNode {
             merged.putIfAbsent(dedupKey(candidate), candidate);
         }
         return merged.values().stream().limit(MAX_DAY_CANDIDATES).toList();
+    }
+
+    private List<PoiCandidate> mergeScenicCandidates(
+            List<PoiCandidate> primary, List<PoiCandidate> curatedFallback) {
+        Map<String, PoiCandidate> merged = new LinkedHashMap<>();
+        if (primary != null) {
+            for (PoiCandidate candidate : primary) {
+                merged.putIfAbsent(dedupKey(candidate), candidate);
+            }
+        }
+        int fallbackLimit = curatedFallbackLimit(merged.size());
+        int fallbackCount = 0;
+        if (curatedFallback != null) {
+            for (PoiCandidate candidate : curatedFallback) {
+                if (fallbackCount >= fallbackLimit || merged.size() >= MAX_DAY_CANDIDATES) {
+                    break;
+                }
+                String key = dedupKey(candidate);
+                if (!merged.containsKey(key)) {
+                    merged.put(key, candidate);
+                    fallbackCount++;
+                }
+            }
+        }
+        return merged.values().stream().limit(MAX_DAY_CANDIDATES).toList();
+    }
+
+    private int curatedFallbackLimit(int primaryCount) {
+        if (primaryCount <= 0) {
+            return MAX_CURATED_FALLBACK_EMPTY_PRIMARY;
+        }
+        if (primaryCount < 12) {
+            return MAX_CURATED_FALLBACK_LOW_PRIMARY;
+        }
+        return MAX_CURATED_FALLBACK_NORMAL;
     }
 
     private List<PoiCandidate> cityCandidates(List<PoiCandidate> candidates, String city) {
@@ -292,8 +435,9 @@ public class DayCandidatePrepareNode {
     private boolean isBadPoi(String name, String type) {
         String text = (name == null ? "" : name) + " " + (type == null ? "" : type);
         return containsAny(
-                text, "停车场", "停车", "游客中心", "服务中心", "咨询中心", "管理处", "售票", "票务", "入口", "出口", "出入口",
-                "卫生间", "公共厕所", "厕所", "洗手间", "公交站", "地铁站", "加油站", "充电站", "公共设施", "生活服务", "道路附属设施");
+                text, "停车场", "停车", "游客中心", "服务中心", "咨询中心", "管理处", "管理局", "管委会", "综合执法", "售票", "票务", "入口", "出口", "出入口",
+                "卫生间", "公共厕所", "厕所", "洗手间", "公交站", "地铁站", "加油站", "充电站", "公共设施", "生活服务", "道路附属设施",
+                "监控室", "值班室", "办公室", "警务室", "派出所", "管理房", "工作站", "收费站", "指挥部", "执勤点", "检查站");
     }
 
     private boolean containsAny(String text, String... keywords) {
@@ -380,4 +524,6 @@ public class DayCandidatePrepareNode {
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
     }
+
+    private record QuerySearchResult(QueryItem query, List<PoiCandidate> candidates) {}
 }

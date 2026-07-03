@@ -40,24 +40,8 @@ public class MacroRoutePrepareNode {
     private static final String POI_SHOW_FIELDS = "business,navi,photos";
     private static final String AI_MACRO_ROUTE_PROMPT =
             """
-            你是自驾旅行路线规划助手。请根据用户需求规划每天的路线方向和主锚点，后端会用高德 POI 校验这些地点。
-
-            目的地：%s
-            天数：%d
-            用户偏好：%s
-            到达/取车点：%s
-            已选租车：%s
-
-            要求：
-            1. 每天给 1 个 mainPlace 作为当天主锚点，必须是真实可搜索的景区、街区、公园、博物馆、古镇、城市片区；
-            2. 每天再给 2-4 个 anchorPlaces，供后续景点查询参考；
-            3. 不要使用数据库片区名，不要写“核心城区、热门游览区域、城市漫游”这类泛词；
-            4. Day 1 考虑到达点和接车，安排轻量且顺路；后续天按方向推进，避免折回到已离开的方向；
-            5. 同一天不要把同一景区内部小点拆成多个锚点；
-            6. 不要推荐停车场、入口、游客中心、公共厕所、服务中心、商场、酒店、餐厅；
-            7. 只返回 JSON 对象，不要 Markdown。
-
-            JSON 格式：
+            规划 %s %d 天游的每日主锚点。偏好=%s；到达/取车=%s；租车=%s。
+            规则：每天 1 个 mainPlace，2-4 个 anchorPlaces；都必须是真实可搜景区/街区/公园/博物馆/古镇/片区；不要泛词和附属设施；Day1 顺路轻量，后续按方向推进不折返。只返回 JSON：
             {
               "days": [
                 {

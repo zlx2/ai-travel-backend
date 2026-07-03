@@ -6,6 +6,7 @@ import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.DAY_VALIDAT
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.HOTEL_SEARCH_RESULT;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.LOCKED_DAILY_PLANS;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.PREVIOUS_DAILY_PLANS;
+import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.PREVIOUS_TARGET_DAILY_PLAN;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.RENTAL_TRIP_CONTEXT;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.REQUIREMENT;
 import static com.sora.aitravel.workflow.generate.TripGraphStateKeys.REVISION_TEXT;
@@ -61,6 +62,7 @@ public class TripDayGenerateWorkflow {
                         HOTEL_SEARCH_RESULT, input.getHotelSearchResult(),
                         LOCKED_DAILY_PLANS, input.getPreviousDailyPlans(),
                         PREVIOUS_DAILY_PLANS, input.getPreviousDailyPlans(),
+                        PREVIOUS_TARGET_DAILY_PLAN, input.getPreviousTargetDailyPlan(),
                         TARGET_DAY_NO, input.getTargetDayNo(),
                         REVISION_TEXT, input.getRevisionText(),
                         SINGLE_DAY_GENERATION, true);
