@@ -27,6 +27,10 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+/**
+ * AI行程应用服务
+ * 提供AI行程分析、生成、会话管理等核心业务功能
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,6 +46,14 @@ public class AiTripApplicationService {
     private final JsonCodec jsonCodec;
     private final NearbyHotelService nearbyHotelService;
 
+    /**
+     * 分析用户旅行需求
+     * 将用户输入的自然语言或表单信息转换为结构化的旅行需求
+     *
+     * @param userId  用户ID
+     * @param request 行程分析请求
+     * @return 行程分析响应
+     */
     public TripAnalyzeResponse analyze(Long userId, TripAnalyzeRequest request) {
         AnalyzeWorkflowContext context = new AnalyzeWorkflowContext();
         context.setUserId(userId);
@@ -49,10 +61,26 @@ public class AiTripApplicationService {
         return tripAnalyzeWorkflow.execute(context).getResult();
     }
 
+    /**
+     * 生成AI行程
+     * 创建会话、生成第1天行程，并异步预生成下一天
+     *
+     * @param userId  用户ID
+     * @param request 行程生成请求
+     * @return 行程生成响应
+     */
     public TripGenerateResponse generate(Long userId, TripGenerateRequest request) {
         return generateFirstDayAndPrefetchNext(userId, request);
     }
 
+    /**
+     * 准备行程生成会话
+     * 只执行准备阶段，不生成任何一天行程
+     *
+     * @param userId  用户ID
+     * @param request 行程生成请求
+     * @return 会话准备响应
+     */
     public TripGenerateSessionResponse prepareSession(Long userId, TripGenerateRequest request) {
         AiTripGenerationSession session =
                 aiTripGenerationOrchestrator.prepareSession(userId, request);
@@ -63,6 +91,17 @@ public class AiTripApplicationService {
                 session.getErrorMessage());
     }
 
+    /**
+     * 生成指定天数的行程
+     *
+     * @param sessionId      会话ID
+     * @param dayNo          天数
+     * @param requestMode    请求模式
+     * @param forceRegenerate 是否强制重新生成
+     * @param prefetchNext   是否预取下一天
+     * @param revisionText   修改要求
+     * @return 单日行程生成响应
+     */
     public TripGenerateDayResponse generateDay(
             String sessionId,
             Integer dayNo,
@@ -86,6 +125,13 @@ public class AiTripApplicationService {
                 day.getErrorMessage());
     }
 
+    /**
+     * 异步预取下一天行程
+     * 通过RabbitMQ投递下一天生成消息
+     *
+     * @param sessionId 会话ID
+     * @param dayNo     当前天数
+     */
     private void enqueueNextDay(String sessionId, Integer dayNo) {
         try {
             AiTripGenerationSession session =
@@ -121,6 +167,14 @@ public class AiTripApplicationService {
         }
     }
 
+    /**
+     * 流式生成AI行程
+     * 使用SSE推送生成进度，提升用户体验
+     *
+     * @param userId  用户ID
+     * @param request 行程生成请求
+     * @return SSE发射器
+     */
     public SseEmitter generateStream(Long userId, TripGenerateRequest request) {
         SseEmitter emitter = new SseEmitter(300_000L);
         CompletableFuture.runAsync(
@@ -246,6 +300,13 @@ public class AiTripApplicationService {
         return emitter;
     }
 
+    /**
+     * 生成第1天并预取下一天
+     *
+     * @param userId  用户ID
+     * @param request 行程生成请求
+     * @return 行程生成响应
+     */
     private TripGenerateResponse generateFirstDayAndPrefetchNext(
             Long userId, TripGenerateRequest request) {
         AiTripGenerationSession session =
@@ -258,6 +319,14 @@ public class AiTripApplicationService {
         return buildGenerateResponse(session, day, request.getSelectedQuote());
     }
 
+    /**
+     * 构建行程生成响应
+     *
+     * @param session       生成会话
+     * @param day           单日生成结果
+     * @param selectedQuote 用户选中的租车报价
+     * @return 行程生成响应
+     */
     private TripGenerateResponse buildGenerateResponse(
             AiTripGenerationSession session,
             AiTripDayGeneration day,
@@ -300,6 +369,14 @@ public class AiTripApplicationService {
         }
     }
 
+    /**
+     * 规范化单日行程结果JSON
+     * 为旧结果补充时间线信息
+     *
+     * @param sessionId 会话ID
+     * @param day       单日生成结果
+     * @return 规范化后的JSON字符串
+     */
     private String normalizeDayResultJson(String sessionId, AiTripDayGeneration day) {
         if (day == null || day.getResultJson() == null || !"GENERATED".equals(day.getStatus())) {
             return day == null ? null : day.getResultJson();
@@ -339,6 +416,15 @@ public class AiTripApplicationService {
         }
     }
 
+    /**
+     * 装配时间线
+     * 为单日行程添加时间线信息、附近酒店等
+     *
+     * @param session       生成会话
+     * @param requirement   旅行需求
+     * @param dailyPlan     单日行程
+     * @param selectedQuote 用户选中的租车报价
+     */
     private void assembleTimeline(
             AiTripGenerationSession session,
             TravelRequirementDTO requirement,
@@ -370,6 +456,13 @@ public class AiTripApplicationService {
         nearbyHotelService.enrichStayAreaNode(dailyPlan);
     }
 
+    /**
+     * 加载并丰富前几天的行程
+     *
+     * @param session     生成会话
+     * @param currentDayNo 当前天数
+     * @return 前几天的行程列表
+     */
     private List<TripPlanDTO.DailyPlan> loadAndEnrichPreviousDays(
             AiTripGenerationSession session, int currentDayNo) {
         if (currentDayNo <= 1) {
@@ -405,6 +498,13 @@ public class AiTripApplicationService {
         }
     }
 
+    /**
+     * 构建每日状态列表
+     *
+     * @param days         总天数
+     * @param generatedDay 已生成的天数
+     * @return 每日状态列表
+     */
     private List<TripGenerateDayStatusResponse> buildDayStatuses(
             Integer days, AiTripDayGeneration generatedDay) {
         if (days == null || days <= 0) {
@@ -427,6 +527,12 @@ public class AiTripApplicationService {
                 .toList();
     }
 
+    /**
+     * 计算预算摘要
+     *
+     * @param dailyPlans 每日行程列表
+     * @return 预算摘要
+     */
     private TripPlanDTO.BudgetSummary budgetSummary(List<TripPlanDTO.DailyPlan> dailyPlans) {
         int tickets = 0;
         int food = 0;
@@ -451,10 +557,22 @@ public class AiTripApplicationService {
         return summary;
     }
 
+    /**
+     * 安全获取整数值
+     *
+     * @param value 整数值（可能为null）
+     * @return 非null的整数值
+     */
     private int value(Integer value) {
         return value == null ? 0 : value;
     }
 
+    /**
+     * 获取显示用的目的地名称
+     *
+     * @param requirement 旅行需求
+     * @return 目的地名称
+     */
     private String displayDestination(TravelRequirementDTO requirement) {
         if (requirement.getDestination() != null && !requirement.getDestination().isBlank()) {
             return requirement.getDestination();
@@ -467,6 +585,18 @@ public class AiTripApplicationService {
                 : String.join("-", requirement.getRouteCities());
     }
 
+    /**
+     * 发送进度事件
+     *
+     * @param emitter  SSE发射器
+     * @param type     事件类型
+     * @param node     节点名称
+     * @param label    标签
+     * @param progress 进度百分比
+     * @param data     数据
+     * @param message  消息
+     * @return 是否发送成功
+     */
     private boolean sendProgress(
             SseEmitter emitter,
             String type,
@@ -489,6 +619,11 @@ public class AiTripApplicationService {
         }
     }
 
+    /**
+     * 发布单日行程生成消息到RabbitMQ
+     *
+     * @param message 行程生成消息
+     */
     private void publishTripDayGenerateMessage(TripDayGenerateMessage message) {
         rabbitTemplate.convertAndSend(
                 RabbitMqConfig.TRIP_DAY_GENERATE_EXCHANGE,
