@@ -27,6 +27,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 租车服务控制器
+ * 提供租车报价预览、订单创建、支付等相关接口
+ */
 @SaCheckLogin
 @Slf4j
 @RestController
@@ -37,6 +41,12 @@ public class RentalController {
     private final RentalQuoteService rentalQuoteService;
     private final AlipayPaymentService alipayPaymentService;
 
+    /**
+     * 预览租车上下文信息
+     *
+     * @param request 上下文预览请求，包含目的地、到达信息等
+     * @return 上下文预览响应
+     */
     @PostMapping("/context/preview")
     public R<RentalContextPreviewResponse> previewContext(
             @Valid @RequestBody RentalContextPreviewRequest request) {
@@ -48,6 +58,12 @@ public class RentalController {
         return R.ok(rentalQuoteService.previewContext(request));
     }
 
+    /**
+     * 预览租车报价
+     *
+     * @param request 报价预览请求，包含需求信息
+     * @return 报价预览响应
+     */
     @PostMapping("/quotes/preview")
     public R<RentalQuotePreviewResponse> preview(
             @Valid @RequestBody RentalQuotePreviewRequest request) {
@@ -59,12 +75,23 @@ public class RentalController {
         return R.ok(rentalQuoteService.preview(request.getRequirement()));
     }
 
+    /**
+     * 获取最近已订购的租车报价选项
+     *
+     * @return 最近4个租车报价选项列表
+     */
     @GetMapping("/quotes/latest-ordered")
     public R<List<RentalQuoteOptionDTO>> latestOrderedQuotes() {
         log.info("最近租车报价请求进入，userId={}", LoginUserUtils.getUserId());
         return R.ok(rentalQuoteService.latestOrderedOptions(4));
     }
 
+    /**
+     * 创建租车订单
+     *
+     * @param request 订单创建请求，包含会话ID和选中的报价信息
+     * @return 订单ID响应
+     */
     @PostMapping("/orders")
     public R<IdResponse> createOrder(@Valid @RequestBody RentalOrderCreateRequest request) {
         log.info(
@@ -77,6 +104,13 @@ public class RentalController {
         return R.ok(new IdResponse(rentalOrderService.create(LoginUserUtils.getUserId(), request)));
     }
 
+    /**
+     * 模拟支付租车订单
+     *
+     * @param id      订单ID
+     * @param request 支付请求（可选）
+     * @return 空响应
+     */
     @PostMapping("/orders/{id}/pay")
     public R<Void> pay(
             @PathVariable Long id, @RequestBody(required = false) RentalOrderPayRequest request) {
@@ -85,22 +119,45 @@ public class RentalController {
         return R.ok();
     }
 
+    /**
+     * 支付宝页面支付
+     *
+     * @param id 订单ID
+     * @return 支付宝页面支付响应
+     */
     @PostMapping("/orders/{id}/alipay/page-pay")
     public R<AlipayPagePayResponse> alipayPagePay(@PathVariable Long id) {
         log.info("租车订单支付宝支付请求进入，userId={}, orderId={}", LoginUserUtils.getUserId(), id);
         return R.ok(alipayPaymentService.createRentalPagePay(LoginUserUtils.getUserId(), id));
     }
 
+    /**
+     * 获取我的租车订单列表
+     *
+     * @return 租车订单列表
+     */
     @GetMapping("/orders/my")
     public R<List<RentalOrderResponse>> listMy() {
         return R.ok(rentalOrderService.listMy(LoginUserUtils.getUserId()));
     }
 
+    /**
+     * 获取租车订单详情
+     *
+     * @param id 订单ID
+     * @return 租车订单详情
+     */
     @GetMapping("/orders/{id}")
     public R<RentalOrderResponse> detail(@PathVariable Long id) {
         return R.ok(rentalOrderService.get(LoginUserUtils.getUserId(), id));
     }
 
+    /**
+     * 取消租车订单
+     *
+     * @param id 订单ID
+     * @return 空响应
+     */
     @PostMapping("/orders/{id}/cancel")
     public R<Void> cancel(@PathVariable Long id) {
         rentalOrderService.cancel(LoginUserUtils.getUserId(), id);
