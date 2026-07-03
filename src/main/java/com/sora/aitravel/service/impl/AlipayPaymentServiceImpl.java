@@ -25,6 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 支付宝支付服务实现
+ * 提供支付宝沙箱支付的订单支付创建和异步通知处理功能
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,6 +40,13 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
     private final RentalOrderMapper rentalOrderMapper;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 创建租车订单支付宝页面支付
+     *
+     * @param userId  用户ID
+     * @param orderId 订单ID
+     * @return 支付宝页面支付响应，包含支付表单HTML
+     */
     @Override
     public AlipayPagePayResponse createRentalPagePay(Long userId, Long orderId) {
         ensureConfigured();
@@ -64,6 +75,13 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         }
     }
 
+    /**
+     * 处理支付宝异步通知
+     * 验证签名、校验订单状态、更新支付状态
+     *
+     * @param params 支付宝异步通知参数
+     * @return 是否处理成功
+     */
     @Override
     @Transactional
     public boolean handleNotify(Map<String, String> params) {
@@ -108,6 +126,11 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         return true;
     }
 
+    /**
+     * 创建支付宝客户端实例
+     *
+     * @return 支付宝客户端
+     */
     private AlipayClient alipayClient() {
         return new DefaultAlipayClient(
                 configValue(properties.getGatewayUrl()),
@@ -119,6 +142,12 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
                 configValue(properties.getSignType()));
     }
 
+    /**
+     * 验证支付宝签名
+     *
+     * @param params 待验证的参数
+     * @return 签名是否有效
+     */
     private boolean verify(Map<String, String> params) {
         try {
             return AlipaySignature.rsaCheckV1(
@@ -132,6 +161,12 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         }
     }
 
+    /**
+     * 构建支付宝业务参数JSON
+     *
+     * @param order 租车订单
+     * @return 业务参数JSON字符串
+     */
     private String buildBizContent(RentalOrder order) {
         Map<String, String> bizContent = new LinkedHashMap<>();
         bizContent.put("out_trade_no", order.getOrderNo());
@@ -145,6 +180,13 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         }
     }
 
+    /**
+     * 校验金额是否匹配
+     *
+     * @param order       租车订单
+     * @param totalAmount 支付宝返回的金额
+     * @return 金额是否匹配
+     */
     private boolean amountMatches(RentalOrder order, String totalAmount) {
         try {
             return yuan(order.getTotalPriceCent())
@@ -157,12 +199,22 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         }
     }
 
+    /**
+     * 将分转换为元
+     *
+     * @param cent 分
+     * @return 元（字符串格式，保留两位小数）
+     */
     private String yuan(Integer cent) {
         return BigDecimal.valueOf(cent == null ? 0 : cent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                 .toPlainString();
     }
 
+    /**
+     * 确保支付宝配置已正确设置
+     * 校验必要配置项是否完整
+     */
     private void ensureConfigured() {
         if (!Boolean.TRUE.equals(properties.getEnabled())) {
             throw new BusinessException(
@@ -178,10 +230,22 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         }
     }
 
+    /**
+     * 判断字符串是否为空或空白
+     *
+     * @param value 字符串
+     * @return 是否为空
+     */
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 
+    /**
+     * 清理配置值（去除首尾空白和引号）
+     *
+     * @param value 原始配置值
+     * @return 清理后的配置值
+     */
     private String configValue(String value) {
         if (value == null) {
             return null;
@@ -195,6 +259,12 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         return trimmed;
     }
 
+    /**
+     * 清理密钥值（去除首尾空白、引号和密钥头尾部标记）
+     *
+     * @param value 原始密钥值
+     * @return 清理后的密钥值
+     */
     private String keyValue(String value) {
         String normalized = configValue(value);
         if (normalized == null) {

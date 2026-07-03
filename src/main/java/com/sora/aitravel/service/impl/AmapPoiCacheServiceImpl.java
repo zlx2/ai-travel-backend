@@ -16,7 +16,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
-/** 缓存高德原始 POI 查询结果，避免工作流重复请求相同城市数据。 */
+/**
+ * 高德POI缓存服务实现
+ * 缓存高德原始POI查询结果，避免工作流重复请求相同城市数据
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,20 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
     @Value("${app.amap.poi-cache-enabled:false}")
     private boolean poiCacheEnabled;
 
+    /**
+     * 搜索POI文本（带缓存）
+     * 如果缓存启用且命中，则返回缓存结果；否则调用API查询并缓存
+     *
+     * @param keywords   搜索关键词
+     * @param types      POI类型
+     * @param region     区域
+     * @param cityLimit  是否限制在城市内
+     * @param pageSize   每页大小
+     * @param pageNum    页码
+     * @param showFields 显示字段
+     * @param category   分类
+     * @return POI列表
+     */
     @Override
     public List<Poi> searchText(
             String keywords,
@@ -74,6 +91,18 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
         return pois;
     }
 
+    /**
+     * 直接搜索POI（不使用缓存）
+     *
+     * @param keywords   搜索关键词
+     * @param types      POI类型
+     * @param region     区域
+     * @param cityLimit  是否限制在城市内
+     * @param pageSize   每页大小
+     * @param pageNum    页码
+     * @param showFields 显示字段
+     * @return POI列表
+     */
     private List<Poi> searchDirect(
             String keywords,
             String types,
@@ -91,6 +120,12 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
         return response.getData();
     }
 
+    /**
+     * 从缓存读取POI数据
+     *
+     * @param key 缓存键
+     * @return POI列表，如果缓存不存在或损坏则返回null
+     */
     private List<Poi> read(String key) {
         try {
             String json = redisTemplate.opsForValue().get(key);
@@ -112,6 +147,13 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
         }
     }
 
+    /**
+     * 写入POI数据到缓存
+     *
+     * @param key  缓存键
+     * @param pois POI列表
+     * @param ttl  过期时间
+     */
     private void write(String key, List<Poi> pois, Duration ttl) {
         try {
             redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(pois), ttl);
@@ -120,6 +162,13 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
         }
     }
 
+    /**
+     * 获取缓存过期时间
+     * 美食和夜景类数据更新较频繁，设置较短的TTL
+     *
+     * @param category 分类
+     * @return 过期时间
+     */
     private Duration ttl(String category) {
         if ("FOOD".equals(category) || "NIGHT".equals(category)) {
             return Duration.ofHours(6);
@@ -127,6 +176,19 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
         return Duration.ofHours(24);
     }
 
+    /**
+     * 生成缓存键
+     *
+     * @param keywords   搜索关键词
+     * @param types      POI类型
+     * @param region     区域
+     * @param cityLimit  是否限制在城市内
+     * @param pageSize   每页大小
+     * @param pageNum    页码
+     * @param showFields 显示字段
+     * @param category   分类
+     * @return 缓存键
+     */
     private String cacheKey(
             String keywords,
             String types,
@@ -158,10 +220,22 @@ public class AmapPoiCacheServiceImpl implements AmapPoiCacheService {
                 + hash;
     }
 
+    /**
+     * 规范化字符串，替换非法字符
+     *
+     * @param value 原始字符串
+     * @return 规范化后的字符串
+     */
     private String normalize(String value) {
         return text(value).replaceAll("[^\\p{L}\\p{N}_-]", "_");
     }
 
+    /**
+     * 安全获取文本，空值返回空字符串
+     *
+     * @param value 原始值
+     * @return 处理后的文本
+     */
     private String text(String value) {
         return value == null ? "" : value.trim();
     }
