@@ -609,6 +609,18 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
         if (groups.isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "暂无可用车型");
         }
+        int people = requirement.getPeopleCount() == null ? 1 : requirement.getPeopleCount();
+        groups =
+                new ArrayList<>(
+                        groups.stream()
+                                .filter(
+                                        group ->
+                                                group.getSeatsMax() != null
+                                                        && group.getSeatsMax() >= people)
+                                .toList());
+        if (groups.isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "暂无满足 " + people + " 人出行的可用车型");
+        }
         List<String> preferredCodes = preferredGroupCodes(requirement);
         groups.sort(
                 Comparator.comparingInt(
@@ -642,19 +654,19 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             return List.of("LUXURY_SEDAN", "BUSINESS_SEDAN", "COMFORT_SEDAN");
         }
         if (people >= 5 || text.contains("MPV")) {
-            return List.of("MPV", "BUSINESS_MPV", "SUV");
+            return List.of("MPV_7_SEAT", "MPV", "BUSINESS_MPV", "COMPACT_SUV", "SUV");
         }
         if (text.contains("SUV")
                 || text.contains("山路")
                 || text.contains("自然")
                 || text.contains("亲子")
                 || text.contains("行李")) {
-            return List.of("SUV", "COMFORT_SUV", "ECONOMY_SUV", "COMFORT_SEDAN");
+            return List.of("COMPACT_SUV", "SUV", "COMFORT_SUV", "ECONOMY_SUV", "COMFORT_SEDAN");
         }
         if (text.contains("COMFORT") || text.contains("舒服") || text.contains("舒适")) {
             return List.of("COMFORT_SEDAN", "ECONOMY_SEDAN");
         }
-        return List.of("ECONOMY_SEDAN", "COMFORT_SEDAN", "SUV");
+        return List.of("ECONOMY_SEDAN", "COMFORT_SEDAN", "MID_SIZE_SEDAN", "COMPACT_SUV");
     }
 
     private int scoreGroup(
