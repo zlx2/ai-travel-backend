@@ -216,7 +216,7 @@ public class DayPlanGenerateNode {
                         spotCount,
                         usedPoiKeys,
                         wantsNightExperience(requirement, dayContext));
-        selected = supplementMinimumSpots(input, selected, dayContext, usedPoiKeys);
+        selected = supplementMinimumSpots(input, dataPackage, selected, dayContext, usedPoiKeys);
         selected =
                 preferWorkflowCompactRoute(
                         input, dataPackage, selected, dayContext, usedPoiKeys, spotCount);
@@ -488,6 +488,7 @@ public class DayPlanGenerateNode {
 
     private List<PoiCandidate> supplementMinimumSpots(
             DayPlanInput input,
+            DayDataPackage dataPackage,
             List<PoiCandidate> selected,
             DayContext dayContext,
             Set<String> usedPoiKeys) {
@@ -503,7 +504,10 @@ public class DayPlanGenerateNode {
         }
         List<PoiCandidate> result = new ArrayList<>(selected);
         for (PoiCandidate candidate :
-                cityScenicCandidates(input.getCityProfile()).stream()
+                mergeCandidates(
+                                dataPackage.scenicCandidates(),
+                                cityScenicCandidates(input.getCityProfile()))
+                        .stream()
                         .filter(candidate -> !isUsedCandidate(candidate, usedPoiKeys))
                         .filter(candidate -> matchesDayScope(candidate, dayContext))
                         .filter(this::qualityCandidate)
@@ -1023,8 +1027,16 @@ public class DayPlanGenerateNode {
             Set<String> usedPoiKeys,
             int spotCount) {
         int requiredCount = Math.min(spotCount, ruleSelected == null ? 0 : ruleSelected.size());
-        if (ruleSelected == null || ruleSelected.size() < Math.min(2, spotCount)) {
+        if (requiredCount <= 0) {
             throw new IllegalStateException("第 " + dayContext.getDay() + " 天规则选点数量不足");
+        }
+        if (requiredCount < Math.min(MIN_DAILY_SPOTS, spotCount)) {
+            log.warn(
+                    "节点[day-plan-generate]：第 {} 天规则选点不足，降级生成，expected={}, actual={}",
+                    dayContext.getDay(),
+                    spotCount,
+                    requiredCount);
+            return fallbackAiDayPlan(ruleSelected, requiredCount, displayDestination(requirement));
         }
         String city = dayCity(dayContext, requirement);
         List<AiCandidateRef> refs =
@@ -1059,6 +1071,31 @@ public class DayPlanGenerateNode {
                             + aiDayPlan.getSelected().size());
         }
         return aiDayPlan;
+    }
+
+    private AiDayPlan fallbackAiDayPlan(
+            List<PoiCandidate> ruleSelected, int requiredCount, String destination) {
+        List<PoiCandidate> selected =
+                ruleSelected == null
+                        ? List.of()
+                        : ruleSelected.stream().limit(requiredCount).toList();
+        LinkedHashMap<String, String> reasons = new LinkedHashMap<>();
+        for (PoiCandidate candidate : selected) {
+            reasons.put(dedupKey(candidate), fallbackRecommendation(candidate, destination));
+        }
+        return new AiDayPlan(selected, reasons);
+    }
+
+    private String fallbackRecommendation(PoiCandidate candidate, String destination) {
+        String name = candidate.getName() == null ? "这一站" : candidate.getName();
+        String area =
+                firstNonBlank(
+                        firstNonBlank(candidate.getArea(), candidate.getBusinessArea()),
+                        destination);
+        return name
+                + "是"
+                + area
+                + "附近当前可用的高匹配候选点，和当天路线范围比较贴合。由于规则筛选后的候选数量不足，先保留这个可靠点位，出发前可再结合实时开放信息补充周边安排。";
     }
 
     private List<PoiCandidate> repairLongRentalLegs(
