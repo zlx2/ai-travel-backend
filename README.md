@@ -1,187 +1,194 @@
-# PlanGo 后端
+# PlanGo 智能旅行规划平台 · 后端
 
-PlanGo 智能旅行规划平台后端，当前处于课程项目/联调开发阶段。项目已经搭起 Spring Boot API、AI 工作流、高德工具、租车流程等骨架，其中一部分接口可真实调用，一部分仍返回 501 占位响应。
-
-## 当前状态
-
-- 主分支：`dev`
-- Java 版本：`21`
-- 默认端口：`8080`
-- API 前缀：`/api`
-- 数据库脚本：`src/main/resources/sql/schema.sql`、`src/main/resources/sql/init-data.sql`
-- 真实运行依赖：MySQL、Redis、RabbitMQ、DeepSeek Key；部分能力还需要 DashScope、腾讯云 COS、高德 Key
+基于 Spring Boot 3 + Spring AI + MyBatis-Plus 的 AI 旅行规划引擎，提供从需求分析到完整行程生成的端到端服务。
 
 ## 技术栈
 
-- Spring Boot `3.5.15`
-- Java `21`
-- Maven
-- MyBatis-Plus `3.5.16`
-- MySQL Connector/J `9.7.0`
-- Redis、RabbitMQ、Spring Mail
-- Sa-Token `1.45.0`
-- Spring AI `1.1.8`
-- Spring AI Alibaba `1.1.2.3`
-- DeepSeek ChatModel / ChatClient
-- DashScope Embedding
-- 腾讯云 COS
-- 高德 REST API
-- Lombok
-- Spotless + google-java-format AOSP
+| 能力 | 选型 |
+|------|------|
+| 框架 | Spring Boot 3.5.15 / Java 21 / Maven |
+| ORM | MyBatis-Plus 3.5.16 + MySQL 8 |
+| AI | Spring AI 1.1.8 + DeepSeek ChatModel + DashScope Embedding |
+| 工作流引擎 | Spring AI Alibaba Agent Framework + AlibabaGraphWorkflow |
+| 认证 | Sa-Token 1.45.0 + Redis 持久化 |
+| 缓存/消息 | Redis + RabbitMQ |
+| 存储 | 腾讯云 COS（文件/图片） |
+| 支付 | 支付宝沙箱 SDK |
+| 地图 | 高德 REST API（POI 搜索/路线规划/地理编码） |
+| 代码规范 | Lombok + Spotless (google-java-format) |
 
-## 目录说明
+## 系统架构
 
-```text
-src/main/java/com/sora/aitravel
-├── ai/             # 项目级 AI 调用门面，当前用 ChatClient 封装通用调用
-├── client/amap/    # 高德 HTTP 客户端
-├── common/         # 统一响应、异常、枚举、工具类
-├── config/         # Spring、Sa-Token、Redis、COS、高德等配置
-├── controller/     # REST API 控制器
-├── dto/            # 请求、响应、模型 DTO
-├── entity/         # MyBatis-Plus 实体
-├── mapper/         # MyBatis-Plus Mapper
-├── prompt/         # Prompt 模板加载
-├── service/        # 业务服务接口与实现
-├── tools/          # Spring AI Tool 定义
-└── workflow/       # AI 分析、生成、聊天、租车等工作流
+```
+用户请求 → Nginx(80) → API(10001) → Controller
+                                        │
+                    ┌───────────────────┼───────────────────┐
+                    ▼                   ▼                   ▼
+               Auth(Sa-Token)     AI 工作流引擎        业务服务
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+            AI 需求分析                          行程生成
+        TripAnalyzeWorkflow             TripGenerateWorkflow
+                    │                               │
+        ┌───────────┼───────────┐       ┌───────────┼───────────┐
+        ▼           ▼           ▼       ▼           ▼           ▼
+   信息抽取    约束标准化   冲突检查   候选数据    逐日生成    路线编排
+                                         │
+                                    AI Gateway
+                                    (DeepSeek ChatClient)
 ```
 
-## 已接入/开发中的能力
+## API 路由一览
 
-### 已有真实实现或可联调
+所有接口挂载在 `/api` 前缀下。
 
-- `/api/debug/connect`：前后端连通性测试。
-- `/api/auth/*`：注册、登录、邮箱验证码、退出登录。
-- `/api/users/me`：当前用户资料读取与更新。
-- `/api/home`：首页聚合数据，读取热门目的地、热门游记、标签。
-- `/api/ai/trips/analyze`：AI 需求分析工作流，使用项目级 `AiGateway` 和 Spring AI `ChatClient` 调用 DeepSeek。
-- `/api/ai/trips/generate`：行程生成工作流已串起需求、天气、酒店、美食、候选数据、逐日生成等节点，但仍含模拟/兜底数据。
-- `/api/rental/*`：租车报价预览、订单创建、支付演示流程。
-- 高德工具：POI、路线、地理编码、静态地图等工具类和服务已存在，部分生成节点仍在逐步接入。
+### 用户与认证 (`/auth`, `/users`)
 
-### 仍是骨架/占位
+- `POST /auth/email-code` — 发送邮箱验证码
+- `POST /auth/register` — 注册（邮箱 + 验证码）
+- `POST /auth/login` — 登录（邮箱/用户名 + 密码）
+- `POST /auth/logout` — 退出登录
+- `POST /auth/password-reset` — 重置密码
+- `GET /users/me` — 获取当前用户信息
+- `PUT /users/me` — 更新个人资料
+- `GET /users/me/stats` — 用户统计（行程数/游记数/点赞数）
+- `POST /users/me/email-code` — 发送换绑邮箱验证码
+- `PUT /users/me/email` — 换绑邮箱
 
-以下模块中仍有接口返回 `501 接口骨架已生成，业务逻辑待实现`：
+### AI 行程规划 (`/ai/trips`)
 
-- 管理后台 `AdminController`
-- 目的地列表/热门 `DestinationController`
-- 标签 `TagController`
-- 游记、评论、点赞收藏相关接口
-- 行程 CRUD `TripController`
-- 文件上传 `FileController`
-- AI 聊天 `/api/ai/chat`
+- `POST /ai/trips/analyze` — AI 需求分析：接收自然语言输入，提取目的地、天数、预算、节奏等结构化需求
+- `POST /ai/trips/generate` — 完整行程生成（同步）：基于需求生成完整行程
+- `POST /ai/trips/generate/session` — 创建生成会话
+- `POST /ai/trips/generate/session/{sessionId}/days/{dayNo}` — 单日行程生成（支持异步轮询）
+- `POST /ai/trips/generate/stream` — SSE 流式行程生成（实时进度推送）
 
-### AI 工作流现状
+### 行程管理 (`/trips`)
 
-- `workflow/analyze`：真实调用 DeepSeek 做需求抽取，并做完整性检查、冲突检查和结果合并。
-- `workflow/generate`：已经有天气、酒店、美食、高德候选数据、逐日计划生成等节点；部分节点仍以 `SIMULATED_AMAP`、`MOCK` 或规则生成作为兜底。
-- `workflow/chat`：结构已搭好，模型调用节点仍是 TODO。
-- `ai/AiGateway`：薄封装 `ChatClient`，统一文本/JSON 对象调用、场景日志、空响应与异常处理。业务 Prompt 仍保留在各工作流节点。
+- `POST /trips` — 保存行程
+- `GET /trips/my` — 我的行程列表（分页）
+- `GET /trips/{id}` — 行程详情
+- `PUT /trips/{id}` — 更新行程
+- `DELETE /trips/{id}` — 删除行程
 
-## 环境变量
+### 游记系统 (`/notes`, `/notes/{id}/...`)
 
-复制 `.env.example` 后填写本地值。不要提交真实密码和密钥。
+- `GET /notes` — 游记列表（分页 + 关键词/标签筛选）
+- `GET /notes/my` — 我的游记
+- `POST /notes` — 创建游记
+- `GET /notes/{id}` — 游记详情
+- `PUT /notes/{id}` — 更新游记
+- `DELETE /notes/{id}` — 删除游记
+- `POST /notes/{id}/like` / `DELETE /notes/{id}/like` — 点赞/取消
+- `POST /notes/{id}/favorite` / `DELETE /notes/{id}/favorite` — 收藏/取消
+- `GET /notes/{id}/comments` / `POST /notes/{id}/comments` — 评论列表/发表评论
+- `DELETE /comments/{id}` — 删除评论
 
-```bash
-cp .env.example .env
+### 租车系统 (`/rental`)
+
+- `POST /rental/context/preview` — 租车场景预览（目的地/到达方式分析）
+- `POST /rental/quotes/preview` — 报价预览
+- `GET /rental/quotes/latest-ordered` — 最近下单的报价
+- `POST /rental/orders` — 创建租车订单
+- `POST /rental/orders/{id}/pay` — 模拟支付
+- `POST /rental/orders/{id}/alipay/page-pay` — 支付宝沙箱页面支付
+- `GET /rental/orders/my` — 我的租车订单
+- `GET /rental/orders/{id}` — 订单详情
+- `POST /rental/orders/{id}/cancel` — 取消订单
+
+### 通用能力
+
+- `GET /home` — 首页聚合（热门目的地/游记/标签）
+- `GET /tags` — 标签列表
+- `POST /files/upload` — 文件上传（头像/图片）
+
+## AI 工作流详解
+
+### 需求分析工作流 (`workflow/analyze/`)
+
+将用户自然语言输入转化为结构化旅行需求，节点链：
+
+```
+UserRawInput → InputPreprocess → RequirementStandardize
+    → InfoExtract → CompletenessCheck → ConflictCheck
+    → AnalyzeResultMerge → 输出结构化 Requirement
 ```
 
-核心变量：
+- 基于 DeepSeek ChatModel 做语义理解和信息抽取
+- 自动检测需求矛盾（如时间不够覆盖远郊景点）
+- 补充缺失信息（预算、节奏偏好等）
 
-```text
-MYSQL_HOST / MYSQL_PORT / MYSQL_DATABASE / MYSQL_USERNAME / MYSQL_PASSWORD
-REDIS_HOST / REDIS_PORT / REDIS_USERNAME / REDIS_PASSWORD / REDIS_DATABASE
-RABBITMQ_HOST / RABBITMQ_PORT / RABBITMQ_USERNAME / RABBITMQ_PASSWORD / RABBITMQ_VHOST
-MAIL_HOST / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD
-DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL
-DASHSCOPE_API_KEY / DASHSCOPE_BASE_URL
-COS_SECRET_ID / COS_SECRET_KEY / COS_BUCKET / COS_REGION / COS_DOMAIN
-AMAP_API_KEY / AMAP_BASE_URL / AMAP_TIMEOUT
-ALIPAY_ENABLED / ALIPAY_GATEWAY_URL / ALIPAY_APP_ID / ALIPAY_APP_PRIVATE_KEY
-ALIPAY_PUBLIC_KEY / ALIPAY_NOTIFY_URL / ALIPAY_RETURN_URL
-AI_MOCK_ENABLED
-```
+### 行程生成工作流 (`workflow/generate/`)
 
-`application.yml` 会优先读取环境变量，也会可选读取项目根目录 `.env`。本地运行前请确保当前终端、IDE Run Configuration 或 `.env` 中至少有一处提供这些值。
+两级工作流编排：
 
-支付宝沙箱支付入口为 `POST /api/rental/orders/{id}/alipay/page-pay`，返回 `formHtml` 给前端提交；异步通知地址为 `POST /api/payment/alipay/notify`，需要在支付宝沙箱后台配置成公网可访问的 `ALIPAY_NOTIFY_URL`。
+**1. TripPrepareWorkflow** — 行程准备阶段
+- `RequirementPrepareNode` — 需求预处理
+- `DestinationPrepareNode` — 目的地决策（高德 POI/天气/酒店/美食数据采集）
+- `ExternalContextPrepareNode` — 外部上下文（季节/天气/交通）
+- `MacroRoutePrepareNode` — 宏观路线规划（片区排序、距离校验）
+- `PrepareFinalizeNode` — 准备阶段收尾
+
+**2. TripDayGenerateWorkflow** — 逐日生成（支持异步/流式）
+- `DayCandidatePrepareNode` — 候选 POI 数据准备
+- `DayInputPrepareNode` — 单日输入组装
+- `DayPlanGenerateNode` — AI 逐日计划生成（含景点/路线/餐饮/预算）
+- `DayPlanValidateNode` — 计划合规性校验
+- `DayPlanFinalizeNode` — 单日收尾
+
+**数据约束层：**
+- 基于离线知识库（travel_city / travel_area / travel_spot）限定白名单
+- 严格禁止 AI 捏造景点或坐标
+- 距离合理性校验（远郊与市中心组合检测）
+- 体力强度/推荐时长/最佳时间等语义字段参与规划
+
+## 数据库设计
+
+核心业务表（20 张）：
+
+| 领域 | 表 |
+|------|----|
+| 用户 | `sys_user` |
+| 旅游知识库 | `travel_city` / `travel_area` / `travel_spot` |
+| AI 生成 | `ai_trip_generation_session` / `ai_trip_day_generation` |
+| 行程 | `trip` + 相关表 |
+| 游记 | `note` / `note_comment` / `note_like` / `note_favorite` / `note_tag` |
+| 标签 | `tag` |
+| 目的地 | `destination` |
+| 文件 | `file_resource` |
+| 租车 | `rental_order` / `rental_pickup_poi` / `rental_price_template` / `rental_vehicle_group` / `rental_vehicle_model` |
+
+数据初始化脚本：`src/main/resources/sql/schema.sql` + `init-data.sql`
+
+## 外部依赖
+
+| 服务 | 用途 | 必须？ |
+|------|------|--------|
+| MySQL | 业务数据库 | 是 |
+| Redis | 缓存 + Sa-Token 持久化 | 是 |
+| RabbitMQ | 异步消息（行程生成） | 是 |
+| DeepSeek API | AI 对话/推理 | 是（可 Mock） |
+| DashScope API | 文本向量化 | 知识库检索需要 |
+| 高德 REST API | POI 搜索/路线/地理编码 | 是 |
+| 腾讯云 COS | 文件/图片存储 | 选 |
+| 支付宝沙箱 | 支付演示 | 选 |
 
 ## 本地运行
 
 ```bash
-mvn clean package
-mvn spring-boot:run
-```
+# 1. 环境准备
+cp .env.example .env  # 填写 MySQL/Redis/RabbitMQ 连接信息
+                       # DeepSeek Key / 高德 Key 等
 
-或：
+# 2. 初始化数据库
+mysql -u root -p < src/main/resources/sql/schema.sql
+mysql -u root -p < src/main/resources/sql/init-data.sql
 
-```bash
+# 3. 编译启动
+mvn clean package -DskipTests
 java -jar target/plango-backend-0.0.1-SNAPSHOT.jar
+
+# 默认端口 8080，API 前缀 /api
+# 环境变量 SERVER_PORT 可覆盖端口
 ```
-
-如果 8080 端口占用：
-
-```bash
-set SERVER_PORT=8081
-mvn spring-boot:run
-```
-
-PowerShell：
-
-```powershell
-$env:SERVER_PORT="8081"
-mvn spring-boot:run
-```
-
-## 常用检查
-
-```bash
-mvn -q -DskipTests test-compile
-mvn test
-mvn spotless:apply
-mvn -B spotless:check
-```
-
-说明：`spotless:check` 会检查全量 Java 格式；如果遇到历史换行或格式问题，先确认是否属于当前改动范围。
-
-## 数据库
-
-初始化脚本位于：
-
-- `src/main/resources/sql/schema.sql`
-- `src/main/resources/sql/init-data.sql`
-
-主要表包括：
-
-- `sys_user`
-- `destination`
-- `tag`
-- `trip`
-- `note`
-- `note_comment`
-- `rental_*`
-- `ai_conversation`
-- `ai_call_log`
-
-## 与前端联调
-
-前端开发环境默认通过 Vite 代理访问后端：
-
-```text
-浏览器 -> /api -> Vite dev server -> http://127.0.0.1:8080
-```
-
-后端启动后，前端 `.env.development` 中保持：
-
-```text
-VITE_API_BASE_URL=/api
-VITE_BACKEND_TARGET=http://127.0.0.1:8080
-```
-
-## 注意事项
-
-- 不要把真实 `.env`、密钥、数据库密码提交到仓库。
-- 看到 501 不一定是系统异常，很多接口仍处于骨架阶段。
-- AI 行程生成当前还在“真实工具 + 模拟兜底”混合阶段，不要把所有地点/费用当成生产数据。
-- 高德 JS 地图测试页在前端；后端高德配置主要服务 REST API 和工具节点。
