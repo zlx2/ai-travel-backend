@@ -31,15 +31,45 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 租车订单服务实现类
+ * 处理租车订单的创建、支付、查询、取消等业务逻辑
+ * 
+ * <p>核心功能：
+ * <ul>
+ *   <li>订单创建：校验请求参数，重新计算报价，创建行程和订单记录</li>
+ *   <li>订单支付：更新订单支付状态和订单状态</li>
+ *   <li>订单查询：查询用户的租车订单列表和单个订单详情</li>
+ *   <li>订单取消：取消待支付或待确认状态的订单</li>
+ * </ul>
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RentalOrderServiceImpl implements RentalOrderService {
+    
     private final RentalOrderMapper rentalOrderMapper;
     private final TripMapper tripMapper;
     private final RentalQuoteService rentalQuoteService;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 创建租车订单
+     * 
+     * <p>业务流程：
+     * <ol>
+     *   <li>校验用户ID和请求参数</li>
+     *   <li>调用报价服务重新计算报价，确保价格未变化</li>
+     *   <li>合并用户确认的报价和重新计算的报价</li>
+     *   <li>创建行程记录</li>
+     *   <li>创建租车订单记录</li>
+     * </ol>
+     *
+     * @param userId  用户ID
+     * @param request 订单创建请求，包含行程需求、行程方案和已选报价
+     * @return 创建的订单ID
+     * @throws BusinessException 当参数校验失败、报价已变化或系统错误时抛出
+     */
     @Override
     @Transactional
     public Long create(Long userId, RentalOrderCreateRequest request) {
@@ -73,6 +103,22 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return order.getId();
     }
 
+    /**
+     * 支付租车订单
+     * 
+     * <p>业务流程：
+     * <ol>
+     *   <li>校验用户ID和订单ID</li>
+     *   <li>获取用户拥有的订单</li>
+     *   <li>检查订单状态是否为待支付</li>
+     *   <li>如果支付成功，更新订单状态为已支付和已确认</li>
+     * </ol>
+     *
+     * @param userId 用户ID
+     * @param id     订单ID
+     * @param request 支付请求，包含支付成功标识
+     * @throws BusinessException 当参数校验失败、订单不存在、订单状态不允许支付时抛出
+     */
     @Override
     public void pay(Long userId, Long id, RentalOrderPayRequest request) {
         validatePayRequest(userId, id);
@@ -93,6 +139,21 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         log.info("租车订单模拟支付完成，userId={}, orderId={}, orderNo={}", userId, id, order.getOrderNo());
     }
 
+    /**
+     * 校验订单创建请求参数
+     * 
+     * <p>校验规则：
+     * <ul>
+     *   <li>用户ID不能为空</li>
+     *   <li>请求对象不能为空</li>
+     *   <li>必须包含行程需求、行程方案和已选报价</li>
+     *   <li>行程天数必须大于0</li>
+     * </ul>
+     *
+     * @param userId  用户ID
+     * @param request 订单创建请求
+     * @throws BusinessException 当校验不通过时抛出
+     */
     private void validateCreateRequest(Long userId, RentalOrderCreateRequest request) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -110,6 +171,19 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         }
     }
 
+    /**
+     * 校验订单支付请求参数
+     * 
+     * <p>校验规则：
+     * <ul>
+     *   <li>用户ID不能为空</li>
+     *   <li>订单ID必须大于0</li>
+     * </ul>
+     *
+     * @param userId 用户ID
+     * @param id     订单ID
+     * @throws BusinessException 当校验不通过时抛出
+     */
     private void validatePayRequest(Long userId, Long id) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -119,6 +193,18 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         }
     }
 
+    /**
+     * 查询用户的租车订单列表
+     * 
+     * <p>查询条件：
+     * <ul>
+     *   <li>按用户ID筛选</li>
+     *   <li>按创建时间降序排列</li>
+     * </ul>
+     *
+     * @param userId 用户ID
+     * @return 租车订单响应列表
+     */
     @Override
     public List<RentalOrderResponse> listMy(Long userId) {
         return rentalOrderMapper
@@ -131,11 +217,38 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .toList();
     }
 
+    /**
+     * 查询单个租车订单详情
+     * 
+     * <p>校验规则：
+     * <ul>
+     *   <li>订单必须存在</li>
+     *   <li>订单必须属于当前用户</li>
+     * </ul>
+     *
+     * @param userId 用户ID
+     * @param id     订单ID
+     * @return 租车订单响应
+     * @throws BusinessException 当订单不存在或不属于当前用户时抛出
+     */
     @Override
     public RentalOrderResponse get(Long userId, Long id) {
         return toResponse(mustGetOwnedOrder(userId, id));
     }
 
+    /**
+     * 取消租车订单
+     * 
+     * <p>业务规则：
+     * <ul>
+     *   <li>订单必须属于当前用户</li>
+     *   <li>订单状态不能是已完成或已取消</li>
+     * </ul>
+     *
+     * @param userId 用户ID
+     * @param id     订单ID
+     * @throws BusinessException 当订单不存在、不属于当前用户或状态不允许取消时抛出
+     */
     @Override
     public void cancel(Long userId, Long id) {
         RentalOrder order = mustGetOwnedOrder(userId, id);
@@ -147,6 +260,16 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         rentalOrderMapper.updateById(order);
     }
 
+    /**
+     * 构建行程实体
+     * 
+     * <p>从订单创建请求中提取行程信息，构建Trip实体对象
+     *
+     * @param userId  用户ID
+     * @param request 订单创建请求
+     * @param quote   报价信息
+     * @return 行程实体
+     */
     private Trip buildTrip(
             Long userId, RentalOrderCreateRequest request, RentalQuoteOptionDTO quote) {
         TravelRequirementDTO requirement = request.getRequirement();
@@ -172,6 +295,17 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .build();
     }
 
+    /**
+     * 构建租车订单实体
+     * 
+     * <p>从订单创建请求和报价信息中提取数据，构建RentalOrder实体对象
+     *
+     * @param userId  用户ID
+     * @param tripId  行程ID
+     * @param request 订单创建请求
+     * @param quote   报价信息
+     * @return 租车订单实体
+     */
     private RentalOrder buildOrder(
             Long userId,
             Long tripId,
@@ -231,6 +365,15 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .build();
     }
 
+    /**
+     * 生成POI快照
+     * 
+     * <p>根据类型（取车/还车）从报价中提取POI信息，生成快照用于订单记录
+     *
+     * @param type  POI类型（pickup/return）
+     * @param quote 报价信息
+     * @return POI快照Map
+     */
     private Map<String, Object> poiSnapshot(String type, RentalQuoteOptionDTO quote) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("type", type);
@@ -250,6 +393,20 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return snapshot;
     }
 
+    /**
+     * 获取用户拥有的订单
+     * 
+     * <p>校验规则：
+     * <ul>
+     *   <li>订单必须存在</li>
+     *   <li>订单必须属于当前用户</li>
+     * </ul>
+     *
+     * @param userId 用户ID
+     * @param id     订单ID
+     * @return 租车订单实体
+     * @throws BusinessException 当订单不存在或不属于当前用户时抛出
+     */
     private RentalOrder mustGetOwnedOrder(Long userId, Long id) {
         RentalOrder order = rentalOrderMapper.selectById(id);
         if (order == null || !userId.equals(order.getUserId())) {
@@ -258,6 +415,14 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return order;
     }
 
+    /**
+     * 将租车订单实体转换为响应对象
+     * 
+     * <p>将数据库实体转换为API响应格式，包含费用明细、取还车点快照等信息
+     *
+     * @param order 租车订单实体
+     * @return 租车订单响应
+     */
     private RentalOrderResponse toResponse(RentalOrder order) {
         RentalFeeBreakdownDTO fee =
                 RentalFeeBreakdownDTO.builder()
@@ -294,6 +459,21 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 .build();
     }
 
+    /**
+     * 获取行程目的地
+     * 
+     * <p>优先级：
+     * <ol>
+     *   <li>需求中的目的地</li>
+     *   <li>需求中的路线城市列表（用"-"连接）</li>
+     *   <li>需求中的路线区域</li>
+     *   <li>行程方案中的目的地</li>
+     * </ol>
+     *
+     * @param requirement 旅行需求
+     * @param tripPlan    行程方案
+     * @return 目的地名称
+     */
     private String tripDestination(TravelRequirementDTO requirement, TripPlanDTO tripPlan) {
         if (notBlank(requirement.getDestination())) {
             return requirement.getDestination();
@@ -307,6 +487,20 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return tripPlan.getDestination();
     }
 
+    /**
+     * 获取行程出发地
+     * 
+     * <p>优先级：
+     * <ol>
+     *   <li>需求中的出发地</li>
+     *   <li>报价中的租车城市</li>
+     *   <li>默认值"未知出发地"</li>
+     * </ol>
+     *
+     * @param requirement 旅行需求
+     * @param quote       报价信息
+     * @return 出发地名称
+     */
     private String tripDeparture(TravelRequirementDTO requirement, RentalQuoteOptionDTO quote) {
         if (notBlank(requirement.getDeparture())) {
             return requirement.getDeparture();
@@ -317,6 +511,19 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return "未知出发地";
     }
 
+    /**
+     * 解析日期字符串
+     * 
+     * <p>解析规则：
+     * <ul>
+     *   <li>空值或空白字符串：返回明天日期</li>
+     *   <li>有效日期格式：解析为LocalDate</li>
+     *   <li>解析失败：返回明天日期</li>
+     * </ul>
+     *
+     * @param value 日期字符串（yyyy-MM-dd格式）
+     * @return LocalDate对象
+     */
     private LocalDate parseDate(String value) {
         try {
             return value == null || value.isBlank()
@@ -327,6 +534,13 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         }
     }
 
+    /**
+     * 对象转换为JSON字符串
+     *
+     * @param value 待转换的对象
+     * @return JSON字符串
+     * @throws BusinessException 当序列化失败时抛出
+     */
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
@@ -335,6 +549,12 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         }
     }
 
+    /**
+     * JSON字符串转换为Map
+     *
+     * @param json JSON字符串
+     * @return Map对象，解析失败返回空Map
+     */
     private Map<String, Object> fromJsonMap(String json) {
         try {
             if (json == null || json.isBlank()) {
@@ -346,14 +566,40 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         }
     }
 
+    /**
+     * 对象转换为字符串
+     *
+     * @param value 待转换的对象
+     * @return 字符串值，null返回null
+     */
     private String stringValue(Object value) {
         return value == null ? null : String.valueOf(value);
     }
 
+    /**
+     * 判断字符串是否非空
+     *
+     * @param value 字符串值
+     * @return true表示非空，false表示为空
+     */
     private boolean notBlank(String value) {
         return value != null && !value.isBlank();
     }
 
+    /**
+     * 判断两个报价是否相同
+     * 
+     * <p>比较维度：
+     * <ul>
+     *   <li>车型组ID</li>
+     *   <li>价格模板ID</li>
+     *   <li>租车天数</li>
+     * </ul>
+     *
+     * @param selectedQuote     用户选择的报价
+     * @param recalculatedQuote 重新计算的报价
+     * @return true表示相同，false表示不同
+     */
     private boolean sameQuote(
             RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
         return equalsValue(selectedQuote.getVehicleGroupId(), recalculatedQuote.getVehicleGroupId())
@@ -362,6 +608,15 @@ public class RentalOrderServiceImpl implements RentalOrderService {
                 && equalsValue(selectedQuote.getRentalDays(), recalculatedQuote.getRentalDays());
     }
 
+    /**
+     * 合并用户确认的报价和重新计算的报价
+     * 
+     * <p>合并规则：以用户确认的报价为主，缺失的字段从重新计算的报价中补充
+     *
+     * @param selectedQuote     用户选择的报价
+     * @param recalculatedQuote 重新计算的报价
+     * @return 合并后的报价
+     */
     private RentalQuoteOptionDTO mergeUserConfirmedQuote(
             RentalQuoteOptionDTO selectedQuote, RentalQuoteOptionDTO recalculatedQuote) {
         selectedQuote.setRouteMode(
@@ -428,14 +683,34 @@ public class RentalOrderServiceImpl implements RentalOrderService {
         return selectedQuote;
     }
 
+    /**
+     * 获取第一个非空字符串
+     *
+     * @param first  第一个字符串
+     * @param second 第二个字符串
+     * @return 第一个非空字符串，如果都为空则返回second
+     */
     private String firstNonBlank(String first, String second) {
         return notBlank(first) ? first : second;
     }
 
+    /**
+     * 将Integer转换为int，null返回0
+     *
+     * @param value Integer值
+     * @return int值
+     */
     private int value(Integer value) {
         return value == null ? 0 : value;
     }
 
+    /**
+     * 判断两个对象是否相等
+     *
+     * @param left  左对象
+     * @param right 右对象
+     * @return true表示相等，false表示不相等
+     */
     private boolean equalsValue(Object left, Object right) {
         return left == null ? right == null : left.equals(right);
     }

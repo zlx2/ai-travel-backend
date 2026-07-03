@@ -209,12 +209,25 @@ public class RentalStoreServiceImpl {
         return builder.build();
     }
 
+    /**
+     * 构造一个虚拟的"送车/还车服务点"作为降级方案。
+     *
+     * <p>当目标地点附近没有高德租车 POI 时使用：基于用户输入的地址虚拟一个服务点，
+     * 确保流程不被卡住，后续靠人工/运营兜底。
+     */
     private RentalStoreDTO buildPlanGoServicePoint(
             JSONObject targetPoi, String targetName, RentalStoreUsageEnum usage) {
         return buildRentalStoreResponse(
                 planGoServicePointPoi(targetPoi, targetName, usage), targetName, usage);
     }
 
+    /**
+     * 生成一个虚拟的"计划行程服务点"POI 对象。
+     *
+     * <p>在周边无可用租车点时，以此作为代替——包含一个基于目标名称和用途稳定生成的 ID（同一目标地址的
+     * 取/还车点各自固定）；名称显示为"送车服务点"或"还车服务点"；位置、城市、行政区划、地址直接透传
+     * 用户输入的搜索目标；其余业务属性（标签、评分、营业时间、类型码）使用有明确含义的默认值。
+     */
     private JSONObject planGoServicePointPoi(
             JSONObject targetPoi, String targetName, RentalStoreUsageEnum usage) {
         JSONObject poi = new JSONObject();
@@ -236,6 +249,12 @@ public class RentalStoreServiceImpl {
         return poi;
     }
 
+    /**
+     * 安全地从 POI 的 business 子对象中提取指定字段值。
+     *
+     * <p>高德 POI 的营业信息字段（评分、营业时间、电话等）嵌套在 business 对象中。
+     * 该方法统一做空安全处理，避免调用方重复判空。
+     */
     private String businessText(JSONObject poi, String fieldName) {
         JSONObject business = poi.getJSONObject("business");
         if (business == null || business.isEmpty()) {
@@ -244,6 +263,12 @@ public class RentalStoreServiceImpl {
         return text(business, fieldName);
     }
 
+    /**
+     * 安全地从 JSONObject 中提取字符串值。
+     *
+     * <p>覆盖三种异常情况：对象本身为 null、字段不存在或值为 null、值为 JSONArray 且为空数组。
+     * 统一返回空字符串，调用方无需再判空。
+     */
     private String text(JSONObject object, String fieldName) {
         if (object == null) {
             return "";
@@ -258,10 +283,22 @@ public class RentalStoreServiceImpl {
         return String.valueOf(value);
     }
 
+    /**
+     * 返回第一个非空白的字符串。
+     *
+     * <p>常用作地址字段的降级：优先使用高德返回的具体地址，若为空或空白则退回到搜索关键词。
+     */
     private String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
     }
 
+    /**
+     * 根据关键词和城市名称搜索第一个有效 POI。
+     *
+     * <p>先调用高德文本搜索 API 获取候选列表，然后优先返回"无父级"的 POI（即政区划层级最具体的
+     * 独立 POI，而非街道/区划下的子点），若全部有 parent 则取列表第一个。搜索不到符合条件的点
+     * 时抛异常，由上层决定如何降级。
+     */
     private JSONObject searchFirstPoi(String keywords, String cityName) {
         JSONObject result =
                 amapApiService.searchPoiTextRaw(
@@ -280,6 +317,14 @@ public class RentalStoreServiceImpl {
         return pois.getJSONObject(0);
     }
 
+    /**
+     * 校验高德 API 的返回结果。
+     *
+     * <p>高德返回的 JSON 中 status=1 表示成功，其余情况视为失败。失败时原样透传高德的 info
+     * 和 infocode 信息，便于排查问题。结果为空也一并拦截。
+     *
+     * @throws BusinessException 当结果为空或状态码非 1 时抛出
+     */
     private void checkAmapResult(JSONObject result) {
         if (result == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "高德接口返回为空");
@@ -294,6 +339,11 @@ public class RentalStoreServiceImpl {
         }
     }
 
+    /**
+     * 安全地将字符串解析为整数。
+     *
+     * <p>输入为 null、空字符串或不可解析的文本时均返回默认值，不会抛 NumberFormatException。
+     */
     private int intValue(String value, int defaultValue) {
         try {
             if (value == null || value.isBlank()) {
@@ -305,6 +355,11 @@ public class RentalStoreServiceImpl {
         }
     }
 
+    /**
+     * 安全地将字符串解析为浮点数。
+     *
+     * <p>与 {@link #intValue} 类似，处理 null / 空字符串 / 异常格式时返回默认值，永不抛异常。
+     */
     private double doubleValue(String value, double defaultValue) {
         try {
             if (value == null || value.isBlank()) {
