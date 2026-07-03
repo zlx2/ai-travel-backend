@@ -112,6 +112,6 @@ app:
     app-private-key: ${ALIPAY_APP_PRIVATE_KEY:}
     alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
     notify-url: ${ALIPAY_NOTIFY_URL:}
-    return-url: ${ALIPAY_RETURN_URL:http://localhost:5173/ai-trip}
+    return-url: ${ALIPAY_RETURN_URL:}
     sign-type: RSA2
     charset: UTF-8

@@ -171,9 +171,10 @@ public class AlipayPaymentServiceImpl implements AlipayPaymentService {
         if (isBlank(configValue(properties.getAppId()))
                 || isBlank(keyValue(properties.getAppPrivateKey()))
                 || isBlank(keyValue(properties.getAlipayPublicKey()))
-                || isBlank(configValue(properties.getNotifyUrl()))) {
+                || isBlank(configValue(properties.getNotifyUrl()))
+                || isBlank(configValue(properties.getReturnUrl()))) {
             throw new BusinessException(
-                    ErrorCode.PARAM_ERROR, "支付宝沙箱配置不完整：需要 APP_ID、应用私钥、支付宝公钥和 notifyUrl");
+                    ErrorCode.PARAM_ERROR, "支付宝沙箱配置不完整：需要 APP_ID、应用私钥、支付宝公钥、notifyUrl 和 returnUrl");
         }
     }
 
