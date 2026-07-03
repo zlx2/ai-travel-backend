@@ -450,7 +450,7 @@ public class AiTripController {
         if (dailyPlan.getNearbyHotels() == null || dailyPlan.getNearbyHotels().isEmpty()) {
             nearbyHotelService.fillNearbyHotels(List.of(dailyPlan));
         }
-        enrichStayAreaNode(dailyPlan);
+        nearbyHotelService.enrichStayAreaNode(dailyPlan);
     }
 
     /**
@@ -484,7 +484,7 @@ public class AiTripController {
                     if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
                         nearbyHotelService.fillNearbyHotels(List.of(day));
                     }
-                    enrichStayAreaNode(day);
+                    nearbyHotelService.enrichStayAreaNode(day);
                     previousDays.add(day);
                 }
             }
@@ -493,41 +493,6 @@ public class AiTripController {
             log.warn("加载前一天行程失败，将使用空列表继续", exception);
             return List.of();
         }
-    }
-
-    /** 将附近酒店数据填充到 STAY_AREA 时间线节点上，供前端地图渲染标记。 */
-    private void enrichStayAreaNode(TripPlanDTO.DailyPlan dailyPlan) {
-        List<TripPlanDTO.NearbyHotel> hotels = dailyPlan.getNearbyHotels();
-        if (hotels == null || hotels.isEmpty() || dailyPlan.getTimeline() == null) {
-            return;
-        }
-        dailyPlan.getTimeline().stream()
-                .filter(node -> "STAY_AREA".equals(node.getType()))
-                .findFirst()
-                .ifPresent(
-                        stayNode -> {
-                            TripPlanDTO.NearbyHotel first = hotels.get(0);
-                            stayNode.setTitle(first.getName());
-                            stayNode.setLng(first.getLng());
-                            stayNode.setLat(first.getLat());
-                            stayNode.setCoordType(first.getCoordType());
-                            stayNode.setAddress(first.getAddress());
-                            stayNode.setNearbyHotels(hotels);
-                            stayNode.setCompact(false);
-                            if (first.getEstimatedCost() != null) {
-                                stayNode.setEstimatedCost(first.getEstimatedCost());
-                                stayNode.setCostText("约¥" + first.getEstimatedCost() + "/晚");
-                            }
-                            stayNode.setTags(
-                                    List.of(
-                                            "酒店",
-                                            first.getDistanceMeters() != null
-                                                    ? first.getDistanceMeters() + "m"
-                                                    : "",
-                                            first.getEstimatedPrice() != null
-                                                    ? first.getEstimatedPrice()
-                                                    : ""));
-                        });
     }
 
     private List<TripGenerateDayStatusResponse> buildDayStatuses(
