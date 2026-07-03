@@ -354,6 +354,21 @@ public class TripTimelineAssembler {
         return 0;
     }
 
+    /**
+     * 构建「跨天转运」时间线节点（TRANSFER），表示从前一晚酒店前往当天第一个景点的交通段。
+     *
+     * <p>携带前一天酒店数据（nearbyHotels）和价格标签，供前端在转运节点上展示酒店信息。
+     * 根据是否有租车，展示"自驾"或"交通"标签。
+     *
+     * @param order       节点序号
+     * @param time        出发时间（如 "09:00"）
+     * @param previousEnd 前一天终点锚点（通常是酒店位置）
+     * @param firstSpot   当天第一个景点
+     * @param day         当天行程计划
+     * @param previousDay 前一天行程计划（携带酒店数据）
+     * @param input       时间线输入上下文
+     * @return 带有结束时间的转运节点
+     */
     private TripPlanDTO.TimelineNode transferNode(
             int order,
             String time,
@@ -362,11 +377,16 @@ public class TripTimelineAssembler {
             TripPlanDTO.DailyPlan day,
             TripPlanDTO.DailyPlan previousDay,
             TimelineInput input) {
+        // 目的地：取当天首站名称，无则取当天城市
         String to = firstSpot == null ? firstNonBlank(day.getCity(), "今日首站") : firstSpot.getName();
+        // 出发地：取前一天终点名称（通常是酒店名），无则默认"酒店"
         String fromHotel = firstNonBlank(previousEnd.getName(), "酒店");
+        // 创建紧凑模式的 TRANSFER 节点，标题为"从XX出发"
         TripPlanDTO.TimelineNode node =
                 compactNode(order, TYPE_TRANSFER, time, "从" + fromHotel + "出发");
+        // 计算从前一天终点到当天首站的交通耗时（分钟）
         int minutes = transferMinutes(previousEnd, firstSpot, day, input);
+        // 副标题：描述目的地和交通方式及耗时
         node.setSubtitle(
                 "前往"
                         + to
@@ -375,10 +395,13 @@ public class TripTimelineAssembler {
                         + "约"
                         + readableMinutes(minutes));
         node.setDescription(node.getSubtitle());
+        // 将前一天终点坐标赋给该节点（地图标记位置）
         applyAnchor(node, previousEnd);
         node.setDurationMinutes(minutes);
         node.setDurationText("约" + readableMinutes(minutes));
+        // 交通建议文案：自驾建议关注路况，非自驾建议打车/公共交通
         node.setTransportSuggestion(hasRental(input) ? "建议按实时路况出发。" : "建议按当天位置选择打车或公共交通。");
+        // 标记来源为日程锚点生成
         node.setSource("DAY_ANCHOR");
         node.setFromAnchor(previousEnd.getName());
         node.setToAnchor(to);
@@ -388,9 +411,13 @@ public class TripTimelineAssembler {
                 && !previousDay.getNearbyHotels().isEmpty()) {
             node.setNearbyHotels(previousDay.getNearbyHotels());
         }
+        // 构建标签列表
         List<String> tags = new ArrayList<>();
+        // 判断是否跨城（前一天城市和当天城市不同则标"跨城"，否则标"路程"）
         tags.add(crossCity(previousEnd, day) ? "跨城" : "路程");
+        // 交通方式标签
         tags.add(hasRental(input) ? "自驾" : "交通");
+        // 若前一天有酒店数据，追加价格区间标签
         if (previousDay != null
                 && previousDay.getNearbyHotels() != null
                 && !previousDay.getNearbyHotels().isEmpty()) {
@@ -490,21 +517,42 @@ public class TripTimelineAssembler {
         return withEndTime(node);
     }
 
+    /**
+     * 构建「住宿区域」时间线节点（STAY_AREA），表示当晚建议住宿的位置。
+     *
+     * <p>该节点携带酒店价格估算和 nearbyHotels 数据，供前端地图渲染酒店标记和费用展示。
+     *
+     * @param order       节点在时间线中的序号（递增）
+     * @param time        入住时间（如 "20:00"），由 hotelTime() 计算
+     * @param day         当天行程计划，用于获取 nearbyHotels 中的价格数据
+     * @param hotelAnchor 住宿位置锚点（含区域名、坐标等）
+     * @return 带有结束时间的住宿节点
+     */
     private TripPlanDTO.TimelineNode hotelNode(
             int order, String time, TripPlanDTO.DailyPlan day, TripPlanDTO.Anchor hotelAnchor) {
+        // 创建紧凑模式（compact=true）的 STAY_AREA 类型节点，默认标题为"住宿区域"
         TripPlanDTO.TimelineNode node = compactNode(order, TYPE_STAY_AREA, time, "住宿区域");
+        // 副标题：建议住在 XX 区域（取锚点的 area，无则取 name）
         node.setSubtitle("建议住在" + firstNonBlank(hotelAnchor.getArea(), hotelAnchor.getName()));
+        // 描述文案：引导用户在该区域住宿，便于衔接下一天
         node.setDescription("今晚建议住在该区域，方便休息并衔接下一天出发。");
+        // 将锚点的坐标、城市、区域、地址等信息赋给节点
         applyAnchor(node, hotelAnchor);
+        // 标记数据来源为 STAY_AREA，供前端区分节点类型
         node.setSource("STAY_AREA");
+        // 若当天已填充附近酒店数据，取第一家酒店的价格信息
         if (day.getNearbyHotels() != null && !day.getNearbyHotels().isEmpty()) {
             TripPlanDTO.NearbyHotel first = day.getNearbyHotels().get(0);
             if (first.getEstimatedCost() != null) {
+                // 设置估算费用（元/晚），供预算汇总使用
                 node.setEstimatedCost(first.getEstimatedCost());
+                // 设置费用展示文案（如"约¥350/晚"），供前端直接展示
                 node.setCostText("约¥" + first.getEstimatedCost() + "/晚");
             }
         }
+        // 固定标签：住宿区域 + 休息
         node.setTags(List.of("住宿区域", "休息"));
+        // 计算并设置结束时间后返回
         return withEndTime(node);
     }
 
@@ -603,23 +651,44 @@ public class TripTimelineAssembler {
         return spotAnchor(firstSpot, "DAY_START");
     }
 
+    /**
+     * 确定当晚住宿区域的地理锚点。
+     *
+     * <p>策略优先级：
+     * <ol>
+     *   <li>以最后一个景点为基准，尝试朝次日方向偏移（directionalStayAnchor）</li>
+     *   <li>回退到最后景点附近的住宿范围</li>
+     *   <li>从 DaySkeleton 预规划数据中取住宿/终点/焦点/起点区域</li>
+     *   <li>最终兜底：使用餐饮区域或城市名作为住宿区域</li>
+     * </ol>
+     *
+     * @param day   当天行程计划
+     * @param input 时间线输入上下文（含骨架、租车等信息）
+     * @return 住宿区域锚点（不会返回 null）
+     */
     private TripPlanDTO.Anchor hotelAnchor(TripPlanDTO.DailyPlan day, TimelineInput input) {
+        // 取当天最后一个景点作为住宿锚点的基准位置
         TripPlanDTO.Spot lastSpot = lastSpot(day);
+        // 将最后景点转换为 STAY_AREA 类型的锚点
         TripPlanDTO.Anchor nearLastSpot = spotAnchor(lastSpot, TYPE_STAY_AREA);
         if (nearLastSpot != null) {
+            // 尝试朝次日方向偏移住宿位置（若次日焦点较远，住在偏次日方向更合理）
             TripPlanDTO.Anchor directionalStay = directionalStayAnchor(day, nearLastSpot, input);
             if (directionalStay != null) {
                 return directionalStay;
             }
+            // 偏移不成功，直接用最后景点附近作为住宿范围，名称追加"住宿范围"
             nearLastSpot.setName(
                     firstNonBlank(nearLastSpot.getArea(), nearLastSpot.getName()) + "住宿范围");
             return nearLastSpot;
         }
+        // 最后景点无坐标时，尝试从 DaySkeleton 预规划数据中获取住宿锚点
         DaySkeleton skeleton = skeleton(day, input);
         TripPlanDTO.Anchor plannedStay = plannedStayAnchor(skeleton);
         if (plannedStay != null) {
             return plannedStay;
         }
+        // 最终兜底：使用餐饮区域或城市名构造一个无坐标的住宿锚点
         TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
         anchor.setType(TYPE_STAY_AREA);
         anchor.setName(firstNonBlank(day.getDiningArea(), firstNonBlank(day.getCity(), "住宿区域")));
@@ -651,24 +720,44 @@ public class TripTimelineAssembler {
         return anchor;
     }
 
+    /**
+     * 根据次日行程方向，偏移当晚住宿位置。
+     *
+     * <p>当次日焦点区域距离较远（超过 {@link #NEXT_DAY_DIRECTION_THRESHOLD_KM} = 45km）时，
+     * 将住宿位置朝次日方向偏移 {@link #STAY_DIRECTION_SHIFT_RATIO} = 35%，
+     * 使第二天出发更近、更省时。
+     *
+     * @param day           当天行程计划
+     * @param nearLastSpot  最后景点附近的锚点（偏移起点）
+     * @param input         时间线输入上下文
+     * @return 偏移后的住宿锚点；距离不满足条件时返回 null（使用原位置）
+     */
     private TripPlanDTO.Anchor directionalStayAnchor(
             TripPlanDTO.DailyPlan day, TripPlanDTO.Anchor nearLastSpot, TimelineInput input) {
+        // 获取次日的 DaySkeleton 预规划数据
         DaySkeleton nextSkeleton = skeletonByDay(value(day.getDay()) + 1, input);
+        // 从次日骨架中提取焦点区域作为偏移目标
         TripPlanDTO.Anchor nextFocus =
                 snapshotAnchor(
                         nextSkeleton == null ? null : nextSkeleton.getFocusArea(), "NEXT_FOCUS");
+        // 提取当前锚点和目标锚点的经纬度数组
         double[] from = anchorLocation(nearLastSpot);
         double[] to = anchorLocation(nextFocus);
+        // 任一坐标缺失时无法计算偏移，返回 null 使用原位置
         if (from == null || to == null) {
             return null;
         }
+        // 计算两点间的直线距离（km）
         double distance = distanceKm(from, to);
+        // 距离不足 45km 时无需偏移（次日出发路程不远）
         if (distance < NEXT_DAY_DIRECTION_THRESHOLD_KM) {
             return null;
         }
+        // 偏移比例 35%：住在当前和目标之间 35% 的位置
         double ratio = STAY_DIRECTION_SHIFT_RATIO;
         BigDecimal lng = BigDecimal.valueOf(from[0] + (to[0] - from[0]) * ratio);
         BigDecimal lat = BigDecimal.valueOf(from[1] + (to[1] - from[1]) * ratio);
+        // 构造偏移后的住宿锚点，名称描述为"XX 至 YY 方向住宿范围"
         return new TripPlanDTO.Anchor(
                 TYPE_STAY_AREA,
                 firstNonBlank(nearLastSpot.getArea(), nearLastSpot.getName())
@@ -727,41 +816,46 @@ public class TripTimelineAssembler {
      * @return
      */
     private TripPlanDTO.Anchor endAnchor(TripPlanDTO.DailyPlan day) {
+        // 优先级 1：直接使用 day 上已设置的 endAnchor（assembleDay 中赋值的 hotelAnchor）
         if (day.getEndAnchor() != null) {
             return day.getEndAnchor();
         }
-        // 将后一天的酒店地址传给前一天
+        // 优先级 2：从已组装的时间线中提取 STAY_AREA 节点的坐标（enrichStayAreaNode 已填充）
         TripPlanDTO.Anchor fromTimeline = stayAnchorFromTimeline(day);
         if (fromTimeline != null) {
             return fromTimeline;
         }
-        //
+        // 优先级 3：从 nearbyHotels 原始数据中提取真实酒店坐标（兜底方案）
         TripPlanDTO.Anchor fromHotels = stayAnchorFromNearbyHotels(day);
         if (fromHotels != null) {
             return fromHotels;
         }
+        // 优先级 4：所有兜底都失败，用 hotelAnchor 的纯策略推算（无真实酒店数据）
         return hotelAnchor(day, TimelineInput.empty());
     }
 
     /** 从已填充酒店坐标的 STAY_AREA 时间线节点中提取锚点（用于跨天传递酒店位置）。 */
     private TripPlanDTO.Anchor stayAnchorFromTimeline(TripPlanDTO.DailyPlan day) {
+        // timeline 不存在时直接返回 null
         if (day.getTimeline() == null) {
             return null;
         }
+        // 流式遍历时间线，找第一个有坐标的 STAY_AREA 节点
         return day.getTimeline().stream()
-                .filter(node -> TYPE_STAY_AREA.equals(node.getType()))
-                .filter(node -> node.getLng() != null && node.getLat() != null)
+                .filter(node -> TYPE_STAY_AREA.equals(node.getType()))    // 筛选 STAY_AREA 类型
+                .filter(node -> node.getLng() != null && node.getLat() != null) // 必须有坐标
                 .findFirst()
                 .map(
                         node -> {
+                            // 将时间线节点的坐标和地址信息转为 Anchor 对象
                             TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
                             anchor.setType(TYPE_STAY_AREA);
-                            anchor.setName(node.getTitle());
+                            anchor.setName(node.getTitle());     // 酒店名称（已被 enrichStayAreaNode 替换为真实酒店名）
                             anchor.setCity(node.getCity());
                             anchor.setArea(node.getArea());
                             anchor.setAddress(node.getAddress());
-                            anchor.setLng(node.getLng());
-                            anchor.setLat(node.getLat());
+                            anchor.setLng(node.getLng());       // GCJ02 经度
+                            anchor.setLat(node.getLat());       // GCJ02 纬度
                             anchor.setCoordType(node.getCoordType());
                             return anchor;
                         })
@@ -770,19 +864,22 @@ public class TripTimelineAssembler {
 
     /** 从 nearbyHotels 数据中提取锚点（orchestrator 层填充，用于跨天传递真实酒店名称和坐标）。 */
     private TripPlanDTO.Anchor stayAnchorFromNearbyHotels(TripPlanDTO.DailyPlan day) {
+        // nearbyHotels 为空时返回 null
         if (day.getNearbyHotels() == null || day.getNearbyHotels().isEmpty()) {
             return null;
         }
+        // 取列表中的第一家酒店（距离最近/评分最高）
         TripPlanDTO.NearbyHotel hotel = day.getNearbyHotels().get(0);
+        // 将酒店信息转为 Anchor 锚点对象
         TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
         anchor.setType(TYPE_STAY_AREA);
-        anchor.setName(hotel.getName());
+        anchor.setName(hotel.getName());           // 真实酒店名称（高德 POI）
         anchor.setCity(day.getCity());
-        anchor.setArea(hotel.getAddress());
+        anchor.setArea(hotel.getAddress());        // 酒店地址作为区域描述
         anchor.setAddress(hotel.getAddress());
-        anchor.setLng(hotel.getLng());
-        anchor.setLat(hotel.getLat());
-        anchor.setCoordType(firstNonBlank(hotel.getCoordType(), "GCJ02"));
+        anchor.setLng(hotel.getLng());            // GCJ02 经度
+        anchor.setLat(hotel.getLat());            // GCJ02 纬度
+        anchor.setCoordType(firstNonBlank(hotel.getCoordType(), "GCJ02")); // 坐标系，默认 GCJ02
         return anchor;
     }
 

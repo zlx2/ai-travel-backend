@@ -337,6 +337,7 @@ public class AiTripController {
             TripPlanDTO.DailyPlan dailyPlan =
                     jsonCodec.read(
                             day.getResultJson(), TripPlanDTO.DailyPlan.class, "组装生成响应时单日行程数据解析失败");
+            // 组装行程时间线
             assembleTimeline(session, requirement, dailyPlan, selectedQuote);
             TripPlanDTO tripPlan =
                     new TripPlanDTO(
@@ -448,8 +449,10 @@ public class AiTripController {
 
         // 搜索最后景点附近的酒店
         if (dailyPlan.getNearbyHotels() == null || dailyPlan.getNearbyHotels().isEmpty()) {
+            // 根据每天最后一个景点的坐标，搜索附近酒店。
             nearbyHotelService.fillNearbyHotels(List.of(dailyPlan));
         }
+        // 将附近酒店数据填充到 STAY_AREA 时间线节点上，供前端地图渲染标记和详情
         nearbyHotelService.enrichStayAreaNode(dailyPlan);
     }
 
