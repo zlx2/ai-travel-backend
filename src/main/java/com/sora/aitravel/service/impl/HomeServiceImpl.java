@@ -37,7 +37,7 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class HomeServiceImpl implements HomeService {
     private static final int HOT_DESTINATION_LIMIT = 6;
-    private static final int HOT_NOTE_LIMIT = 3;
+    private static final int HOT_NOTE_LIMIT = 6;
     private static final int HOT_TAG_LIMIT = 12;
 
     /** 首页缓存有效期：演示项目使用 3 天，避免频繁回源查询。 */
