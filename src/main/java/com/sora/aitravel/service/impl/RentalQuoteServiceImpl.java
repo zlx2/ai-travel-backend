@@ -467,7 +467,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                         new LambdaQueryWrapper<RentalPriceTemplate>()
                                 .eq(RentalPriceTemplate::getStatus, 1)
                                 .orderByAsc(RentalPriceTemplate::getId)
-                                .last("limit " + safeLimit * 4));
+                                .last("limit " + safeLimit * 8));
         for (RentalPriceTemplate template : templates) {
             if (result.size() >= safeLimit) {
                 break;
@@ -476,8 +476,8 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                     .anyMatch(
                             item ->
                                     Objects.equals(
-                                            item.getVehicleGroupId(),
-                                            template.getVehicleGroupId()))) {
+                                            item.getPriceTemplateId(),
+                                            template.getId()))) {
                 continue;
             }
             RentalVehicleGroup group = vehicleGroupMapper.selectById(template.getVehicleGroupId());
@@ -507,6 +507,11 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
                 || requirement.getDays() < 1
                 || requirement.getDays() > 7) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "租车天数必须在 1 到 7 天之间");
+        }
+        if (requirement.getPeopleCount() == null
+                || requirement.getPeopleCount() < 1
+                || requirement.getPeopleCount() > 7) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "乘车人数必须在 1 到 7 人之间");
         }
     }
 

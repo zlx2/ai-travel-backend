@@ -144,6 +144,8 @@ public class AiTripDayGenerateOrchestrator {
                         dayNo,
                         timelineException);
             }
+            // 将酒店数据挂到 STAY_AREA 时间线节点上（供前端地图渲染酒店标记和详情）
+            nearbyHotelService.enrichStayAreaNode(generatedPlan);
             // 生成成功，将当前 dayNo 的计划 JSON 写入结果
             timed(
                     "day-mark-generated",
