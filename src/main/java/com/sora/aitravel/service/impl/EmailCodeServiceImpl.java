@@ -16,6 +16,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+/**
+ * 邮箱验证码服务实现
+ * 提供邮箱验证码的发送、验证和核销功能，支持注册、修改邮箱、重置密码等场景
+ */
 @Service
 @RequiredArgsConstructor
 public class EmailCodeServiceImpl implements EmailCodeService {
@@ -29,6 +33,12 @@ public class EmailCodeServiceImpl implements EmailCodeService {
     private final MailSendService mailSendService;
     private final SysUserMapper userMapper;
 
+    /**
+     * 发送邮箱验证码
+     *
+     * @param email 邮箱地址
+     * @param scene 场景（register/change_email/reset_password）
+     */
     @Override
     public void send(String email, String scene) {
         String normalizedEmail = normalizeEmail(email);
@@ -79,6 +89,13 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         }
     }
 
+    /**
+     * 验证邮箱验证码
+     *
+     * @param email 邮箱地址
+     * @param scene 场景
+     * @param code  验证码
+     */
     @Override
     public void verify(String email, String scene, String code) {
         // 此处只校验、不删除；注册事务成功后才核销，失败时用户仍可重试。
@@ -92,15 +109,32 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         }
     }
 
+    /**
+     * 删除邮箱验证码（核销）
+     *
+     * @param email 邮箱地址
+     * @param scene 场景
+     */
     @Override
     public void remove(String email, String scene) {
         redisTemplate.delete(codeKey(scene, normalizeEmail(email)));
     }
 
+    /**
+     * 生成6位数字验证码
+     *
+     * @return 6位验证码字符串
+     */
     private String createCode() {
         return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
     }
 
+    /**
+     * 验证场景是否支持
+     *
+     * @param scene 场景
+     * @throws BusinessException 如果场景不支持
+     */
     private void validateScene(String scene) {
         if (!REGISTER_SCENE.equals(scene)
                 && !CHANGE_EMAIL_SCENE.equals(scene)
@@ -109,14 +143,34 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         }
     }
 
+    /**
+     * 规范化邮箱地址（去除空格并转小写）
+     *
+     * @param email 原始邮箱地址
+     * @return 规范化后的邮箱地址
+     */
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * 生成验证码缓存键
+     *
+     * @param scene 场景
+     * @param email 邮箱地址
+     * @return 缓存键
+     */
     private String codeKey(String scene, String email) {
         return EMAIL_CODE_PREFIX + scene + ":" + email;
     }
 
+    /**
+     * 生成限流缓存键
+     *
+     * @param scene 场景
+     * @param email 邮箱地址
+     * @return 限流键
+     */
     private String limitKey(String scene, String email) {
         return EMAIL_CODE_LIMIT_PREFIX + scene + ":" + email;
     }

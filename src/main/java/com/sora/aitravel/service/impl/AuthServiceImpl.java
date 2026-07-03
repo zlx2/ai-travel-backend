@@ -22,6 +22,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 认证服务实现
+ * 提供用户注册、登录、登出、密码重置等认证相关功能
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -32,22 +36,26 @@ public class AuthServiceImpl implements AuthService {
     private final EmailCodeService emailCodeService;
     private final PasswordEncoder passwordEncoder;
 
+    /**
+     * 用户注册
+     * 校验用户名和邮箱唯一性，验证邮箱验证码，创建用户并核销验证码
+     *
+     * @param request 注册请求
+     * @return 用户ID
+     */
     @Override
     @Transactional
     public Long register(RegisterRequest request) {
-        // 先标准化唯一键，避免大小写或无意义空格绕过重复检查。
         String username = request.getUsername().trim();
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         ensureUsernameAvailable(username);
         ensureEmailAvailable(email);
-        // 唯一性确认后再校验邮箱所有权，错误类型对调用方更明确。
         emailCodeService.verify(email, REGISTER_SCENE, request.getEmailCode());
 
         LocalDateTime now = LocalDateTime.now();
         SysUser user =
                 SysUser.builder()
                         .username(username)
-                        // 数据库只保存带盐的单向哈希，永不持久化明文密码。
                         .passwordHash(passwordEncoder.encode(request.getPassword()))
                         .email(email)
                         .nickname(username)
@@ -58,11 +66,17 @@ public class AuthServiceImpl implements AuthService {
                         .deleted(0)
                         .build();
         userMapper.insert(user);
-        // 注册成功后立即核销验证码，使其成为一次性凭证。
         emailCodeService.remove(email, REGISTER_SCENE);
         return user.getId();
     }
 
+    /**
+     * 用户登录
+     * 支持用户名或邮箱登录，校验密码，更新登录时间，生成登录令牌
+     *
+     * @param request 登录请求
+     * @return 登录响应，包含令牌和用户信息
+     */
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -76,7 +90,6 @@ public class AuthServiceImpl implements AuthService {
                                                         .or()
                                                         .eq(SysUser::getEmail, account))
                                 .last("LIMIT 1"));
-        // 两种失败使用同一提示，避免接口泄露某个账号是否已经注册。
         if (user == null
                 || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.USERNAME_OR_PASSWORD_ERROR);
@@ -89,21 +102,29 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(now);
         user.setUpdateTime(now);
         userMapper.updateById(user);
-        // 令牌有效期和并发登录策略统一由 Sa-Token 配置管理。
         StpUtil.login(user.getId());
         return new LoginResponse(StpUtil.getTokenValue(), toResponse(user));
     }
 
+    /**
+     * 用户登出
+     * 清除当前用户的登录状态
+     */
     @Override
     public void logout() {
         StpUtil.logout();
     }
 
+    /**
+     * 重置密码
+     * 验证邮箱验证码，更新密码，强制用户所有会话下线，核销验证码
+     *
+     * @param request 重置密码请求
+     */
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        // 先校验验证码，再查用户、改密码。
         emailCodeService.verify(email, "reset_password", request.getEmailCode());
 
         SysUser user =
@@ -117,12 +138,16 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(user);
-        // 强制该用户所有会话下线，旧 Token 立即失效。
         StpUtil.logout(user.getId());
-        // 核销验证码，使其成为一次性凭证。
         emailCodeService.remove(email, "reset_password");
     }
 
+    /**
+     * 确保用户名可用
+     *
+     * @param username 用户名
+     * @throws BusinessException 如果用户名已存在
+     */
     private void ensureUsernameAvailable(String username) {
         if (userMapper.selectCount(
                         new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username))
@@ -131,6 +156,12 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * 确保邮箱可用
+     *
+     * @param email 邮箱地址
+     * @throws BusinessException 如果邮箱已被注册
+     */
     private void ensureEmailAvailable(String email) {
         if (userMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getEmail, email))
                 > 0) {
@@ -138,6 +169,12 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * 将用户实体转换为响应对象
+     *
+     * @param user 用户实体
+     * @return 用户信息响应
+     */
     static UserInfoResponse toResponse(SysUser user) {
         return UserInfoResponse.builder()
                 .id(user.getId())

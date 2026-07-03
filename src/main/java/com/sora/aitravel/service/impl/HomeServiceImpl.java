@@ -32,6 +32,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+/**
+ * 首页服务实现
+ * 提供首页聚合数据，包含热门目的地、热门笔记、热门标签等
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -54,6 +58,12 @@ public class HomeServiceImpl implements HomeService {
     @Value("${app.cache.key-prefix:plango:dev}")
     private String cacheKeyPrefix;
 
+    /**
+     * 聚合首页数据
+     * 优先从缓存获取，缓存不存在时从数据库查询并写入缓存
+     *
+     * @return 首页聚合响应
+     */
     @Override
     public HomeResponse aggregate() {
         HomeResponse cached = getHomeFromCache();
@@ -66,6 +76,11 @@ public class HomeServiceImpl implements HomeService {
         return fresh;
     }
 
+    /**
+     * 从缓存获取首页数据
+     *
+     * @return 首页响应，如果缓存不存在或读取失败则返回null
+     */
     private HomeResponse getHomeFromCache() {
         try {
             String json = stringRedisTemplate.opsForValue().get(homeCacheKey());
@@ -79,6 +94,11 @@ public class HomeServiceImpl implements HomeService {
         }
     }
 
+    /**
+     * 将首页数据写入缓存
+     *
+     * @param response 首页响应
+     */
     private void putHomeToCache(HomeResponse response) {
         try {
             String json = objectMapper.writeValueAsString(response);
@@ -88,10 +108,20 @@ public class HomeServiceImpl implements HomeService {
         }
     }
 
+    /**
+     * 获取首页缓存键
+     *
+     * @return 缓存键
+     */
     private String homeCacheKey() {
         return cacheKeyPrefix + ":home";
     }
 
+    /**
+     * 从数据库查询首页数据
+     *
+     * @return 首页聚合响应
+     */
     private HomeResponse queryHomeFromDb() {
         List<DestinationResponse> destinations =
                 destinationMapper
@@ -146,6 +176,12 @@ public class HomeServiceImpl implements HomeService {
                 .build();
     }
 
+    /**
+     * 批量加载用户信息
+     *
+     * @param userIds 用户ID列表
+     * @return 用户ID到用户实体的映射
+     */
     private Map<Long, SysUser> loadUsers(List<Long> userIds) {
         if (userIds.isEmpty()) {
             return Collections.emptyMap();
@@ -156,6 +192,12 @@ public class HomeServiceImpl implements HomeService {
                                 SysUser::getId, Function.identity(), (left, right) -> left));
     }
 
+    /**
+     * 将目的地实体转换为响应对象
+     *
+     * @param destination 目的地实体
+     * @return 目的地响应
+     */
     private DestinationResponse toDestinationResponse(Destination destination) {
         return DestinationResponse.builder()
                 .id(destination.getId())
@@ -173,6 +215,13 @@ public class HomeServiceImpl implements HomeService {
                 .build();
     }
 
+    /**
+     * 将笔记实体转换为列表项响应对象
+     *
+     * @param note   笔记实体
+     * @param author 作者用户实体
+     * @return 笔记列表项响应
+     */
     private NoteListItemResponse toNoteListItemResponse(Note note, SysUser author) {
         List<String> tags =
                 noteTagMapper
@@ -202,6 +251,12 @@ public class HomeServiceImpl implements HomeService {
                 .build();
     }
 
+    /**
+     * 将标签实体转换为响应对象
+     *
+     * @param tag 标签实体
+     * @return 标签响应
+     */
     private TagResponse toTagResponse(Tag tag) {
         return TagResponse.builder()
                 .id(tag.getId())
@@ -212,6 +267,12 @@ public class HomeServiceImpl implements HomeService {
                 .build();
     }
 
+    /**
+     * 解析标签JSON字符串
+     *
+     * @param tagsJson 标签JSON字符串
+     * @return 标签列表
+     */
     private List<String> parseTags(String tagsJson) {
         if (tagsJson == null || tagsJson.isBlank()) {
             return Collections.emptyList();
