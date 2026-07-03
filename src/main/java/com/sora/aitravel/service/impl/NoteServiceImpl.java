@@ -24,6 +24,7 @@ import com.sora.aitravel.mapper.NoteTagMapper;
 import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.mapper.TagMapper;
 import com.sora.aitravel.service.NoteService;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -31,6 +32,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +53,10 @@ public class NoteServiceImpl implements NoteService {
     private final NoteFavoriteMapper noteFavoriteMapper;
     private final TagMapper tagMapper;
     private final SysUserMapper userMapper;
+    private final StringRedisTemplate stringRedisTemplate;
+
+    @Value("${app.cache.key-prefix:plango:dev}")
+    private String cacheKeyPrefix;
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -146,6 +153,7 @@ public class NoteServiceImpl implements NoteService {
                         .build();
 
         noteMapper.insert(note);
+        clearHomeCache();
 
         // 关联标签
         if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
@@ -243,6 +251,7 @@ public class NoteServiceImpl implements NoteService {
         BeanUtils.copyProperties(request, note);
         note.setUpdateTime(LocalDateTime.now());
         noteMapper.updateById(note);
+        clearHomeCache();
 
         // 重建标签关联
         noteTagMapper.delete(new LambdaQueryWrapper<NoteTag>().eq(NoteTag::getNoteId, id));
@@ -266,6 +275,15 @@ public class NoteServiceImpl implements NoteService {
         note.setUpdateTime(LocalDateTime.now());
         noteMapper.updateById(note);
         noteMapper.deleteById(id);
+        clearHomeCache();
+    }
+
+    private void clearHomeCache() {
+        try {
+            stringRedisTemplate.delete(cacheKeyPrefix + ":home");
+        } catch (Exception ignored) {
+            // 缓存清理失败不影响主流程
+        }
     }
 
     // ---------- private helpers ----------
