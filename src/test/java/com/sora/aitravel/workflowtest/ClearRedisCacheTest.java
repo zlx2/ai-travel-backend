@@ -11,8 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @SpringBootTest
 class ClearRedisCacheTest {
 
-    @Autowired
-    private StringRedisTemplate redis;
+    @Autowired private StringRedisTemplate redis;
 
     @Value("${app.cache.key-prefix:plango:dev}")
     private String prefix;
@@ -21,7 +20,8 @@ class ClearRedisCacheTest {
     void clearHomeCache() {
         String key = prefix + ":home";
         Boolean deleted = redis.delete(key);
-        System.out.println("清理首页缓存 key=" + key + " → " + (Boolean.TRUE.equals(deleted) ? "已删除" : "key不存在"));
+        System.out.println(
+                "清理首页缓存 key=" + key + " → " + (Boolean.TRUE.equals(deleted) ? "已删除" : "key不存在"));
 
         // 顺手列出所有 plango 前缀的 key，看看还有没有其他脏数据
         Set<String> keys = redis.keys(prefix + ":*");

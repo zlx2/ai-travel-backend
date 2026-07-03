@@ -24,7 +24,6 @@ import com.sora.aitravel.mapper.NoteTagMapper;
 import com.sora.aitravel.mapper.SysUserMapper;
 import com.sora.aitravel.mapper.TagMapper;
 import com.sora.aitravel.service.NoteService;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -63,12 +62,12 @@ public class NoteServiceImpl implements NoteService {
     /**
      * 分页查询已发布的游记列表，支持关键字、目的地、标签筛选和排序。
      *
-     * @param pageNum     页码（从 1 开始）
-     * @param pageSize    每页条数
-     * @param keyword     搜索关键词（匹配标题或摘要）
+     * @param pageNum 页码（从 1 开始）
+     * @param pageSize 每页条数
+     * @param keyword 搜索关键词（匹配标题或摘要）
      * @param destination 目的地精确筛选
-     * @param tagId       标签 ID 筛选（通过 note_tag 关联表子查询）
-     * @param sort        排序方式："hot" 按点赞数降序，其他按创建时间降序
+     * @param tagId 标签 ID 筛选（通过 note_tag 关联表子查询）
+     * @param sort 排序方式："hot" 按点赞数降序，其他按创建时间降序
      * @return 分页结果（含游记列表、总数、页码、页大小）
      */
     @Override
@@ -125,9 +124,9 @@ public class NoteServiceImpl implements NoteService {
     /**
      * 分页查询当前登录用户的游记列表（含草稿），排除已删除的游记。
      *
-     * @param pageNum  页码（从 1 开始）
+     * @param pageNum 页码（从 1 开始）
      * @param pageSize 每页条数
-     * @param status   状态筛选（可选），如草稿/已发布
+     * @param status 状态筛选（可选），如草稿/已发布
      * @return 分页结果
      */
     @Override
@@ -176,17 +175,17 @@ public class NoteServiceImpl implements NoteService {
         // 使用 Builder 模式构建 Note 实体
         Note note =
                 Note.builder()
-                        .userId(userId)                     // 作者 ID
-                        .title(request.getTitle())           // 游记标题
-                        .coverUrl(request.getCoverUrl())     // 封面图片 URL
+                        .userId(userId) // 作者 ID
+                        .title(request.getTitle()) // 游记标题
+                        .coverUrl(request.getCoverUrl()) // 封面图片 URL
                         .destination(request.getDestination()) // 目的地
-                        .summary(request.getSummary())       // 摘要
-                        .content(request.getContent())       // 正文内容
-                        .status(request.getStatus())         // 状态（草稿/已发布）
-                        .viewCount(0)                       // 浏览数初始化为 0
-                        .likeCount(0)                       // 点赞数初始化为 0
-                        .favoriteCount(0)                   // 收藏数初始化为 0
-                        .commentCount(0)                    // 评论数初始化为 0
+                        .summary(request.getSummary()) // 摘要
+                        .content(request.getContent()) // 正文内容
+                        .status(request.getStatus()) // 状态（草稿/已发布）
+                        .viewCount(0) // 浏览数初始化为 0
+                        .likeCount(0) // 点赞数初始化为 0
+                        .favoriteCount(0) // 收藏数初始化为 0
+                        .commentCount(0) // 评论数初始化为 0
                         .createTime(now)
                         .updateTime(now)
                         .build();
@@ -226,7 +225,7 @@ public class NoteServiceImpl implements NoteService {
                     throw new BusinessException(ErrorCode.NOT_FOUND, "游记不存在");
                 }
             } catch (BusinessException e) {
-                throw e;  // 业务异常直接上抛
+                throw e; // 业务异常直接上抛
             } catch (Exception e) {
                 // 未登录等非业务异常也返回"游记不存在"
                 throw new BusinessException(ErrorCode.NOT_FOUND, "游记不存在");
@@ -253,8 +252,8 @@ public class NoteServiceImpl implements NoteService {
                         // 作者昵称：有则显示，无则兜底"未知用户"
                         .authorNickname(author != null ? author.getNickname() : "未知用户")
                         .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
-                        .tags(tags)                        // 标签名称列表
-                        .tagIds(tagIds)                    // 标签 ID 列表
+                        .tags(tags) // 标签名称列表
+                        .tagIds(tagIds) // 标签 ID 列表
                         .viewCount(note.getViewCount())
                         .likeCount(note.getLikeCount())
                         .favoriteCount(note.getFavoriteCount())
@@ -301,7 +300,7 @@ public class NoteServiceImpl implements NoteService {
      *
      * <p>标签采用"先删后插"策略：先删除旧关联记录，再插入新的关联。
      *
-     * @param id      游记 ID
+     * @param id 游记 ID
      * @param request 更新请求（标题、封面、目的地、摘要、正文、状态、标签 ID 列表）
      */
     @Override
@@ -362,10 +361,7 @@ public class NoteServiceImpl implements NoteService {
         clearHomeCache();
     }
 
-    /**
-     * 清除首页 Redis 缓存。游记增删改时调用，确保首页数据及时刷新。
-     * 缓存清理失败不影响主流程（仅记录异常，不抛出）。
-     */
+    /** 清除首页 Redis 缓存。游记增删改时调用，确保首页数据及时刷新。 缓存清理失败不影响主流程（仅记录异常，不抛出）。 */
     private void clearHomeCache() {
         try {
             // 删除 key = cacheKeyPrefix + ":home" 的缓存项
@@ -410,7 +406,7 @@ public class NoteServiceImpl implements NoteService {
                 .authorId(note.getUserId())
                 .authorNickname(author != null ? author.getNickname() : "未知用户")
                 .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
-                .tags(getTagNamesByNoteId(note.getId()))  // 查询关联标签名称列表
+                .tags(getTagNamesByNoteId(note.getId())) // 查询关联标签名称列表
                 .likeCount(note.getLikeCount())
                 .favoriteCount(note.getFavoriteCount())
                 .commentCount(note.getCommentCount())
@@ -431,9 +427,9 @@ public class NoteServiceImpl implements NoteService {
                         new LambdaQueryWrapper<NoteTag>().eq(NoteTag::getNoteId, noteId));
         if (noteTags.isEmpty()) return Collections.emptyList();
         return noteTags.stream()
-                .map(nt -> tagMapper.selectById(nt.getTagId()))  // 根据 tagId 查 Tag 实体
+                .map(nt -> tagMapper.selectById(nt.getTagId())) // 根据 tagId 查 Tag 实体
                 .filter(tag -> tag != null && tag.getStatus() == 1) // 仅保留已启用的标签
-                .map(Tag::getName)                                // 提取标签名称
+                .map(Tag::getName) // 提取标签名称
                 .collect(Collectors.toList());
     }
 
@@ -481,9 +477,9 @@ public class NoteServiceImpl implements NoteService {
                         .map(
                                 tagId ->
                                         NoteTag.builder()
-                                                .noteId(noteId)     // 游记 ID
-                                                .tagId(tagId)       // 标签 ID
-                                                .createTime(now)    // 创建时间
+                                                .noteId(noteId) // 游记 ID
+                                                .tagId(tagId) // 标签 ID
+                                                .createTime(now) // 创建时间
                                                 .build())
                         .collect(Collectors.toList());
         // 批量插入 note_tag 关联记录

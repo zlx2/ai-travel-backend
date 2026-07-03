@@ -190,7 +190,9 @@ public class TripTimelineAssembler {
                             input,
                             lunchReference));
             clock.reset(
-                    addMinutes(timeline.get(timeline.size() - 1).getStartTime(), LUNCH_DURATION_MINUTES)
+                    addMinutes(
+                                    timeline.get(timeline.size() - 1).getStartTime(),
+                                    LUNCH_DURATION_MINUTES)
                             + MEAL_SETTLE_BUFFER_MINUTES);
         }
 
@@ -322,7 +324,8 @@ public class TripTimelineAssembler {
         return withEndTime(node);
     }
 
-    private List<TripPlanDTO.TimelineNode> normalizeTimeline(List<TripPlanDTO.TimelineNode> timeline) {
+    private List<TripPlanDTO.TimelineNode> normalizeTimeline(
+            List<TripPlanDTO.TimelineNode> timeline) {
         if (timeline == null || timeline.isEmpty()) {
             return timeline;
         }
@@ -357,16 +360,15 @@ public class TripTimelineAssembler {
     /**
      * 构建「跨天转运」时间线节点（TRANSFER），表示从前一晚酒店前往当天第一个景点的交通段。
      *
-     * <p>携带前一天酒店数据（nearbyHotels）和价格标签，供前端在转运节点上展示酒店信息。
-     * 根据是否有租车，展示"自驾"或"交通"标签。
+     * <p>携带前一天酒店数据（nearbyHotels）和价格标签，供前端在转运节点上展示酒店信息。 根据是否有租车，展示"自驾"或"交通"标签。
      *
-     * @param order       节点序号
-     * @param time        出发时间（如 "09:00"）
+     * @param order 节点序号
+     * @param time 出发时间（如 "09:00"）
      * @param previousEnd 前一天终点锚点（通常是酒店位置）
-     * @param firstSpot   当天第一个景点
-     * @param day         当天行程计划
+     * @param firstSpot 当天第一个景点
+     * @param day 当天行程计划
      * @param previousDay 前一天行程计划（携带酒店数据）
-     * @param input       时间线输入上下文
+     * @param input 时间线输入上下文
      * @return 带有结束时间的转运节点
      */
     private TripPlanDTO.TimelineNode transferNode(
@@ -522,9 +524,9 @@ public class TripTimelineAssembler {
      *
      * <p>该节点携带酒店价格估算和 nearbyHotels 数据，供前端地图渲染酒店标记和费用展示。
      *
-     * @param order       节点在时间线中的序号（递增）
-     * @param time        入住时间（如 "20:00"），由 hotelTime() 计算
-     * @param day         当天行程计划，用于获取 nearbyHotels 中的价格数据
+     * @param order 节点在时间线中的序号（递增）
+     * @param time 入住时间（如 "20:00"），由 hotelTime() 计算
+     * @param day 当天行程计划，用于获取 nearbyHotels 中的价格数据
      * @param hotelAnchor 住宿位置锚点（含区域名、坐标等）
      * @return 带有结束时间的住宿节点
      */
@@ -655,14 +657,15 @@ public class TripTimelineAssembler {
      * 确定当晚住宿区域的地理锚点。
      *
      * <p>策略优先级：
+     *
      * <ol>
-     *   <li>以最后一个景点为基准，尝试朝次日方向偏移（directionalStayAnchor）</li>
-     *   <li>回退到最后景点附近的住宿范围</li>
-     *   <li>从 DaySkeleton 预规划数据中取住宿/终点/焦点/起点区域</li>
-     *   <li>最终兜底：使用餐饮区域或城市名作为住宿区域</li>
+     *   <li>以最后一个景点为基准，尝试朝次日方向偏移（directionalStayAnchor）
+     *   <li>回退到最后景点附近的住宿范围
+     *   <li>从 DaySkeleton 预规划数据中取住宿/终点/焦点/起点区域
+     *   <li>最终兜底：使用餐饮区域或城市名作为住宿区域
      * </ol>
      *
-     * @param day   当天行程计划
+     * @param day 当天行程计划
      * @param input 时间线输入上下文（含骨架、租车等信息）
      * @return 住宿区域锚点（不会返回 null）
      */
@@ -723,13 +726,12 @@ public class TripTimelineAssembler {
     /**
      * 根据次日行程方向，偏移当晚住宿位置。
      *
-     * <p>当次日焦点区域距离较远（超过 {@link #NEXT_DAY_DIRECTION_THRESHOLD_KM} = 45km）时，
-     * 将住宿位置朝次日方向偏移 {@link #STAY_DIRECTION_SHIFT_RATIO} = 35%，
-     * 使第二天出发更近、更省时。
+     * <p>当次日焦点区域距离较远（超过 {@link #NEXT_DAY_DIRECTION_THRESHOLD_KM} = 45km）时， 将住宿位置朝次日方向偏移 {@link
+     * #STAY_DIRECTION_SHIFT_RATIO} = 35%， 使第二天出发更近、更省时。
      *
-     * @param day           当天行程计划
-     * @param nearLastSpot  最后景点附近的锚点（偏移起点）
-     * @param input         时间线输入上下文
+     * @param day 当天行程计划
+     * @param nearLastSpot 最后景点附近的锚点（偏移起点）
+     * @param input 时间线输入上下文
      * @return 偏移后的住宿锚点；距离不满足条件时返回 null（使用原位置）
      */
     private TripPlanDTO.Anchor directionalStayAnchor(
@@ -842,7 +844,7 @@ public class TripTimelineAssembler {
         }
         // 流式遍历时间线，找第一个有坐标的 STAY_AREA 节点
         return day.getTimeline().stream()
-                .filter(node -> TYPE_STAY_AREA.equals(node.getType()))    // 筛选 STAY_AREA 类型
+                .filter(node -> TYPE_STAY_AREA.equals(node.getType())) // 筛选 STAY_AREA 类型
                 .filter(node -> node.getLng() != null && node.getLat() != null) // 必须有坐标
                 .findFirst()
                 .map(
@@ -850,12 +852,12 @@ public class TripTimelineAssembler {
                             // 将时间线节点的坐标和地址信息转为 Anchor 对象
                             TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
                             anchor.setType(TYPE_STAY_AREA);
-                            anchor.setName(node.getTitle());     // 酒店名称（已被 enrichStayAreaNode 替换为真实酒店名）
+                            anchor.setName(node.getTitle()); // 酒店名称（已被 enrichStayAreaNode 替换为真实酒店名）
                             anchor.setCity(node.getCity());
                             anchor.setArea(node.getArea());
                             anchor.setAddress(node.getAddress());
-                            anchor.setLng(node.getLng());       // GCJ02 经度
-                            anchor.setLat(node.getLat());       // GCJ02 纬度
+                            anchor.setLng(node.getLng()); // GCJ02 经度
+                            anchor.setLat(node.getLat()); // GCJ02 纬度
                             anchor.setCoordType(node.getCoordType());
                             return anchor;
                         })
@@ -873,12 +875,12 @@ public class TripTimelineAssembler {
         // 将酒店信息转为 Anchor 锚点对象
         TripPlanDTO.Anchor anchor = new TripPlanDTO.Anchor();
         anchor.setType(TYPE_STAY_AREA);
-        anchor.setName(hotel.getName());           // 真实酒店名称（高德 POI）
+        anchor.setName(hotel.getName()); // 真实酒店名称（高德 POI）
         anchor.setCity(day.getCity());
-        anchor.setArea(hotel.getAddress());        // 酒店地址作为区域描述
+        anchor.setArea(hotel.getAddress()); // 酒店地址作为区域描述
         anchor.setAddress(hotel.getAddress());
-        anchor.setLng(hotel.getLng());            // GCJ02 经度
-        anchor.setLat(hotel.getLat());            // GCJ02 纬度
+        anchor.setLng(hotel.getLng()); // GCJ02 经度
+        anchor.setLat(hotel.getLat()); // GCJ02 纬度
         anchor.setCoordType(firstNonBlank(hotel.getCoordType(), "GCJ02")); // 坐标系，默认 GCJ02
         return anchor;
     }

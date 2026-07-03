@@ -43,7 +43,7 @@ public class TagServiceImpl implements TagService {
 
         // 执行查询并转换为 DTO
         return tagMapper.selectList(wrapper).stream()
-                .map(this::toTagResponse)      // Tag 实体 → TagResponse DTO
+                .map(this::toTagResponse) // Tag 实体 → TagResponse DTO
                 .collect(Collectors.toList());
     }
 
@@ -55,10 +55,10 @@ public class TagServiceImpl implements TagService {
      */
     private TagResponse toTagResponse(Tag tag) {
         return new TagResponse(
-                tag.getId(),                   // 标签 ID
-                tag.getName(),                 // 标签名称
-                tag.getType(),                 // 标签类型（1=目的地, 2=游记, 3=偏好）
-                tag.getStatus(),               // 状态（1=启用）
+                tag.getId(), // 标签 ID
+                tag.getName(), // 标签名称
+                tag.getType(), // 标签类型（1=目的地, 2=游记, 3=偏好）
+                tag.getStatus(), // 状态（1=启用）
                 DateTimeUtils.format(tag.getCreateTime())); // 格式化创建时间
     }
 }

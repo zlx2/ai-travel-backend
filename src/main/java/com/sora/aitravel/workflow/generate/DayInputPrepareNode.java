@@ -87,9 +87,7 @@ public class DayInputPrepareNode {
                             rentalTripContext == null
                                     ? null
                                     : rentalTripContext.getDailyDrivingLimit(),
-                            rentalTripContext == null
-                                    ? null
-                                    : rentalTripContext.getArrivalMode(),
+                            rentalTripContext == null ? null : rentalTripContext.getArrivalMode(),
                             rentalTripContext == null
                                     ? null
                                     : rentalTripContext.getArrivalTimeRange(),

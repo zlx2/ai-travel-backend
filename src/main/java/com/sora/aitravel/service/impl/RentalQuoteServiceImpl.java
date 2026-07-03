@@ -474,10 +474,7 @@ public class RentalQuoteServiceImpl implements RentalQuoteService {
             }
             if (result.stream()
                     .anyMatch(
-                            item ->
-                                    Objects.equals(
-                                            item.getPriceTemplateId(),
-                                            template.getId()))) {
+                            item -> Objects.equals(item.getPriceTemplateId(), template.getId()))) {
                 continue;
             }
             RentalVehicleGroup group = vehicleGroupMapper.selectById(template.getVehicleGroupId());

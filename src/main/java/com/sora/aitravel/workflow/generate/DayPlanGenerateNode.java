@@ -424,9 +424,10 @@ public class DayPlanGenerateNode {
         if (INTENSITY_LIGHT.equals(dayContext.skeleton().getIntensity())) {
             target = Math.min(target, LIGHT_DAILY_SPOTS);
         }
-        int minimum = dayContext.getMaxSpotCount() != null && dayContext.getMaxSpotCount() <= 1
-                ? 1
-                : MIN_DAILY_SPOTS;
+        int minimum =
+                dayContext.getMaxSpotCount() != null && dayContext.getMaxSpotCount() <= 1
+                        ? 1
+                        : MIN_DAILY_SPOTS;
         return Math.max(minimum, target);
     }
 
@@ -1351,7 +1352,9 @@ public class DayPlanGenerateNode {
     }
 
     private String startTime(PoiCandidate candidate, int order, DayContext dayContext) {
-        if (order == 1 && dayContext.getDayStartTime() != null && !dayContext.getDayStartTime().isBlank()) {
+        if (order == 1
+                && dayContext.getDayStartTime() != null
+                && !dayContext.getDayStartTime().isBlank()) {
             return dayContext.getDayStartTime();
         }
         if (isNightCandidate(candidate)) {

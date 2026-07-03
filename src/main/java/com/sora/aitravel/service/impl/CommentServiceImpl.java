@@ -41,8 +41,8 @@ public class CommentServiceImpl implements CommentService {
     /**
      * 分页查询指定游记的评论列表（按创建时间升序）。
      *
-     * @param noteId   游记 ID
-     * @param pageNum  页码（从 1 开始）
+     * @param noteId 游记 ID
+     * @param pageNum 页码（从 1 开始）
      * @param pageSize 每页条数
      * @return 分页评论列表（含用户昵称、头像）
      */
@@ -75,7 +75,7 @@ public class CommentServiceImpl implements CommentService {
     /**
      * 创建评论，并同步更新游记的评论计数。
      *
-     * @param noteId  游记 ID
+     * @param noteId 游记 ID
      * @param request 评论内容（包含 content 字段）
      * @return 新创建的评论响应（含用户昵称、头像）
      */
@@ -96,10 +96,10 @@ public class CommentServiceImpl implements CommentService {
         // 构建评论实体
         NoteComment comment =
                 NoteComment.builder()
-                        .noteId(noteId)          // 关联游记 ID
-                        .userId(userId)           // 评论作者 ID
+                        .noteId(noteId) // 关联游记 ID
+                        .userId(userId) // 评论作者 ID
                         .content(request.getContent()) // 评论内容
-                        .status(1)               // 状态：1=正常
+                        .status(1) // 状态：1=正常
                         .createTime(now)
                         .updateTime(now)
                         .build();
@@ -168,8 +168,8 @@ public class CommentServiceImpl implements CommentService {
                         comment.getCreateTime() != null
                                 ? comment.getCreateTime().format(FMT)
                                 : null)
-                .nickname(user != null ? user.getNickname() : "未知用户")   // 评论者昵称
-                .avatarUrl(user != null ? user.getAvatarUrl() : null)      // 评论者头像
+                .nickname(user != null ? user.getNickname() : "未知用户") // 评论者昵称
+                .avatarUrl(user != null ? user.getAvatarUrl() : null) // 评论者头像
                 .build();
     }
 }
